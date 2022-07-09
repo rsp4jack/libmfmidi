@@ -1,0 +1,8 @@
+/// \file mfconfig.hpp
+/// \author Creepercdn (creepercdn@outlook.com)
+/// \brief libmfmidi flags
+
+#pragma once
+
+#cmakedefine ENABLE_UNSPEC_FEATURES
+#cmakedefine HEADER_ONLY
