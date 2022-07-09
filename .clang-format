@@ -19,16 +19,36 @@ PointerAlignment: Left
 
 SpaceBeforeParens: ControlStatementsExceptControlMacros
 SortUsingDeclarations: true
-SortIncludes: CaseInsensitive
+# SortIncludes: CaseInsensitive
+SortIncludes: Never # <windows.h>
 ReflowComments: true
-# RequiresClausePosition: OwnLine
+#RequiresClausePosition: OwnLine
 
 BreakBeforeBinaryOperators: All
 AlignArrayOfStructures: Left
 PackConstructorInitializers: Never
 
 AllowShortBlocksOnASingleLine: Empty
+AllowShortFunctionsOnASingleLine: Empty
 EmptyLineBeforeAccessModifier: LogicalBlock
 SeparateDefinitionBlocks: Always
 
 AlignAfterOpenBracket: BlockIndent
+
+# AlignConsecutiveAssignments:
+#   Enabled: true
+#   AcrossEmptyLines: false
+#   AcrossComments: false
+#   AlignCompound: true
+#   PadOperators: false
+AlignConsecutiveAssignments: Consecutive
+
+AlignConsecutiveBitFields: Consecutive
+
+AlignConsecutiveDeclarations: Consecutive
+
+AlignConsecutiveMacros: Consecutive
+
+AlignEscapedNewlines: Left
+AlignOperands: AlignAfterOperator
+AlignTrailingComments: true
