@@ -146,13 +146,13 @@ namespace libmfmidi::MIDIUtils {
             // all MIDI Channel Events and non-zero delta time events.
             SEQUENCE_NUMBER = 0x00,
 
-            GENERIC_TEXT = 0x01,
-            COPYRIGHT = 0x02,
-            TRACK_NAME = 0x03, // Sequence/Track Name
+            GENERIC_TEXT    = 0x01,
+            COPYRIGHT       = 0x02,
+            TRACK_NAME      = 0x03, // Sequence/Track Name
             INSTRUMENT_NAME = 0x04,
-            LYRIC_TEXT = 0x05,
-            MARKER_TEXT = 0x06,
-            CUE_POINT = 0x07,
+            LYRIC_TEXT      = 0x05,
+            MARKER_TEXT     = 0x06,
+            CUE_POINT       = 0x07,
             // PROGRAM_NAME = 0x08, // Not in SMF Spec
             // DEVICE_NAME = 0x09, // Too.
             // GENERIC_TEXT_A = 0x0A,
@@ -167,8 +167,8 @@ namespace libmfmidi::MIDIUtils {
                                    // It is often used before an Instrument Name Event to specify which channel an instrument name represents.
 
 #ifdef ENABLE_UNSPEC_FEATURES
-#endif
-            // OUTPUT_CABLE = 0x21, // may be MIDI Output Port, data length = 1 byte
+            OUTPUT_PORT = 0x21, // may be MIDI Output Port, data length = 1 byte
+#endif            
             // TRACK_LOOP = 0x2E,
             END_OF_TRACK = 0x2F,
 
@@ -184,10 +184,12 @@ namespace libmfmidi::MIDIUtils {
     }
 
     // let them be visible in clangd
+    // NOLINTBEGIN(misc-unused-using-decls)
     using MIDIUtils::MIDICCNumber;
     using MIDIUtils::MIDIMetaNumber;
     using MIDIUtils::MIDIMsgStatus;
     using MIDIUtils::MIDIRPNNumber;
+    // NOLINTEND(misc-unused-using-decls)
 
     /// \brief LUT to MIDI message length
     /// \code{.cpp}
