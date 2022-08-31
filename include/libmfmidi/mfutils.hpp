@@ -4,13 +4,46 @@
 
 #pragma once
 
+#include <algorithm>
+#include <concepts>
 #include <cstdint>
 #include <iostream>
 #include <type_traits>
 
+namespace std {
+#if !defined(__cpp_lib_byteswap)
+    template <std::integral T>
+    constexpr T byteswap(T value) noexcept // c++23 https://en.cppreference.com/w/cpp/numeric/byteswap
+    {
+        static_assert(std::has_unique_object_representations_v<T>, "T may not have padding bits");
+        auto value_representation = std::bit_cast<std::array<std::byte, sizeof(T)>>(value);
+        std::ranges::reverse(value_representation);
+        return std::bit_cast<T>(value_representation);
+    }
+#endif
+}
+
+/// \brief A empty class
+class empty_class {};
+
+namespace libmfmidi {
+    using std::uint16_t;
+    using std::uint32_t;
+    using std::uint64_t;
+    using std::uint8_t;
+}
 
 namespace libmfmidi::Utils {
-    enum class MFMessageMark {
+    template <std::integral T>
+    constexpr T byteswapbe(T val) noexcept
+    {
+        if (std::endian::native == std::endian::little) {
+            return std::byteswap(val);
+        }
+        return val;
+    }
+    enum class MFMessageMark
+    {
         None,
         BeatMarker,
         NoOp,
@@ -63,5 +96,5 @@ namespace libmfmidi::Utils {
             result += rawCat(bytes...);
         }
         return result;
-    } 
+    }
 }
