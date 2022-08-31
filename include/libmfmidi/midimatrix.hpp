@@ -17,48 +17,27 @@ namespace libmfmidi {
     ///
     class MIDIMatrix {
     public:
-        MIDIMatrix() noexcept
-        {
-        }
+        MIDIMatrix() noexcept = default;
 
         bool process(const MIDITimedMessage& msg, uint8_t port = 1)
         {
             if (msg.isChannelMsg()) {
-                auto chn = msg.channel();
+                auto chn  = msg.channel();
                 auto note = msg.note();
 
                 if (msg.isAllNotesOff() || msg.isAllSoundsOff()) {
-#ifdef ENABLE_UNSPEC_FEATURES
                     clearChannel(port, chn);
-#else
-                    clearChannel(chn);
-#endif
                 } else if (msg.isImplicitNoteOn()) {
-#ifdef ENABLE_UNSPEC_FEATURES
                     noteOn(port, chn, note);
-#else
-                    noteOn(chn, note);
-#endif
                 } else if (msg.isImplicitNoteOff()) {
-#ifdef ENABLE_UNSPEC_FEATURES
                     noteOff(port, chn, note);
-#else
-                    noteOff(chn, note);
-#endif
                 } else if (msg.isCCSustainOn()) {
-#ifdef ENABLE_UNSPEC_FEATURES
                     holdOn(port, chn);
-#else
-                    holdOn(chn);
-#endif
                 } else if (msg.isCCSustainOff()) {
-#ifdef ENABLE_UNSPEC_FEATURES
                     holdOff(port, chn);
-#else
-                    holdOff(chn);
-#endif
                 }
             }
+            return true;
         }
 
         void clear()
@@ -66,7 +45,7 @@ namespace libmfmidi {
             notes = {};
         }
 
-        [[nodiscard]] int totalCount() const
+        [[nodiscard]] int totalNoteCount() const
         {
             int result = 0;
             for (const auto& ar : notes) {
@@ -76,8 +55,8 @@ namespace libmfmidi {
             }
             return result;
         }
-#ifdef ENABLE_UNSPEC_FEATURES
-        int portCount(uint8_t port) const
+
+        [[nodiscard]] int portNoteCount(uint8_t port) const
         {
             int result = 0;
             for (const auto& bs : notes.at(port - 1)) {
@@ -86,7 +65,7 @@ namespace libmfmidi {
             return result;
         }
 
-        [[nodiscard]] int channelCount(uint8_t port, uint8_t channel) const
+        [[nodiscard]] int channelNoteCount(uint8_t port, uint8_t channel) const
         {
             return notes.at(port - 1).at(channel - 1).count();
         }
@@ -100,8 +79,8 @@ namespace libmfmidi {
         {
             return pedals.at(port - 1).test(channel - 1);
         }
-#endif
-        [[nodiscard]] int channelCount(uint8_t channel) const
+
+        [[nodiscard]] int channelNoteCount(uint8_t channel) const
         {
             return notes[0].at(channel - 1).count();
         }
@@ -111,13 +90,11 @@ namespace libmfmidi {
             return notes[0].at(channel - 1).test(note);
         }
 
-        bool isHold(uint8_t channel) const
+        [[nodiscard]] bool isHold(uint8_t channel) const
         {
             return pedals[0].test(channel - 1);
         }
 
-    protected:
-#ifdef ENABLE_UNSPEC_FEATURES
         void noteOn(uint8_t port, uint8_t channel, uint8_t note)
         {
             notes.at(port - 1).at(channel - 1).set(note);
@@ -149,7 +126,6 @@ namespace libmfmidi {
         {
             pedals.at(port - 1).reset(channel - 1);
         }
-#endif
 
         void noteOn(uint8_t channel, uint8_t note)
         {
@@ -177,21 +153,12 @@ namespace libmfmidi {
         }
 
     private:
-        std::array<std::array<std::bitset<128>, 16>, // 16 Channels' one more bit
-#ifdef ENABLE_UNSPEC_FEATURES
-                   16>
-            notes; // 16 Ports (Unspec)
-#else
-                   1>
-            notes;
-#endif
-        std::array<std::bitset<16>,
-#ifdef ENABLE_UNSPEC_FEATURES
-                   16>
-            pedals;
-#else
-                   1>
-            pedals;
-#endif
+        std::array<               // ports
+            std::array<           // channels
+                std::bitset<128>, // notes
+                NUM_CHANNELS>,
+            NUM_PORTS>
+                                                         notes;
+        std::array<std::bitset<NUM_CHANNELS>, NUM_PORTS> pedals;
     };
 }
