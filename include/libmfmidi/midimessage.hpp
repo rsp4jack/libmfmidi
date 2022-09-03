@@ -12,7 +12,10 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
+#include <iomanip>
+#include <execution>
 
 namespace libmfmidi {
     using std::int16_t;
@@ -36,9 +39,16 @@ namespace libmfmidi {
     class MIDIMessage {
     public:
         /// \brief The default constructor
-        constexpr explicit MIDIMessage() noexcept
+        constexpr explicit MIDIMessage() noexcept = default;
+
+        constexpr MIDIMessage(std::initializer_list<uint8_t> elems) noexcept
+            : _data(elems)
         {
-            clear();
+        }
+
+        constexpr explicit MIDIMessage(std::vector<uint8_t> elems) noexcept
+            : _data(std::move(elems))
+        {
         }
 
         constexpr ~MIDIMessage() noexcept = default;
@@ -47,6 +57,13 @@ namespace libmfmidi {
         constexpr MIDIMessage(MIDIMessage&& rhs) noexcept                 = default;
         constexpr MIDIMessage& operator=(const MIDIMessage& rhs) noexcept = default;
         constexpr MIDIMessage& operator=(MIDIMessage&& rhs) noexcept      = default;
+
+        using value_type             = uint8_t;
+        using iterator               = std::vector<value_type>::iterator;
+        using const_iterator         = std::vector<value_type>::const_iterator;
+        using reverse_iterator       = std::vector<value_type>::reverse_iterator;
+        using const_reverse_iterator = std::vector<value_type>::const_reverse_iterator;
+        using size_type              = std::vector<value_type>::size_type;
 
         /// \brief Clear this message
         constexpr void clear() noexcept
@@ -60,7 +77,62 @@ namespace libmfmidi {
 
         [[nodiscard]] constexpr bool empty() const noexcept
         {
-            return !isMFMarker() && _data.empty();
+            return M() && _data.empty();
+        }
+
+        constexpr void push_back(uint8_t a) noexcept
+        {
+            _data.push_back(a);
+        }
+
+        constexpr void erase(const_iterator it) noexcept
+        {
+            _data.erase(std::move(it));
+        }
+
+        constexpr void erase(const_iterator beg, const_iterator edn) noexcept
+        {
+            _data.erase(std::move(beg), std::move(edn));
+        }
+
+        constexpr iterator begin() noexcept
+        {
+            return _data.begin();
+        }
+
+        constexpr iterator end() noexcept
+        {
+            return _data.end();
+        }
+
+        [[nodiscard]] constexpr const_iterator cbegin() const noexcept
+        {
+            return _data.cbegin();
+        }
+
+        [[nodiscard]] constexpr const_iterator cend() const noexcept
+        {
+            return _data.cend();
+        }
+
+        constexpr value_type& at(size_type idx) noexcept
+        {
+            return _data.at(idx);
+        }
+
+        constexpr value_type& operator[](size_type idx) noexcept
+        {
+            return _data[idx];
+        }
+
+        constexpr const value_type& operator[](size_type idx) const noexcept
+        {
+            return _data[idx];
+        }
+
+        [[nodiscard]] constexpr const value_type& at(size_type idx) const noexcept
+        {
+            return _data.at(idx);
         }
 
         /// \brief Convert message to human readable message
@@ -76,51 +148,47 @@ namespace libmfmidi {
 
             std::stringstream str;
             if (isMFMarker()) {
-                str << "MFMarker:" << static_cast<int>(marker) << endl;
-            }
-            if (isMetaEvent()) {
-                str << "Meta Event:" << endl
-                    << "Meta Length:" << _data[2] << endl;
+                str << "MFMarker: " << static_cast<int>(marker) << endl;
             }
             if (isSysEx()) {
                 str << "SysEx";
             }
 
             if (isChannelMsg()) {
-                str << "Channel:" << channel();
+                str << "Channel: " << static_cast<int>(channel());
             }
             if (isTextEvent()) {
-                str << "Text:" << textEventText() << endl;
+                str << "Text: " << textEventText() << endl;
             }
 
             str << "Full message:";
             for (const auto& a : _data) {
                 str << ' ';
-                str << hex << a;
+                str << hex << std::setfill('0') << std::setw(2) << static_cast<int>(a);
             }
             str << dec << endl;
 
             switch (type()) {
-            case MIDIMsgStatus::NOTE_ON:
-                str << "Note On" << note() << velocity();
+            case MIDIMsgStatus::NOTE_ON: // We cant print a uint8_t like int, A cast needed.
+                str << "Note On " << static_cast<int>(note()) << ' ' << static_cast<int>(velocity());
                 break;
             case MIDIMsgStatus::NOTE_OFF:
-                str << "Note Off" << note() << velocity();
+                str << "Note Off " << static_cast<int>(note()) << ' ' << static_cast<int>(velocity());
                 break;
             case MIDIMsgStatus::POLY_PRESSURE:
-                str << "Poly Pressure" << _data[1] << _data[2];
+                str << "Poly Pressure " << static_cast<int>(note()) << ' ' << static_cast<int>(pressure());
                 break;
             case MIDIMsgStatus::CONTROL_CHANGE:
-                str << "Control Change" << controller() << controllerValue();
+                str << "Control Change " << static_cast<int>(controller()) << ' ' << static_cast<int>(controllerValue());
                 break;
             case MIDIMsgStatus::PROGRAM_CHANGE:
-                str << "Program Change" << programChangeValue();
+                str << "Program Change " << static_cast<int>(programChangeValue());
                 break;
             case MIDIMsgStatus::CHANNEL_PRESSURE:
-                str << "Channel Pressure" << _data[1];
+                str << "Channel Pressure " << static_cast<int>(pressure());
                 break;
             case MIDIMsgStatus::PITCH_BEND:
-                str << "Pitch Bend" << pitchBendValue();
+                str << "Pitch Bend " << pitchBendValue();
                 break;
             }
 
@@ -132,7 +200,12 @@ namespace libmfmidi {
             return _data.size();
         }
 
-        [[nodiscard]] constexpr std::vector<uint8_t> data() const
+        [[nodiscard]] constexpr const std::vector<uint8_t>& data() const
+        {
+            return _data;
+        }
+
+        [[nodiscard]] constexpr std::vector<uint8_t>& data()
         {
             return _data;
         }
@@ -141,15 +214,15 @@ namespace libmfmidi {
         [[nodiscard]] constexpr int expectedLength() const
         {
             if (isMetaEvent()) {
-                return _data[2];
+                return -1;
             }
             if (isSystemMessage()) {
-                return getExpectedSCMMessageLength(_data[0]);
+                return getExpectedSMessageLength(_data[0]);
             }
             return getExpectedMessageLength(_data[0]);
         }
 
-        [[nodiscard]] constexpr uint8_t statusByte() const
+        [[nodiscard]] constexpr uint8_t status() const
         {
             return _data[0];
         }
@@ -167,14 +240,26 @@ namespace libmfmidi {
 
         [[nodiscard]] constexpr uint8_t note() const
         {
-            assert(isNote());
+            assert(isNote() || isPolyPressure());
             return _data[1];
         }
 
         [[nodiscard]] constexpr uint8_t velocity() const
         {
-            assert(isNoteOn());
+            assert(isNote());
             return _data[2];
+        }
+
+        [[nodiscard]] constexpr uint8_t pressure() const
+        {
+            assert(isPolyPressure() || isChannelPressure());
+            if (isPolyPressure()) {
+                return _data[2];
+            }
+            if (isChannelPressure()) {
+                return _data[1];
+            }
+            std::unreachable();
         }
 
         [[nodiscard]] constexpr uint8_t controller() const
@@ -221,7 +306,7 @@ namespace libmfmidi {
         }
 
         /// \brief Get \b Powered Denominator
-        [[nodiscard]] constexpr uint8_t timeSigDenominator() const
+        [[nodiscard]] uint8_t timeSigDenominator() const
         {
             assert(isTimeSignature());
             return static_cast<uint8_t>(std::pow(2, _data[4]));
@@ -261,7 +346,7 @@ namespace libmfmidi {
             return rawCat(_data[3], _data[4], _data[5]);
         }
 
-        [[nodiscard]] constexpr unsigned long bpm() const
+        [[nodiscard]] constexpr uint32_t bpm() const
         {
             return 60000000 / rawTempo();
         }
@@ -269,7 +354,14 @@ namespace libmfmidi {
         [[nodiscard]] constexpr std::string textEventText() const
         {
             assert(isTextEvent());
-            return {_data.cbegin() + 3, _data.cend()};
+            if (_data.size() > 2) {
+                auto result = readVarNumIt(_data.cbegin() + 2, _data.cend());
+                if (result.first == -1 && result.second == -1) {
+                    return {};
+                }
+                return {_data.cbegin()+2+result.second, _data.cend()};
+            }
+            return "";
         }
 
         // For later use
@@ -601,7 +693,8 @@ namespace libmfmidi {
             _data[2] = val;
         }
 
-        constexpr void setupPan(uint8_t channel, double pan)
+        /// \a pan : -1.0 ~ 1.0
+        void setupPan(uint8_t channel, double pan)
         {
             uint8_t r = std::floor(64 * (pan + 1));
             if (r > 127) {
@@ -610,10 +703,7 @@ namespace libmfmidi {
             setupControlChange(channel, MIDICCNumber::PAN, r);
         }
 
-        constexpr
-
-            void
-            setupProgramChange(uint8_t chan, uint8_t val)
+        constexpr void setupProgramChange(uint8_t chan, uint8_t val)
         {
             setLength(2);
             _data[0] = MIDIMsgStatus::PROGRAM_CHANGE | (chan - 1);
@@ -650,16 +740,14 @@ namespace libmfmidi {
         /// \endcode
         constexpr void setupMetaEvent(uint8_t type, std::initializer_list<uint8_t> args = {})
         {
-            setLength(3 + args.size());
-            _data[0] = MIDIMsgStatus::META_EVENT;
-            _data[1] = type;
-            _data[2] = args.size();
-            if (args.size() > 0) {
-                std::copy(args.begin(), args.end(), _data.begin() + 3);
-            }
+            // sh*tty code
+            clear();
+            _data = {MIDINumSpace::META_EVENT, type};
+            writeVarNumIt(args.size(), std::back_inserter(_data));
+            std::copy(args.begin(), args.end(), std::back_inserter(_data));
         }
 
-        constexpr void setupRawTempo(uint16_t tempo)
+        constexpr void setupRawTempo(uint32_t tempo)
         {
             uint8_t f;
             uint8_t s;
@@ -670,7 +758,7 @@ namespace libmfmidi {
             setupMetaEvent(MIDIMetaNumber::TEMPO, {f, s, t});
         }
 
-        constexpr void setupBPM(uint16_t bpm)
+        constexpr void setupBPM(uint32_t bpm)
         {
             setupRawTempo(60000000 / bpm);
         }
@@ -680,12 +768,12 @@ namespace libmfmidi {
             setupMetaEvent(MIDIMetaNumber::END_OF_TRACK);
         }
 
-        constexpr void setTimeSignature(uint8_t numerator, uint8_t denominator, uint8_t midi_tick_per_beat, uint8_t _32nd_per_midi_4th_note)
+        constexpr void setupTimeSignature(uint8_t numerator, uint8_t denominator, uint8_t midi_tick_per_beat, uint8_t _32nd_per_midi_4th_note)
         {
             setupMetaEvent(MIDIMetaNumber::TIMESIG, {numerator, static_cast<uint8_t>(std::log2(denominator)), midi_tick_per_beat, _32nd_per_midi_4th_note});
         }
 
-        constexpr void setKeySignature(int8_t sharp_flats, uint8_t major_minor)
+        constexpr void setupKeySignature(int8_t sharp_flats, uint8_t major_minor)
         {
             setupMetaEvent(MIDIMetaNumber::KEYSIG, {static_cast<unsigned char>(sharp_flats), major_minor});
         }
@@ -698,26 +786,121 @@ namespace libmfmidi {
 
         /// \}
 
-        /// \name
+        /// \name is-er
+
+        [[nodiscard]] constexpr bool strictVaild() const
+        {
+            // doggy-doo code but fun
+            // clang-format off
+            return isMFMarker() || (!_data.empty() && (
+                (isVoiceMessage() && getExpectedMessageLength(status()) == _data.size()) // voice message: expected length
+                || (isSystemMessage() && ( // system message
+                    (isSysEx() && *(_data.end()-1) == MIDIMsgStatus::SYSEX_END) // sysex: have sysex_start and sysex_end
+                    || ((status() >= 0xF1 && status() <= 0xF1) && getExpectedSMessageLength(status()) == _data.size()) // some system message: expected length, sometimes LUT return 0, so wont match and get false
+                ))
+                || (isMetaEvent() && _data.size() >= 3 && isMetaVaild()) // meta msg
+            ));
+            // clang-format on
+        }
 
         [[nodiscard]] constexpr bool isMFMarker() const
         {
             return marker != MFMessageMark::None;
         }
 
+        [[nodiscard]] constexpr bool isVoiceMessage() const
+        {
+            return isChannelMsg();
+        }
+
+        [[nodiscard]] constexpr bool isChannelPrefix() const
+        {
+            return isMetaEvent() && L(2) && (_data[1] == MIDIMetaNumber::CHANNEL_PREFIX);
+        }
+
+        /// \warning Meta events are not system messages.
+        [[nodiscard]] constexpr bool isSystemMessage() const
+        {
+            return M() && !isMetaEvent() && type() == 0xF0;
+        }
+
         [[nodiscard]] constexpr bool isChannelMsg() const
         {
-            return !isMFMarker() && (_data[0] >= MIDIMsgStatus::NOTE_OFF) && (_data[0] < MIDIMsgStatus::SYSEX_START);
+            return M() && L(1) && (status() >= MIDIMsgStatus::NOTE_OFF) && (status() < MIDIMsgStatus::SYSEX_START);
         }
 
         [[nodiscard]] constexpr bool isNoteOn() const
         {
-            return !isMFMarker() && (type() == MIDIMsgStatus::NOTE_ON);
+            return M() && L(1) && (type() == MIDIMsgStatus::NOTE_ON);
         }
 
         [[nodiscard]] constexpr bool isNoteOff() const
         {
-            return !isMFMarker() && (type() == MIDIMsgStatus::NOTE_OFF);
+            return M() && L(1) && (type() == MIDIMsgStatus::NOTE_OFF);
+        }
+
+        [[nodiscard]] constexpr bool isPolyPressure() const
+        {
+            return M() && L(1) && (type() == MIDIMsgStatus::POLY_PRESSURE);
+        }
+
+        [[nodiscard]] constexpr bool isControlChange() const
+        {
+            return M() && L(1) && (type() == MIDIMsgStatus::CONTROL_CHANGE);
+        }
+
+        [[nodiscard]] constexpr bool isProgramChange() const
+        {
+            return M() && L(1) && (type() == MIDIMsgStatus::PROGRAM_CHANGE);
+        }
+
+        [[nodiscard]] constexpr bool isChannelPressure() const
+        {
+            return M() && L(1) && (type() == MIDIMsgStatus::CHANNEL_PRESSURE);
+        }
+
+        [[nodiscard]] constexpr bool isPitchBend() const
+        {
+            return M() && L(1) && (type() == MIDIMsgStatus::PITCH_BEND);
+        }
+
+        [[nodiscard]] constexpr bool isSysEx() const
+        {
+            return M() && L(1) && (status() == MIDIMsgStatus::SYSEX_START);
+        }
+
+        [[nodiscard]] constexpr bool isMTC() const
+        {
+            return M() && L(1) && (status() == MIDIMsgStatus::MTC);
+        }
+
+        [[nodiscard]] constexpr bool isSongPosition() const
+        {
+            return M() && L(1) && (status() == MIDIMsgStatus::SONG_POSITION);
+        }
+
+        [[nodiscard]] constexpr bool isSongSelect() const
+        {
+            return M() && L(1) && (status() == MIDIMsgStatus::SONG_SELECT);
+        }
+
+        [[nodiscard]] constexpr bool isTuneRequest() const
+        {
+            return M() && L(1) && (status() == MIDIMsgStatus::TUNE_REQUEST);
+        }
+
+        // TODO: Reset or Meta?
+        /// \warning Currently only {0xFF} is reset.
+        [[nodiscard]] constexpr bool isMetaEvent() const
+        {
+            return M() && L(2) && (status() == MIDIMsgStatus::META_EVENT);
+        }
+
+        /// \brief Universal Real Time System Exclusive message
+        /// \c F0 \c 7F ...
+        [[nodiscard]] constexpr bool isSysExURT() const
+        {
+            return isSysEx() && L(2) && (_data[1] == 0x7F);
         }
 
         [[nodiscard]] constexpr bool isNoteOnV0() const
@@ -738,16 +921,6 @@ namespace libmfmidi {
         [[nodiscard]] constexpr bool isImplicitNoteOff() const
         {
             return isNoteOff() || isNoteOnV0();
-        }
-
-        [[nodiscard]] constexpr bool isPolyPressure() const
-        {
-            return !isMFMarker() && (type() == MIDIMsgStatus::POLY_PRESSURE);
-        }
-
-        [[nodiscard]] constexpr bool isControlChange() const
-        {
-            return !isMFMarker() && (type() == MIDIMsgStatus::CONTROL_CHANGE);
         }
 
         [[nodiscard]] constexpr bool isCCVolume() const
@@ -775,71 +948,19 @@ namespace libmfmidi {
             return isControlChange() && (controller() == MIDICCNumber::PAN);
         }
 
-        [[nodiscard]] constexpr bool isProgramChange() const
-        {
-            return !isMFMarker() && (type() == MIDIMsgStatus::PROGRAM_CHANGE);
-        }
-
-        [[nodiscard]] constexpr bool isChannelPressure() const
-        {
-            return !isMFMarker() && (type() == MIDIMsgStatus::CHANNEL_PRESSURE);
-        }
-
-        [[nodiscard]] constexpr bool isPitchBend() const
-        {
-            return !isMFMarker() && (type() == MIDIMsgStatus::PITCH_BEND);
-        }
-
-        [[nodiscard]] constexpr bool isSysEx() const
-        {
-            return !isMFMarker() && (type() == MIDIMsgStatus::SYSEX_START);
-        }
-
-        /// \brief Universal Real Time System Exclusive message
-        /// \c F0 \c 7F ...
-        [[nodiscard]] constexpr bool isSysExURT() const
-        {
-            return isSysEx() && (_data[1] == 0x7F);
-        }
-
-        [[nodiscard]] constexpr bool isMTC() const
-        {
-            return !isMFMarker() && (_data[0] == MIDIMsgStatus::MTC);
-        }
-
-        [[nodiscard]] constexpr bool isSongPosition() const
-        {
-            return !isMFMarker() && (_data[0] == MIDIMsgStatus::SONG_POSITION);
-        }
-
-        [[nodiscard]] constexpr bool isSongSelect() const
-        {
-            return !isMFMarker() && (_data[0] == MIDIMsgStatus::SONG_SELECT);
-        }
-
-        [[nodiscard]] constexpr bool isTuneRequest() const
-        {
-            return !isMFMarker() && (_data[0] == MIDIMsgStatus::TUNE_REQUEST);
-        }
-
-        [[nodiscard]] constexpr bool isMetaEvent() const
-        {
-            return !isMFMarker() && (_data[0] == MIDIMsgStatus::META_EVENT);
-        }
-
         [[nodiscard]] constexpr bool isTextEvent() const
         {
-            return isMetaEvent() && (_data[1] >= MIDIMetaNumber::GENERIC_TEXT) && (_data[1] <= MIDIMetaNumber::MARKER_TEXT);
+            return isMetaEvent() && L(2) && (_data[1] >= MIDIMetaNumber::GENERIC_TEXT) && (_data[1] <= MIDIMetaNumber::MARKER_TEXT);
         }
 
         [[nodiscard]] constexpr bool isAllNotesOff() const
         {
-            return isControlChange() && (_data[1] == MIDICCNumber::ALL_NOTE_OFF);
+            return isControlChange() && L(2) && (_data[1] == MIDICCNumber::ALL_NOTE_OFF);
         }
 
         [[nodiscard]] constexpr bool isAllSoundsOff() const
         {
-            return isControlChange() && (_data[1] == MIDICCNumber::ALL_SOUND_OFF);
+            return isControlChange() && L(2) && (_data[1] == MIDICCNumber::ALL_SOUND_OFF);
         }
 
         [[nodiscard]] constexpr bool isMFNoOp() const
@@ -847,40 +968,81 @@ namespace libmfmidi {
             return (marker == MFMessageMark::NoOp);
         }
 
-        [[nodiscard]] constexpr bool isChannelPrefix() const
-        {
-            return isMetaEvent() && (_data[1] == MIDIMetaNumber::CHANNEL_PREFIX);
-        }
-
         [[nodiscard]] constexpr bool isTempo() const
         {
-            return isMetaEvent() && (_data[1] == MIDIMetaNumber::TEMPO);
+            return isMetaEvent() && L(2) && (_data[1] == MIDIMetaNumber::TEMPO);
         }
 
         [[nodiscard]] constexpr bool isEndOfTrack() const
         {
-            return isMetaEvent() && (_data[1] == MIDIMetaNumber::END_OF_TRACK);
+            return isMetaEvent() && L(2) && (_data[1] == MIDIMetaNumber::END_OF_TRACK);
         }
 
         [[nodiscard]] constexpr bool isTimeSignature() const
         {
-            return isMetaEvent() && (_data[1] == MIDIMetaNumber::TIMESIG);
+            return isMetaEvent() && L(2) && (_data[1] == MIDIMetaNumber::TIMESIG);
         }
 
         [[nodiscard]] constexpr bool isKeySignature() const
         {
-            return isMetaEvent() && (_data[1] == MIDIMetaNumber::KEYSIG);
-        }
-
-        /// \warning Meta events are not system messages.
-        [[nodiscard]] constexpr bool isSystemMessage() const
-        {
-            return !isMFMarker() && !isMetaEvent() && (_data[0] & 0xF0) == 0xF0;
+            return isMetaEvent() && L(2) && (_data[1] == MIDIMetaNumber::KEYSIG);
         }
 
     protected:
         std::vector<uint8_t> _data;
         Utils::MFMessageMark marker = MFMessageMark::None;
+
+        // not mf mark
+        [[nodiscard]] constexpr inline bool M() const
+        {
+            return !isMFMarker();
+        }
+
+        // size>=
+        [[nodiscard]] constexpr inline bool L(size_t len) const
+        {
+            return _data.size() >= len;
+        }
+
+        [[nodiscard]] constexpr bool isMetaVaild() const
+        {
+            // ff type len ddddddddddddddd
+            if (!isMetaEvent() || _data.size() < 3) {
+                return false;
+            }
+            int explen = getExpectedMetaLength(metaType());
+            auto result = readVarNumIt(_data.cbegin() + 2, _data.cend());
+            if (result.first == -1 && result.second == -1) {
+                // "META: Reading length: Invalid variable number";
+                return false; // too early eof
+            }
+            if (_data.size() != 2 + result.first + result.second) { // uncorrect msg len
+                // "META: Length check: Invalid message length";
+                return false;
+            }
+            if (explen < 0) { // var length and unspec meta type
+                return true;
+            }
+            if (explen != result.first + 3) { // uncorrect meta length
+                // "META: Length check: invalid meta length (not match spec)";
+                return false;
+            }
+            switch (metaType()) {
+            case MIDIMetaNumber::CHANNEL_PREFIX:
+                if (_data[3] > 15) {
+                    // "META: Channel Prefix: > 15";
+                    return false;
+                }
+                break;
+            case MIDIMetaNumSpace::KEYSIG:
+                if (_data[4] > 1) {
+                    // "META: Key Signature: Not major or minor (mi > 1)";
+                    return false;
+                }
+                break;
+            }
+            return true;
+        }
     };
 
     namespace details {
@@ -897,6 +1059,11 @@ namespace libmfmidi {
         public:
             constexpr MIDIMessageTimedExt() noexcept  = default;
             constexpr ~MIDIMessageTimedExt() noexcept = default;
+
+            constexpr MIDIMessageTimedExt(std::initializer_list<uint8_t> args) noexcept
+                : MIDIMessage(args)
+            {
+            }
 
             constexpr MIDIMessageTimedExt(const MIDIMessageTimedExt& rhs) noexcept            = default;
             constexpr MIDIMessageTimedExt(MIDIMessageTimedExt&& rhs) noexcept                 = default;
