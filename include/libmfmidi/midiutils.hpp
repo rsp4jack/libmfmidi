@@ -20,7 +20,7 @@ namespace libmfmidi::MIDIUtils {
     constexpr uint8_t       NUM_CHANNELS  = 16;
     constexpr uint8_t       NUM_PORTS     = 16;
     constexpr uint16_t      NUM_TRACKS    = std::numeric_limits<uint16_t>::max();
-    constexpr MIDIClockTime MIDICLKTM_MAX = std::numeric_limits<MIDIClockTime>::max(); ///< \brief Sometimes this means invaild value
+    constexpr MIDIClockTime MIDICLKTM_MAX = std::numeric_limits<MIDIClockTime>::max(); ///< \brief Sometimes this means invalid value
     using MIDIVarNum                      = uint32_t;
     constexpr MIDIVarNum MIDIVARNUM_MAX   = std::numeric_limits<MIDIVarNum>::max();
 

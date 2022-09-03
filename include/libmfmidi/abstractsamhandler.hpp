@@ -6,8 +6,6 @@
 
 #include "midimessage.hpp"
 #include <stdexcept>
-#define __cpp_lib_format
-#include <format>
 namespace libmfmidi {
     class AbstractSAMHandler {
     public:

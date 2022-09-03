@@ -135,15 +135,15 @@ namespace libmfmidi {
             char mthd[5]{};
             readVar(mthd, 4);
             if (strcmp(mthd, "MThd") != 0) {
-                report("Invaild header, expected MThd");
+                report("invalid header, expected MThd");
                 return;
             }
             if (readU32() != 6) {
-                reportw("Invaild header chunk size, expected 6");
+                reportw("invalid header chunk size, expected 6");
             }
             m_type = readU16();
             if (m_type > 2) {
-                report("Invaild SMF type, expected <= 2");
+                report("invalid SMF type, expected <= 2");
                 return;
             }
             m_trks = readU16();
@@ -172,7 +172,7 @@ namespace libmfmidi {
             char mtrk[5]{};
             readVar(mtrk, 4);
             if (strcmp(mtrk, "MTrk") != 0) {
-                report("Invaild header, expected MTrk");
+                report("invalid header, expected MTrk");
                 return;
             }
             uint8_t c = 0; // temp variable
@@ -210,7 +210,7 @@ namespace libmfmidi {
                         buffer.push_back(readU8E()); // type
                         uint32_t len = readVarNumE();
                         if(len > m_etc) {
-                            report("Invaild Meta Event length: bigger than track length");
+                            report("invalid Meta Event length: bigger than track length");
                             break;
                         }
                         for (uint32_t i = 0; i < len; ++i) {
