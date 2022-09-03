@@ -9,6 +9,9 @@
 #include <cstdint>
 #include <iostream>
 #include <type_traits>
+#include <utility>
+#define __cpp_lib_format
+#include <format>
 
 namespace std {
 #if !defined(__cpp_lib_byteswap)
@@ -19,6 +22,19 @@ namespace std {
         auto value_representation = std::bit_cast<std::array<std::byte, sizeof(T)>>(value);
         std::ranges::reverse(value_representation);
         return std::bit_cast<T>(value_representation);
+    }
+#endif
+#if !defined(__cpp_lib_unreachable)
+    [[noreturn]] inline void unreachable()
+    {
+        // Uses compiler specific extensions if possible.
+        // Even if no extension is used, undefined behavior is still raised by
+        // an empty function body and the noreturn attribute.
+#if defined(__GNUC__) // GCC, Clang, ICC
+        __builtin_unreachable();
+#elif defined(_MSC_VER) // MSVC
+        __assume(false);
+#endif
     }
 #endif
 }
@@ -42,8 +58,7 @@ namespace libmfmidi::Utils {
         }
         return val;
     }
-    enum class MFMessageMark
-    {
+    enum class MFMessageMark {
         None,
         BeatMarker,
         NoOp,
