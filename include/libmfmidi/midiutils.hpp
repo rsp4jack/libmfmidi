@@ -8,6 +8,7 @@
 #pragma once
 
 #include "libmfmidi/mfconfig.hpp"
+#include "mfutils.hpp"
 #include <array>
 #include <cstdint>
 #include <istream>
@@ -273,7 +274,7 @@ namespace libmfmidi::MIDIUtils {
     /// \brief Get expected Meta event length (entrie message)
     /// \c -1 : Variable length
     /// \c -2 : unknown
-    /// \param type
+    /// \param type meta type
     /// \return constexpr int
     inline constexpr int getExpectedMetaLength(uint8_t type)
     {
@@ -407,9 +408,8 @@ namespace libmfmidi::MIDIUtils {
         return cnt;
     }
 
-    template <std::forward_iterator FwdIt>
-    inline constexpr size_t writeVarNum(MIDIVarNum data, FwdIt iter)
-        requires std::is_same_v<std::iterator_traits<FwdIt>::value_type, uint8_t>
+    template <std::output_iterator<uint8_t> OutIt>
+    inline constexpr size_t writeVarNumIt(MIDIVarNum data, OutIt iter)
     {
         MIDIVarNum buf;
         size_t     cnt = 0;
@@ -483,5 +483,6 @@ namespace libmfmidi::MIDIUtils {
             }
             return 1 / (realfps * ppf);
         }
+        std::unreachable();
     }
 }
