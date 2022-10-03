@@ -29,6 +29,11 @@ namespace libmfmidi {
         bool process(MIDITimedMessage& msg)
         {
             // TODO: fine this
+            if (msg.isTempo() && msg.strictVaild()) {
+                auto bpm = msg.bpm();
+                msg.setupMFMarker(MFMessageMark::Tempo, static_cast<uint8_t>((bpm >> 24) & 0xFF), static_cast<uint8_t>((bpm >> 16) & 0xFF), static_cast<uint8_t>((bpm >> 8) & 0xFF), static_cast<uint8_t>(bpm & 0xFF));
+                return true;
+            }
             return !msg.isMetaEvent();
         }
     };
@@ -39,10 +44,8 @@ namespace libmfmidi {
     public:
         bool process(MIDITimedMessage& msg)
         {
-            if (msg.isSystemMessage() || msg.status()) {
-                
-            }
+            return !msg.isSystemMessage();
         }
-    }
+    };
 }
 
