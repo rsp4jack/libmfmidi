@@ -6,6 +6,7 @@
 
 #include "miditrack.hpp"
 #include <unordered_set>
+#include "gfx/timsort.hpp"
 
 namespace libmfmidi {
     /// \brief A class to storage MIDITracks.
@@ -31,11 +32,11 @@ namespace libmfmidi {
         {
             clear();
             resize(2);
-            std::unordered_set<uint8_t> indexS; // index set for *contains*
-            std::array<uint16_t, 16> indexM{}; // map
-            uint16_t freeindex = 2;
+            std::unordered_set<uint8_t> indexS;   // index set for *contains*
+            std::array<uint16_t, 16>    indexM{}; // map
+            uint16_t                    freeindex = 2;
             for (const auto& msg : src) {
-                if(msg.isChannelMsg()){
+                if (msg.isChannelMsg()) {
                     if (!indexS.contains(msg.channel())) {
                         resize(freeindex + 1);
                         indexS.insert(msg.channel());
@@ -43,7 +44,7 @@ namespace libmfmidi {
                         at(freeindex).push_back(msg);
                         ++freeindex;
                     } else {
-                        at(indexM.at(msg.channel()-1)).push_back(msg);
+                        at(indexM.at(msg.channel() - 1)).push_back(msg);
                     }
                 } else {
                     if (msg.isTempo() || msg.isTextEvent() || msg.isTimeSignature() || msg.isKeySignature()) {
@@ -59,8 +60,47 @@ namespace libmfmidi {
                 });
             }
         }
-
-        
     };
-}
 
+    namespace Utils {
+        constexpr void toAbsTimeMultiTrack(MIDIMultiTrack& mtrk)
+        {
+            for (auto& trk : mtrk) {
+                toAbsTimeTrack(trk);
+            }
+        }
+
+        constexpr void toRelTimeMultiTrack(MIDIMultiTrack& mtrk)
+        {
+            for (auto& trk : mtrk) {
+                toRelTimeTrack(trk);
+            }
+        }
+
+    }
+
+    namespace Utils {
+        inline void mergeMultiTrack(MIDIMultiTrack&& mtrk, MIDITrack& trk)
+        {
+            toAbsTimeMultiTrack(mtrk);
+            trk.clear();
+            size_t middle;
+            for (auto& tr : mtrk) {
+                middle = trk.size();
+                trk.reserve(trk.size() + tr.size());
+                for (auto& ev : tr) {
+                    if(!ev.isEndOfTrack()){
+                        trk.push_back(std::move(ev));
+                    }
+                }
+                if (middle < trk.size()) {
+                    gfx::timmerge(trk.begin(), trk.begin()+middle, trk.end());
+                }
+            }
+            // TODO: Remove it
+            assert(std::is_sorted(trk.cbegin(), trk.cend()));
+            toRelTimeTrack(trk);
+            mtrk.clear();
+        }
+    }
+}
