@@ -15,6 +15,7 @@
 #include <limits>
 #include <iterator>
 
+#undef max
 namespace libmfmidi::MIDIUtils {
     using MIDIClockTime = uint32_t;
     static_assert(sizeof(MIDIClockTime) == 4);
@@ -24,6 +25,8 @@ namespace libmfmidi::MIDIUtils {
     constexpr MIDIClockTime MIDICLKTM_MAX = std::numeric_limits<MIDIClockTime>::max(); ///< \brief Sometimes this means invalid value
     using MIDIVarNum                      = uint32_t;
     constexpr MIDIVarNum MIDIVARNUM_MAX   = std::numeric_limits<MIDIVarNum>::max();
+    using MIDITempo                       = uint32_t;
+    using MIDIDivision = int16_t;
 
     namespace MIDINumSpace {
         // Yes. That make it like enum class but with implicit conversion
@@ -337,7 +340,7 @@ namespace libmfmidi::MIDIUtils {
         return (pitch / 12) - 1;
     }
 
-    inline constexpr std::pair<MIDIVarNum, size_t> readVarNum(std::istream* ise)
+    inline std::pair<MIDIVarNum, size_t> readVarNum(std::istream* ise)
     {
         auto readU8 = [&]() {
             uint8_t d;
@@ -386,7 +389,7 @@ namespace libmfmidi::MIDIUtils {
         return {value, cnt};
     }
 
-    inline constexpr size_t writeVarNum(MIDIVarNum data, std::ostream* ose)
+    inline size_t writeVarNum(MIDIVarNum data, std::ostream* ose)
     {
         MIDIVarNum buf;
         size_t     cnt = 0;
@@ -465,7 +468,7 @@ namespace libmfmidi::MIDIUtils {
         return {(val >> 7) & 0x7F, val & 0x7F};
     }
 
-    inline double divisionToSec(int16_t val, uint32_t bpm)
+    inline constexpr double divisionToSec(MIDIDivision val, MIDITempo bpm) noexcept
     {
         if (val > 0) {
             // MIDI always 4/4

@@ -20,7 +20,7 @@ namespace libmfmidi {
             *stm << "Delta time: " << msg.deltaTime() << ' ' << "Message: " << msg.msgText() << std::endl;
         }
 
-        void on_header(uint32_t format, uint16_t ntrk, int32_t division) override
+        void on_header(uint32_t format, uint16_t ntrk, MIDIUtils::MIDIDivision division) override
         {
             *stm << "Header: " << std::format("Format {}; {} tracks; Division: {:x}", format, ntrk, division) << std::endl;
         }
@@ -41,8 +41,9 @@ namespace libmfmidi {
 
     class SMFFileSAMHandler : public AbstractSAMHandler {
     public:
-        explicit SMFFileSAMHandler(SMFFile* file)
+        explicit SMFFileSAMHandler(MIDIMultiTrack* file, SMFFileInfo* inf)
             : _file(file)
+            , _info(inf)
         {
         }
 
@@ -51,10 +52,10 @@ namespace libmfmidi {
             _file->at(curtrk).push_back(msg);
         }
 
-        void on_header(uint32_t format, uint16_t ntrk, int32_t division) override
+        void on_header(uint32_t format, uint16_t ntrk, MIDIDivision division) override
         {
-            _file->setType(format);
-            _file->setDivision(division);
+            _info->type = format;
+            _info->division = division;
             _file->resize(ntrk);
         }
 
@@ -69,7 +70,8 @@ namespace libmfmidi {
         }
 
     private:
-        SMFFile* _file;
+        MIDIMultiTrack* _file;
+        SMFFileInfo* _info;
         uint32_t curtrk=0xFFFFFFFF;
     };
 }
