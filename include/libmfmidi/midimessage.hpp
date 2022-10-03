@@ -16,6 +16,7 @@
 #include <vector>
 #include <iomanip>
 #include <execution>
+#include <any>
 
 namespace libmfmidi {
     using std::int16_t;
@@ -26,12 +27,9 @@ namespace libmfmidi {
 
     /// \brief Container for MIDI Message
     ///
-    /// The MIDIMessage class is a simple, lightweight container which can hold a single
-    /// MIDI Message that can fit within 7 bytes plus status byte.  It can also hold some
-    /// non-MIDI messages, known as Meta messages like No-op, Key signature, Time Signature, etc,
-    /// which are useful for internal processing.
+    /// A container to store MIDI Messages. Contains a std::vector.
     ///
-    /// All setters will auto match message types.
+    /// All setters and getters will auto match message types.
     /// For example, setVelcoity will set byte2 in note event and poly pressure(aftertouch).
     /// and set byte1 in channel pressure.
     /// All getters and is-ers will assert message types.
@@ -78,6 +76,11 @@ namespace libmfmidi {
         [[nodiscard]] constexpr bool empty() const noexcept
         {
             return M() && _data.empty();
+        }
+
+        [[nodiscard]] constexpr size_t size() const noexcept
+        {
+            return _data.size();
         }
 
         constexpr void push_back(uint8_t a) noexcept
@@ -197,7 +200,7 @@ namespace libmfmidi {
 
         [[nodiscard]] constexpr size_t length() const
         {
-            return _data.size();
+            return size();
         }
 
         [[nodiscard]] constexpr const std::vector<uint8_t>& data() const
@@ -340,13 +343,13 @@ namespace libmfmidi {
             return (val - 64) / 64.0;
         }
 
-        [[nodiscard]] constexpr uint32_t rawTempo() const
+        [[nodiscard]] constexpr MIDITempo rawTempo() const
         {
             assert(isTempo());
             return rawCat(_data[3], _data[4], _data[5]);
         }
 
-        [[nodiscard]] constexpr uint32_t bpm() const
+        [[nodiscard]] constexpr MIDITempo bpm() const
         {
             return 60000000 / rawTempo();
         }
@@ -364,96 +367,104 @@ namespace libmfmidi {
             return "";
         }
 
+        [[nodiscard]] constexpr uint8_t atIf(std::size_t pos, uint8_t normal = 0x00) const
+        {
+            if (pos >= size()) {
+                return normal;
+            }
+            return at(pos);
+        }
+
         // For later use
         /* #define rens(n)                           \
             [[nodiscard]] uint8_t byte##n() const \
             {                                     \
-                return data[n];                   \
+                return atIf(n);                   \
             } */
 
         [[nodiscard]] constexpr uint8_t byte0() const
         {
-            return _data[0];
+            return atIf(0);
         }
 
         [[nodiscard]] constexpr uint8_t byte1() const
         {
-            return _data[1];
+            return atIf(1);
         }
 
         [[nodiscard]] constexpr uint8_t byte2() const
         {
-            return _data[2];
+            return atIf(2);
         }
 
         [[nodiscard]] constexpr uint8_t byte3() const
         {
-            return _data[3];
+            return atIf(3);
         }
 
         [[nodiscard]] constexpr uint8_t byte4() const
         {
-            return _data[4];
+            return atIf(4);
         }
 
         [[nodiscard]] constexpr uint8_t byte5() const
         {
-            return _data[5];
+            return atIf(5);
         }
 
         [[nodiscard]] constexpr uint8_t byte6() const
         {
-            return _data[6];
+            return atIf(6);
         }
 
         [[nodiscard]] constexpr uint8_t byte7() const
         {
-            return _data[7];
+            return atIf(7);
         }
 
         [[nodiscard]] constexpr uint8_t byte8() const
         {
-            return _data[8];
+            return atIf(8);
         }
 
         [[nodiscard]] constexpr uint8_t byte9() const
         {
-            return _data[9];
+            return atIf(9);
         }
 
         [[nodiscard]] constexpr uint8_t byte10() const
         {
-            return _data[10];
+            return atIf(10);
         }
 
         [[nodiscard]] constexpr uint8_t byte11() const
         {
-            return _data[11];
+            return atIf(11);
         }
 
         [[nodiscard]] constexpr uint8_t byte12() const
         {
-            return _data[12];
+            return atIf(12);
         }
 
         [[nodiscard]] constexpr uint8_t byte13() const
         {
-            return _data[13];
+            return atIf(13);
         }
 
         [[nodiscard]] constexpr uint8_t byte14() const
         {
-            return _data[14];
+            return atIf(14);
         }
 
         [[nodiscard]] constexpr uint8_t byte15() const
         {
-            return _data[15];
+            return atIf(15);
         }
 
         [[nodiscard]] constexpr uint8_t byte16() const
         {
-            return _data[16];
+            return atIf(16);
         }
 
         [[nodiscard]] constexpr MFMessageMark MFMarker() const
@@ -747,7 +758,7 @@ namespace libmfmidi {
             std::copy(args.begin(), args.end(), std::back_inserter(_data));
         }
 
-        constexpr void setupRawTempo(uint32_t tempo)
+        constexpr void setupRawTempo(MIDITempo tempo)
         {
             uint8_t f;
             uint8_t s;
@@ -758,7 +769,7 @@ namespace libmfmidi {
             setupMetaEvent(MIDIMetaNumber::TEMPO, {f, s, t});
         }
 
-        constexpr void setupBPM(uint32_t bpm)
+        constexpr void setupBPM(MIDITempo bpm)
         {
             setupRawTempo(60000000 / bpm);
         }
@@ -778,10 +789,11 @@ namespace libmfmidi {
             setupMetaEvent(MIDIMetaNumber::KEYSIG, {static_cast<unsigned char>(sharp_flats), major_minor});
         }
 
-        constexpr void setupMFBeatMarker()
+        template <std::convertible_to<uint8_t>... T>
+        constexpr void setupMFMarker(MFMessageMark mark, T... init)
         {
-            clear();
-            marker = MFMessageMark::BeatMarker;
+            _data = {init...};
+            marker = mark;
         }
 
         /// \}
