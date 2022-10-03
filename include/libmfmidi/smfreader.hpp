@@ -30,6 +30,7 @@ namespace libmfmidi {
                 return false;
             }
             for (uint16_t i = 0; i < m_trks; ++i) {
+                m_curtrk = i;
                 readTrack();
                 if (!m_suclasttrk) {
                     return false;
@@ -139,7 +140,8 @@ namespace libmfmidi {
                 return;
             }
             if (readU32() != 6) {
-                reportw("invalid header chunk size, expected 6");
+                report("invalid header chunk size, expected 6");
+                return;
             }
             m_type = readU16();
             if (m_type > 2) {
@@ -154,7 +156,7 @@ namespace libmfmidi {
             if (m_trks == 0) {
                 reportw("No track");
             }
-            m_division = static_cast<int16_t>(readU16());
+            m_division = static_cast<MIDIDivision>(readU16());
             if (m_division == 0) {
                 report("MIDI Division is 0");
                 return;
@@ -177,7 +179,6 @@ namespace libmfmidi {
             }
             uint8_t c = 0; // temp variable
             uint8_t status = 0; // midi status
-            MIDIClockTime curtime = 0; // TODO: Check if overflow
             uint32_t      length  = readU32();
             m_etc                 = length;
             m_hand->on_starttrack(m_curtrk);
@@ -185,7 +186,6 @@ namespace libmfmidi {
                 // Read a event
                 MIDIClockTime deltatime = readVarNumE();
                 //m_hand->on_deltatime(deltatime);
-                curtime += deltatime;
 
                 c = readU8E();
                 if ((c&0x80)==0) {
@@ -198,6 +198,7 @@ namespace libmfmidi {
                     status = c;
                 }
                 MIDITimedMessage buffer{status};
+                buffer.setDeltaTime(deltatime);
                 if (buffer.isChannelMsg()) { // also if vaild (in range)
                     for (int i = 0; i < buffer.expectedLength()-1; ++i) {
                         buffer.push_back(readU8E());
@@ -209,6 +210,7 @@ namespace libmfmidi {
                         // Reset wont in SMF file
                         buffer.push_back(readU8E()); // type
                         uint32_t len = readVarNumE();
+                        writeVarNumIt(len, std::back_inserter(buffer));
                         if(len > m_etc) {
                             report("invalid Meta Event length: bigger than track length");
                             break;
@@ -257,7 +259,7 @@ namespace libmfmidi {
         size_t                 m_etc = 0;
         std::istream*          ise;
         uint16_t               m_type{};
-        int32_t                m_division{};
+        MIDIDivision               m_division{};
         uint16_t               m_trks{};
         std::istream::off_type m_off;
         AbstractSAMHandler*    m_hand;
