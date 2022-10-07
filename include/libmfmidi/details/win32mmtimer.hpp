@@ -25,7 +25,7 @@
 #include <Windows.h>
 #include <timeapi.h>
 #include <mmsystem.h>
-#include "abstracttimer.hpp"
+#include "../abstracttimer.hpp"
 #include <stdexcept>
 #include <algorithm>
 #include <string>
@@ -33,7 +33,7 @@
 namespace libmfmidi::details {
     class Win32MMTimer : public AbstractTimer {
     public:
-        static constexpr unsigned int resolution = 5;
+        static constexpr unsigned int resolution = 1;
 
         ~Win32MMTimer() noexcept override
         {
@@ -61,6 +61,7 @@ namespace libmfmidi::details {
                 timeEndPeriod(mdelay);
                 return false;
             }
+            mdelay = delay;
             return true;
         }
 
@@ -75,7 +76,13 @@ namespace libmfmidi::details {
             if (timeEndPeriod(mdelay) != TIMERR_NOERROR) {
                 return false;
             }
+            ison = false;
             return true;
+        }
+
+        bool isOn() override
+        {
+            return ison;
         }
 
     private:
@@ -85,6 +92,7 @@ namespace libmfmidi::details {
         }
 
         unsigned int timerid;
+        bool ison = false;
     };
 }
 

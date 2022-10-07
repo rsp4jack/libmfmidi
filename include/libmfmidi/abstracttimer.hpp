@@ -34,16 +34,20 @@ namespace libmfmidi {
     class AbstractTimer {
     public:
         virtual ~AbstractTimer() noexcept = default;
-        using callback_type = std::function<void()>;
+        using callback_type               = std::function<void()>;
+        /// in ms
         virtual bool start(unsigned int delay) = 0;
 
         virtual bool stop() = 0;
+
+        virtual bool isOn() = 0;
 
         virtual void setCallback(callback_type func) noexcept
         {
             m_cb = std::move(func);
         }
 
+        /// in ms
         [[nodiscard]] virtual int delay() const noexcept
         {
             return mdelay;
@@ -51,7 +55,6 @@ namespace libmfmidi {
 
     protected:
         callback_type m_cb;
-        bool          ison = false;
         unsigned int mdelay = 0;
     };
 
