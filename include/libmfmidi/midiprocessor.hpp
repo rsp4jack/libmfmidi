@@ -16,7 +16,7 @@ namespace libmfmidi {
     class MIDIProcessorHelper {
     public:
         /// You must keep references in \a func available during MIDIProcessorHelper live time
-        explicit MIDIProcessorHelper(std::function<bool(MIDITimedMessage&)> func) noexcept
+        explicit MIDIProcessorHelper(MIDIProcessorFunction func) noexcept
             : proc(std::move(func))
         {
         }
@@ -27,7 +27,7 @@ namespace libmfmidi {
         }
 
     private:
-        std::function<bool(MIDITimedMessage&)> proc;
+        MIDIProcessorFunction proc;
     };
 
     class MIDIProcessorTransposer {

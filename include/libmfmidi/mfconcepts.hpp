@@ -5,6 +5,7 @@
 #pragma once
 
 #include <concepts>
+#include <functional>
 
 namespace libmfmidi {
     class MIDIMessage;
@@ -16,6 +17,10 @@ namespace libmfmidi {
 
     template <class T>
     concept MIDIProcessor = requires(T obj, MIDITimedMessage msg) {
-        {obj.process(msg)} -> std::same_as<bool>;
-    };
+                                {
+                                    obj.process(msg)
+                                    } -> std::same_as<bool>;
+                            };
+
+    using MIDIProcessorFunction = std::function<bool(MIDITimedMessage&)>;
 }
