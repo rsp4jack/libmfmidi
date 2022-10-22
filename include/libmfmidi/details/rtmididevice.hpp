@@ -22,7 +22,7 @@
 #pragma once
 
 #include "rtmidi/RtMidi.h"
-#include "abstractmididevice.hpp"
+#include "../abstractmididevice.hpp"
 #include <string>
 #include <utility>
 #include <unordered_set>
@@ -196,16 +196,18 @@ namespace libmfmidi::details {
             return std::make_shared<RtMidiOutDevice>(idx, name);
         }
 
+        static RtMidiMIDIDeviceProvider& instance() noexcept
+        {
+            static RtMidiMIDIDeviceProvider ins; // Meyers' Singleton
+            return ins;
+        }
+
     private:
         RtMidiMIDIDeviceProvider() noexcept = default;
 
         RtMidiIn  auxin;  // for device info
         RtMidiOut auxout; // too
 
-        static RtMidiMIDIDeviceProvider& instance() noexcept
-        {
-            static RtMidiMIDIDeviceProvider ins; // Meyers' Singleton
-            return ins;
-        }
+        
     };
 }
