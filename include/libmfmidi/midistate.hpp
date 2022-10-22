@@ -56,6 +56,7 @@ namespace libmfmidi {
         uint16_t expression{};
         uint16_t pan{}; // most use
         uint16_t balance{};
+        uint8_t aftertouch{};
     };
 
     /// \brief A struct to hold MIDI Status
@@ -83,7 +84,7 @@ namespace libmfmidi {
             }
         }
 
-        uint32_t                                                          tempo{}; // in bpm
+        MIDITempo                                                         tempo{}; // in bpm
         uint8_t                                                           numerator{};
         uint8_t                                                           denominator{};
         MIDIMatrix                                                        matrix;
@@ -93,7 +94,7 @@ namespace libmfmidi {
     /// \brief A state machine (Maybe?) Emulate state by MIDI eventS.
     class MIDIStateProcessor {
     public:
-        explicit MIDIStateProcessor(MIDIState& st) noexcept
+        explicit MIDIStateProcessor(MIDIState& st, bool processNote = false) noexcept
             : mst(st)
         {
         }
@@ -103,10 +104,10 @@ namespace libmfmidi {
             using namespace MIDINumSpace;
             switch (msg.type()) {
             case NOTE_ON:
-                mst.matrix.noteOn(port, msg.channel(), msg.note());
-                break;
             case NOTE_OFF:
-                mst.matrix.noteOff(port, msg.channel(), msg.note());
+            case CHANNEL_PRESSURE:
+            case POLY_PRESSURE:
+                mst.matrix.process(msg, port);
                 break;
             case PROGRAM_CHANGE:
                 mst.channels.at(port - 1).at(msg.channel() - 1).program = msg.programChangeValue();
@@ -114,6 +115,9 @@ namespace libmfmidi {
             case CONTROL_CHANGE: {
                 auto& chst = mst.channels.at(port - 1).at(msg.channel() - 1);
                 switch (msg.controller()) {
+                case SUSTAIN:
+                    mst.matrix.process(msg, port);
+                    break;
                 case BALANCE:
                     chst.balance = MLSBtoU16(msg.controllerValue(), U16toMLSB(chst.balance).second);
                     break;
@@ -172,7 +176,7 @@ namespace libmfmidi {
     ///
     /// \warning This function will NOT revert Channel Prefix and Port Prefix!
     ///
-    inline std::vector<MIDIMessage> reportMIDIState(const MIDIState& st, bool forFile = true, int defaultProgram = 0, uint8_t port = 1) noexcept
+    [[nodiscard]] inline std::vector<MIDIMessage> reportMIDIState(const MIDIState& st, bool forFile = true, int defaultProgram = 0, uint8_t port = 1) noexcept
     {
         std::vector<MIDIMessage> res;
         MIDIMessage              tmp;
