@@ -8,6 +8,8 @@
 #include <algorithm>
 #include "midimessage.hpp"
 
+#undef max
+
 namespace libmfmidi {
     /// \brief SMF Track
     /// \note Jack use chunks to avoid memory fragmentation.
@@ -20,7 +22,7 @@ namespace libmfmidi {
             return std::is_sorted(cbegin(), cend());
         }
 
-        constexpr void sort()
+        void sort()
         {
             std::stable_sort(begin(), end());
         }
@@ -74,4 +76,24 @@ namespace libmfmidi {
             });
         }
     };
+
+    namespace Utils {
+        constexpr void toAbsTimeTrack(MIDITrack& trk)
+        {
+            MIDIClockTime time = 0;
+            for (auto& event : trk) {
+                event.setDeltaTime(time += event.deltaTime());
+            }
+        }
+
+        constexpr void toRelTimeTrack(MIDITrack& trk)
+        {
+            MIDIClockTime time = 0;
+            for (auto& event : trk) {
+                MIDIClockTime tmp =  event.deltaTime();
+                event.setDeltaTime(tmp - time);
+                time = tmp;
+            }
+        }
+    }
 }
