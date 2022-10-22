@@ -13,31 +13,4 @@ namespace libmfmidi {
         MIDIUtils::MIDIDivision  division{};
         uint16_t ntrk;
     };
-
-    class SMFFile : public MIDIMultiTrack {
-    public:
-        /// \brief Get SMF MIDI Type (0,1,2)
-        [[nodiscard]] auto getType() const
-        {
-            return info.type;
-        }
-
-        [[nodiscard]] auto getDivision() const
-        {
-            return info.division;
-        }
-
-        void setType(uint8_t type)
-        {
-            info.type = type;
-        }
-
-        void setDivision(MIDIDivision div)
-        {
-            info.division = div;
-        }
-
-    private:
-        SMFFileInfo info;
-    };
 }
