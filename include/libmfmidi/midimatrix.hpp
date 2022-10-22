@@ -23,18 +23,21 @@ namespace libmfmidi {
         {
             if (msg.isChannelMsg()) {
                 auto chn  = msg.channel();
-                auto note = msg.note();
 
                 if (msg.isAllNotesOff() || msg.isAllSoundsOff()) {
                     clearChannel(port, chn);
                 } else if (msg.isImplicitNoteOn()) {
-                    noteOn(port, chn, note);
+                    noteOn(port, chn, msg.note(), msg.velocity());
                 } else if (msg.isImplicitNoteOff()) {
-                    noteOff(port, chn, note);
+                    noteOff(port, chn, msg.note(), msg.velocity());
                 } else if (msg.isCCSustainOn()) {
                     holdOn(port, chn);
                 } else if (msg.isCCSustainOff()) {
                     holdOff(port, chn);
+                } else if (msg.isPolyPressure()) {
+                    polyPressure(port, chn, msg.note(), msg.pressure());
+                } else if (msg.isChannelPressure()) {
+                    channelPressure(port, chn, msg.pressure());
                 }
             }
             return true;
@@ -95,14 +98,28 @@ namespace libmfmidi {
             return pedals[0].test(channel - 1);
         }
 
-        void noteOn(uint8_t port, uint8_t channel, uint8_t note)
+        void noteOn(uint8_t port, uint8_t channel, uint8_t note, uint8_t velocity)
         {
-            notes.at(port - 1).at(channel - 1).set(note);
+            notes.at(port - 1).at(channel - 1).at(note).on = true;
+            notes.at(port - 1).at(channel - 1).at(note).velocity = velocity;
         }
 
-        void noteOff(uint8_t port, uint8_t channel, uint8_t note)
+        void noteOff(uint8_t port, uint8_t channel, uint8_t note, uint8_t velocity)
         {
-            notes.at(port - 1).at(channel - 1).reset(note);
+            notes.at(port - 1).at(channel - 1).at(note).on = false;
+            notes.at(port - 1).at(channel - 1).at(note).velocity = velocity;
+        }
+
+        void polyPressure(uint8_t port, uint8_t channel, uint8_t note, uint8_t pressure)
+        {
+            notes.at(port-1).at(channel-1).at(note).afterTouch = pressure;
+        }
+
+        void channelPressure(uint8_t port, uint8_t channel, uint8_t pressure)
+        {
+            for (auto& note : notes.at(port - 1).at(channel - 1)) {
+                note.afterTouch = pressure;
+            }
         }
 
         void clearPort(uint8_t port)
@@ -153,9 +170,49 @@ namespace libmfmidi {
         }
 
     private:
+        struct NoteState {
+            bool on = false;
+            uint8_t velocity = 64; ///< note on and off velocity
+            uint8_t afterTouch = 0;
+        };
+
+        class NoteStateArray : public std::array<NoteState, 128> {
+        public:
+            [[nodiscard]] constexpr inline long long count() const noexcept
+            {
+                return std::count_if(cbegin(), cend(), [](const NoteState& lhs) {
+                    return lhs.on;
+                });
+            }
+
+            [[nodiscard]] constexpr inline bool test(size_type index) const
+            {
+                return at(index).on;
+            }
+
+            constexpr inline void set(size_type idx, bool on = true)
+            {
+                at(idx).on = on;
+            }
+
+            constexpr inline void reset()
+            {
+                for (auto& stat : *this) {
+                    stat.on = false;
+                    stat.afterTouch = 0;
+                    stat.velocity = 64; // noteoff velocity
+                }
+            }
+
+            constexpr inline void reset(size_type index)
+            {
+                at(index) = {};
+            }
+        };
+
         std::array<               // ports
             std::array<           // channels
-                std::bitset<128>, // notes
+                NoteStateArray, // notes
                 NUM_CHANNELS>,
             NUM_PORTS>
                                                          notes;
