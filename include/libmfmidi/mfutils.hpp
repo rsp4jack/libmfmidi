@@ -10,6 +10,8 @@
 #include <iostream>
 #include <type_traits>
 #include <utility>
+#include <version>
+#include <iterator>
 #define __cpp_lib_format
 #include <format>
 
@@ -49,19 +51,28 @@ namespace libmfmidi {
     using std::uint8_t;
 }
 
+template <class T>
+inline constexpr void UNUSED(const T& arg) noexcept
+{
+    static_cast<void>(arg);
+}
+
 namespace libmfmidi::Utils {
     template <std::integral T>
     constexpr T byteswapbe(T val) noexcept
     {
-        if (std::endian::native == std::endian::little) {
+        if constexpr (std::endian::native == std::endian::little) {
             return std::byteswap(val);
         }
         return val;
     }
+
+    /// \brief Special markers for \a MIDMessage .
+    ///
     enum class MFMessageMark {
-        None,
-        BeatMarker,
-        NoOp,
+        None, ///< None. default, no data
+        NoOp, ///< No operate, no data
+        Tempo, ///< Set tempo in BPM, data: Big-endian 32 bit unsigned integer, tempo in BPM
         User
     };
 
@@ -106,9 +117,9 @@ namespace libmfmidi::Utils {
     template <class... T>
     constexpr auto rawCat(uint8_t fbyte, T... bytes)
     {
-        typeof<sizeof...(bytes) + 1> result = fbyte << (sizeof...(bytes) * 8);
+        typeof<sizeof...(bytes) + 1> result = static_cast<decltype(result)>(fbyte) << (sizeof...(bytes) * 8);
         if constexpr (sizeof...(bytes) > 0) {
-            result += rawCat(bytes...);
+            result |= rawCat(bytes...);
         }
         return result;
     }
