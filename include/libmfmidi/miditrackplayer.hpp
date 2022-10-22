@@ -26,46 +26,172 @@
 #include "midistate.hpp"
 #include "abstracttimer.hpp"
 #include <memory>
-#include <unordered_map>
+#include <map>
+#include <thread>
+#include <stop_token>
+#include <barrier>
+#include "nanosleep.hpp"
+#include <atomic>
 
 namespace libmfmidi {
-    /// \brief Simple MIDITrack player but powerful
-    /// Very fast
+    /// \brief MIDITrack player powerful
+    /// Support navigation, MIDIState calc and recovery
     class MIDITrackPlayer {
     public:
+        static constexpr int TICK_PER_CACHE = 2048;
         explicit MIDITrackPlayer() noexcept {}
 
-    private:
-        bool stopTimer()
+        void pause()
         {
-            return mtimer->stop();
+            mplaying.store(false, std::memory_order_relaxed);
         }
-        void tick()
+
+        void reset() noexcept
         {
-            if (mnstat == Pause) {
-                stopTimer();
-                return;
+            mrelckltime = 0;
+            mabsTime    = 0;
+            mstate.resetAll();
+        }
+
+        void setDivision(MIDIDivision div) noexcept
+        {
+            mdivns = static_cast<unsigned long long>(divisionToSec(div, mstate.tempo) * 1000 * 1000 * 1000);
+        }
+
+        void setTrack(const MIDITrack& trk)
+        {
+            mtrk = &trk;
+            if (museCache && mrevertState) {
+                generateCahce();
             }
+        }
+
+        void setDriver()
+        {
             
         }
 
-        // Navigate status
-        enum NavStatus {
-            Normal,
-            Forward,
-            Backward,
-            Pause
-        };
+        void goTo(MIDIClockTime clktime) noexcept
+        {
+            if (mrevertState) {
+                mrelckltime = 0;
+                if (museCache && !mcache.empty()) {
+                    auto      it  = mcache.begin();
+                    auto      lit = it;
+                    while (it != mcache.end()) {
+                        if (it->first == clktime) {
+                            mabsTime = clktime;
+                            mstate   = it->second;
+                            return;
+                        }
+                        if (it->first > clktime) {
+                            if (lit != it) { // not begin
+                                mabsTime = lit->first;
+                                mstate   = lit->second;
+                                // directGoTo to pad remaining
+                            } else {
+                                mabsTime = 0; // first cache is bigger; fallback to directGoTo
+                                mstate.resetAll();
+                            }
+                            break;
+                        }
+                        lit = it;
+                        ++it;
+                    }
+                }
+                if (clktime > mabsTime) {
+                    mabsTime = 0; // begin from initial
+                    mstate.resetAll();
+                }
+                directGoTo(clktime);
+            }
+            else
+            {
+                mstate.resetAll();
+                mabsTime = clktime;
+            }
+        }
 
-        MIDIClockTime                       mabsTime = 0;
-        std::unique_ptr<AbstractTimer>      mtimer;
-        std::unique_ptr<AbstractMIDIDevice> mdev;
-        NavStatus                           mnstat;
-        MIDIClockTime                       mtargetTime; // navigate target (only forward and backward)
-        MIDITrack::iterator                 mcurit;
-        MIDIClockTime                       metctick = 0; // wait metctick to next event
-        bool                                museCache = false;
-        bool                                mrevertState = false;
-        std::unordered_map<MIDIClockTime, MIDIState> mcache;
+    private:
+        void revertSt() noexcept
+        {
+            auto rst = reportMIDIState(mstate, false);
+            for (auto& i : rst) {
+                mdev->sendMsg(i);
+            }
+        }
+        void generateCahce() noexcept
+        {
+            mcache.clear();
+            MIDIClockTime absTime = 0;
+            MIDIClockTime relTime = 0;
+            MIDIState     state;
+            MIDIStateProcessor stateProc{state};
+            for (const auto& msg : *mtrk) {
+                absTime += msg.deltaTime();
+                relTime += msg.deltaTime();
+                stateProc.process(msg);
+                if (relTime >= TICK_PER_CACHE) {
+                    mcache[absTime] = state;
+                    relTime -= TICK_PER_CACHE;
+                }
+            }
+        }
+
+        void directGoTo(MIDIClockTime clktime) noexcept
+        {
+            if (mrevertState) {
+                while (mabsTime < clktime) {
+                    while (true) { // for repeated 0 delta time msg
+                        if (mrelckltime >= mcurit->deltaTime()) {
+                            mstproc.process(*mcurit);
+                            mrelckltime = 0;
+                            ++mcurit;
+                            continue;
+                        }
+                        break;
+                    }
+                    ++mabsTime;
+                    ++mrelckltime;
+                }
+            }
+        }
+
+        void playerthread(const std::stop_token& tok)
+        {
+            while (!tok.stop_requested()) {
+                if (!mplaying.load(std::memory_order_relaxed)) {
+                    mpausebarrier.arrive_and_wait();
+                }
+                while (true) { // for repeated 0 delta time msg
+                    if (mrelckltime >= mcurit->deltaTime()) {
+                        mdev->sendMsg(*mcurit);
+                        mstproc.process(*mcurit);
+                        mrelckltime = 0;
+                        ++mcurit;
+                        continue;
+                    }
+                    break;
+                }
+                nanosleep(mdivns);
+                ++mabsTime;
+                ++mrelckltime;
+            }
+        }
+
+        const MIDITrack*                   mtrk{};
+        unsigned long long                 mdivns = 0; // division to nanosec
+        std::barrier<>                     mpausebarrier{2};
+        MIDIClockTime                      mabsTime    = 0; // Current abs tick time
+        MIDIClockTime                      mrelckltime = 0;
+        MIDIState                          mstate;
+        MIDIStateProcessor                 mstproc{mstate};
+        AbstractMIDIDevice*                mdev{};
+        std::atomic<bool>                               mplaying{false};
+        MIDITrack::iterator                mcurit;
+        bool                               museCache    = true; // use MIDIState cache
+        bool                               mrevertState = true; // revert MIDIState when navigate
+        std::map<MIDIClockTime, MIDIState>              mcache;
+        std::vector<MIDIClockTime> mtrkabsimes;
     };
 }
