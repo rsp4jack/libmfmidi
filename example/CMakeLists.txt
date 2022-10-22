@@ -7,3 +7,7 @@ add_executable(humanreadable HumanReadable.cpp)
 
 target_link_libraries(humanreadable PUBLIC libmfmidi)
 
+add_executable(mttplayer MTTrackPlayer.cpp)
+
+target_link_libraries(mttplayer PUBLIC libmfmidi)
+
