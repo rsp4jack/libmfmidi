@@ -14,31 +14,31 @@
 namespace libmfmidi {
     class MIDIMultiTrackCursorTrackState {
     public:
-        void reset() noexcept
+        constexpr void reset() noexcept
         {
             absTime = 0;
             curmsg  = {};
         }
 
-        void resetAll() noexcept
+        constexpr void resetAll() noexcept
         {
             reset();
         }
         MIDIClockTime       absTime{};
-        MIDITrack::iterator curmsg;
-        MIDITrack::iterator end; // after-tail
+        MIDITrack::const_iterator curmsg;
+        MIDITrack::const_iterator end; // after-tail
     };
 
     /// \brief Extension of \a MIDIState for \a MIDIMultiTrackCursor
     class MIDIMultiTrackCursorState {
     public:
-        void reset() noexcept
+        constexpr void reset() noexcept
         {
             curmsg = {};
             curtrk = {};
         }
 
-        void resetAll() noexcept
+        constexpr void resetAll() noexcept
         {
             reset();          
             for (auto& track : trks) {
@@ -55,12 +55,12 @@ namespace libmfmidi {
     /// Calling it \a iterator is ambiguous.
     class MIDIMultiTrackCursor {
     public:
-        explicit MIDIMultiTrackCursor(MIDIMultiTrack* trk) noexcept
+        constexpr explicit MIDIMultiTrackCursor(const MIDIMultiTrack* trk) noexcept
             : mtrk(trk)
         {
         }
 
-        void reset() noexcept
+        constexpr void reset() noexcept
         {
             mst.resetAll();
             for (uint16_t idx = 0; idx < mtrk->size(); ++idx) {
@@ -73,7 +73,7 @@ namespace libmfmidi {
             findEarliestEvent();
         }
 
-        bool goNextEvent() noexcept
+        constexpr bool goNextEvent() noexcept
         {
             ++mst.curtrk->curmsg;
             if (mst.curtrk->curmsg >= mst.curtrk->end) {
@@ -107,7 +107,7 @@ namespace libmfmidi {
         }
 
     private:
-        MIDIMultiTrack*           mtrk;
+        const MIDIMultiTrack*           mtrk;
         MIDIMultiTrackCursorState mst;
     };
 }
