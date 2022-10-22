@@ -16,15 +16,15 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 endif()
 
 # if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-#     add_definitions(-D__RTMIDI_DEBUG__)
+# add_definitions(-D__RTMIDI_DEBUG__)
 
-#     if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-#         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
-#     endif()
+# if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
+# endif()
 
-#     if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-#         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /WX")
-#     endif()
+# if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /WX")
+# endif()
 # endif()
 
 # --- RtMidi macros
@@ -122,8 +122,15 @@ if(NEED_PTHREAD)
     list(APPEND PACKAGE_DEPENDENCIES "find_dependency(Threads)")
 endif()
 
+# --- KDMAPI (OmniMIDI)
+add_library(KDMAPI STATIC include/omnimidi/omnimidiapi.cpp)
+target_link_libraries(KDMAPI PUBLIC winmm)
+target_precompile_headers(KDMAPI PUBLIC <Windows.h>)
+
+# --- libmfmidi
+
 option(HEADER_ONLY "Enable header-only" OFF)
-option(ENABLE_UNSPEC_FEATURES "Enable unspecification features." ON)
+# option(ENABLE_UNSPEC_FEATURES "Enable unspecification features." ON)
 
 if(HEADER_ONLY)
     set(TYPE INTERFACE)
@@ -161,16 +168,23 @@ add_library(libmfmidi ${TYPE}
     include/libmfmidi/details/win32mmtimer.hpp
 )
 
-add_library(rtmidi OBJECT src/RtMidi.cpp)
+add_library(rtmidi STATIC src/RtMidi.cpp)
+target_link_libraries(rtmidi PUBLIC ${PUBLICLINKLIBS}
+    PRIVATE ${LINKLIBS})
+target_include_directories(rtmidi PRIVATE ${INCDIRS}
+    PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 
 configure_file(include/libmfmidi/mfconfig.hpp.in ${CMAKE_CURRENT_SOURCE_DIR}/include/libmfmidi/mfconfig.hpp)
 
+target_precompile_headers(libmfmidi PUBLIC <Windows.h>)
 target_include_directories(libmfmidi ${PRI} ${CMAKE_CURRENT_BINARY_DIR} ${PRI} ${CMAKE_CURRENT_SOURCE_DIR}/include/libmfmidi ${PUB} ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_include_directories(rtmidi PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include/rtmidi)
 target_compile_definitions(rtmidi PRIVATE ${API_DEFS})
 target_include_directories(rtmidi PRIVATE ${INCDIRS})
 
-target_link_libraries(libmfmidi ${PUB} rtmidi)
+target_link_libraries(libmfmidi ${PUB} rtmidi KDMAPI)
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
