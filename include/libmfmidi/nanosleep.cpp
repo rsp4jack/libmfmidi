@@ -74,6 +74,7 @@ int nanosleep(const struct timespec* requested_delay, struct timespec* remaining
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <climits>
 
 /* The Windows API function Sleep() has a resolution of about 15 ms and takes
    at least 5 ms to execute.  We use this function for longer time periods.
@@ -95,7 +96,7 @@ int nanosleep(unsigned long long nsec)
         LARGE_INTEGER ticks_per_second;
 
         if (QueryPerformanceFrequency(&ticks_per_second)) {
-            ticks_per_nanosecond = static_cast<double>(ticks_per_second.QuadPart) / 1'000'000'000;
+            ticks_per_nanosecond = ticks_per_second.QuadPart / 1'000'000'000.0;
         }
 
         initialized = true;
@@ -107,7 +108,7 @@ int nanosleep(unsigned long long nsec)
         /* Number of milliseconds to pass to the Sleep function.
            Since Sleep can take up to 8 ms less or 8 ms more than requested
            (or maybe more if the system is loaded), we subtract 10 ms.  */
-        const DWORD sleep_millis = nsec / 1000000 - 10;
+        const DWORD sleep_millis = max(static_cast<long long>(min(LLONG_MAX, nsec)) / 1000000 - 10, 0);
         /* Determine how many ticks to delay.  */
         const LONGLONG wait_ticks = nsec * ticks_per_nanosecond;
         /* Start.  */
