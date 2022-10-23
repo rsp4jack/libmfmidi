@@ -39,11 +39,23 @@ namespace libmfmidi {
     class MIDITrackPlayer {
     public:
         static constexpr int TICK_PER_CACHE = 2048;
-        explicit MIDITrackPlayer() noexcept {}
+
+        explicit MIDITrackPlayer() noexcept = default;
 
         void pause()
         {
-            mplaying.store(false, std::memory_order_relaxed);
+            mplaying = false;
+        }
+
+        void play()
+        {
+            if (!mthread.joinable()) {
+                initThread();
+            }
+            if (!mplaying) {
+                mplaying = true;
+                mpausebarrier.arrive_and_wait();
+            }
         }
 
         void reset() noexcept
@@ -60,15 +72,21 @@ namespace libmfmidi {
 
         void setTrack(const MIDITrack& trk)
         {
-            mtrk = &trk;
+            mtrk   = &trk;
+            mcurit = mtrk->cbegin();
             if (museCache && mrevertState) {
                 generateCahce();
             }
         }
 
-        void setDriver()
+        void setDriver(AbstractMIDIDevice* dev)
         {
-            
+            mdev = dev;
+        }
+
+        void setMsgProcessor(MIDIProcessorFunction func)
+        {
+            mprocfunc = std::move(func);
         }
 
         void goTo(MIDIClockTime clktime) noexcept
@@ -76,8 +94,8 @@ namespace libmfmidi {
             if (mrevertState) {
                 mrelckltime = 0;
                 if (museCache && !mcache.empty()) {
-                    auto      it  = mcache.begin();
-                    auto      lit = it;
+                    auto it  = mcache.begin();
+                    auto lit = it;
                     while (it != mcache.end()) {
                         if (it->first == clktime) {
                             mabsTime = clktime;
@@ -104,15 +122,20 @@ namespace libmfmidi {
                     mstate.resetAll();
                 }
                 directGoTo(clktime);
-            }
-            else
-            {
+            } else {
                 mstate.resetAll();
                 mabsTime = clktime;
             }
         }
 
     private:
+        void initThread()
+        {
+            mthread = std::jthread([&](const std::stop_token& tok) {
+                playerthread(tok);
+            });
+        }
+
         void revertSt() noexcept
         {
             auto rst = reportMIDIState(mstate, false);
@@ -120,12 +143,13 @@ namespace libmfmidi {
                 mdev->sendMsg(i);
             }
         }
+
         void generateCahce() noexcept
         {
             mcache.clear();
-            MIDIClockTime absTime = 0;
-            MIDIClockTime relTime = 0;
-            MIDIState     state;
+            MIDIClockTime      absTime = 0;
+            MIDIClockTime      relTime = 0;
+            MIDIState          state;
             MIDIStateProcessor stateProc{state};
             for (const auto& msg : *mtrk) {
                 absTime += msg.deltaTime();
@@ -160,17 +184,22 @@ namespace libmfmidi {
         void playerthread(const std::stop_token& tok)
         {
             while (!tok.stop_requested()) {
-                if (!mplaying.load(std::memory_order_relaxed)) {
+                if (!mplaying) {
                     mpausebarrier.arrive_and_wait();
                 }
+                MIDITimedMessage tempmsg;
                 while (true) { // for repeated 0 delta time msg
                     if (mrelckltime >= mcurit->deltaTime()) {
-                        mdev->sendMsg(*mcurit);
-                        mstproc.process(*mcurit);
+                        tempmsg = *mcurit; // TODO: state change(like divns)
+                        mstproc.process(tempmsg);
+                        if (mprocfunc(tempmsg) && !tempmsg.isMFMarker()) {
+                            mdev->sendMsg(tempmsg);
+                        }
                         mrelckltime = 0;
                         ++mcurit;
                         continue;
                     }
+
                     break;
                 }
                 nanosleep(mdivns);
@@ -179,6 +208,7 @@ namespace libmfmidi {
             }
         }
 
+        std::jthread                       mthread;
         const MIDITrack*                   mtrk{};
         unsigned long long                 mdivns = 0; // division to nanosec
         std::barrier<>                     mpausebarrier{2};
@@ -186,12 +216,13 @@ namespace libmfmidi {
         MIDIClockTime                      mrelckltime = 0;
         MIDIState                          mstate;
         MIDIStateProcessor                 mstproc{mstate};
+        MIDIProcessorFunction              mprocfunc;
         AbstractMIDIDevice*                mdev{};
-        std::atomic<bool>                               mplaying{false};
-        MIDITrack::iterator                mcurit;
+        bool                               mplaying{false};
+        MIDITrack::const_iterator          mcurit;
         bool                               museCache    = true; // use MIDIState cache
         bool                               mrevertState = true; // revert MIDIState when navigate
-        std::map<MIDIClockTime, MIDIState>              mcache;
-        std::vector<MIDIClockTime> mtrkabsimes;
+        std::map<MIDIClockTime, MIDIState> mcache;
+        std::vector<MIDIClockTime>         mtrkabsimes;
     };
 }

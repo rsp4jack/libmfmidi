@@ -66,10 +66,9 @@ namespace libmfmidi {
             return mplay;
         }
 
-        template <MIDIProcessor T>
-        void setMsgProcessor(T& processor) noexcept
+        void setMsgProcessor(MIDIProcessorFunction processor) noexcept
         {
-            mprocess = [ObjectPtr = &processor](auto&& PH1) { return ObjectPtr->process(std::forward<decltype(PH1)>(PH1)); };
+            mprocess = std::move(processor);
         }
 
         void setDivision(MIDIDivision divi)

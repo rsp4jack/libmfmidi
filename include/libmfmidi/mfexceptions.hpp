@@ -45,5 +45,5 @@ namespace libmfmidi {
             : mf_error(std::format("Error on byte {}: {}", static_cast<std::streamoff>(pos), msg))
         {
         }
-    }
+    };
 }

@@ -16,7 +16,7 @@ namespace libmfmidi {
     using MIDITimedMessage = details::MIDIMessageTimedExt<MIDIMessage>;
 
     template <class T>
-    concept MIDIProcessor = requires(T obj, MIDITimedMessage msg) {
+    concept MIDIProcessorClass = requires(T obj, MIDITimedMessage msg) {
                                 {
                                     obj.process(msg)
                                     } -> std::same_as<bool>;

@@ -1,5 +1,6 @@
 #include <iostream>
 #include <fstream>
+#include "libmfmidi/miditrackplayer.hpp"
 #include "libmfmidi/simpletrackplayer.hpp"
 #include "libmfmidi/smfreader.hpp"
 #include "libmfmidi/samhandlers.hpp"
@@ -7,6 +8,7 @@
 #include "libmfmidi/details/kdmapidevice.hpp"
 #include "libmfmidi/details/win32mmtimer.hpp"
 #include "libmfmidi/midimessagefdc.hpp"
+#include "libmfmidi/midiprocessor.hpp"
 
 using namespace libmfmidi;
 using std::cout;
@@ -14,7 +16,7 @@ using std::endl;
 
 int main(int argc, char** argv)
 {
-    cout << "MTTrackPlayer: Example of libmfmidi" << endl;
+    cout << "SimpleTrackPlayer: Example of libmfmidi" << endl;
     if (argc == 1) {
         std::cerr << "Error: No input file" << std::endl;
         return -1;
@@ -22,7 +24,7 @@ int main(int argc, char** argv)
 
     cout << "Opening file " << argv[1] << endl;
     std::fstream stm;
-    char filebuffer[2048]{};
+    char         filebuffer[2048]{};
     stm.rdbuf()->pubsetbuf(filebuffer, 2048);
 
     stm.open(argv[1], std::ios::in | std::ios::binary);
@@ -70,18 +72,16 @@ int main(int argc, char** argv)
         std::cerr << "Failed to open device" << endl;
     }
 
-    MIDIMessageF2D        f2d;
-    details::Win32MMTimer timer;
-    SimpleTrackPlayer     player; // init player after everything
+    MIDITrackPlayer player; // init player after everything
 
-    player.setMsgProcessor(f2d);
+    auto compfdc = [&](MIDITimedMessage& msg) {
+        fdc::MFMarkTempo::process(msg);
+        return MIDIMessageF2D::process(msg);
+    };
+    player.setMsgProcessor(compfdc);
     player.setDivision(info.division);
     player.setDriver(dev);
-    player.setTimer(&timer);
-
-    cout << "Preprocessing" << endl;
-    player.setTrack(std::move(trk));
-    cout << "Preprocessed" << endl;
+    player.setTrack(trk);
 
     cout << "Calling playing" << endl;
     player.play();

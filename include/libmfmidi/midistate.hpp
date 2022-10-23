@@ -164,7 +164,7 @@ namespace libmfmidi {
         MIDIState& mst;
     };
 
-    static_assert(MIDIProcessor<MIDIStateProcessor>); // For coding
+    static_assert(MIDIProcessorClass<MIDIStateProcessor>); // For coding
 
     /// \brief Revert MIDIState to MIDI messages
     ///

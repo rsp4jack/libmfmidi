@@ -166,6 +166,7 @@ add_library(libmfmidi ${TYPE}
     include/libmfmidi/details/posixtimer.hpp
     include/libmfmidi/details/rtmididevice.hpp
     include/libmfmidi/details/win32mmtimer.hpp
+    include/libmfmidi/nanosleep.cpp
 )
 
 add_library(rtmidi STATIC src/RtMidi.cpp)

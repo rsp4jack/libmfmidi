@@ -238,7 +238,11 @@ namespace libmfmidi {
 
         [[nodiscard]] constexpr uint8_t type() const
         {
-            return _data[0] & 0xF0U;
+            if(isChannelMsg()){
+                return _data[0] & 0xF0U;
+            } else {
+                return _data[0];
+            }
         }
 
         [[nodiscard]] constexpr uint8_t note() const
