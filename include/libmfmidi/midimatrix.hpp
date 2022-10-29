@@ -9,6 +9,7 @@
 #include <array>
 #include <bitset>
 #include <cstdint>
+#include "midinotifier.hpp"
 
 namespace libmfmidi {
     using std::uint8_t;
@@ -19,6 +20,11 @@ namespace libmfmidi {
     public:
         MIDIMatrix() noexcept = default;
 
+        void setNotifier(MIDINotifierFunctionType func)
+        {
+            mnotifier = std::move(func);
+        }
+
         bool process(const MIDITimedMessage& msg, uint8_t port = 1)
         {
             if (msg.isChannelMsg()) {
@@ -26,18 +32,25 @@ namespace libmfmidi {
 
                 if (msg.isAllNotesOff() || msg.isAllSoundsOff()) {
                     clearChannel(port, chn);
+                    notify(NotifyType::TR_All);
                 } else if (msg.isImplicitNoteOn()) {
                     noteOn(port, chn, msg.note(), msg.velocity());
+                    notify(NotifyType::TR_Note);
                 } else if (msg.isImplicitNoteOff()) {
                     noteOff(port, chn, msg.note(), msg.velocity());
+                    notify(NotifyType::TR_Note);
                 } else if (msg.isCCSustainOn()) {
                     holdOn(port, chn);
+                    notify(NotifyType::TR_CC);
                 } else if (msg.isCCSustainOff()) {
                     holdOff(port, chn);
+                    notify(NotifyType::TR_CC);
                 } else if (msg.isPolyPressure()) {
                     polyPressure(port, chn, msg.note(), msg.pressure());
+                    notify(NotifyType::TR_AfterTouch);
                 } else if (msg.isChannelPressure()) {
                     channelPressure(port, chn, msg.pressure());
+                    notify(NotifyType::TR_AfterTouch);
                 }
             }
             return true;
@@ -170,12 +183,21 @@ namespace libmfmidi {
         }
 
     private:
+        MIDINotifierFunctionType mnotifier;
+
+        void notify(NotifyType type) const noexcept
+        {
+            if(mnotifier){
+                mnotifier(type);
+            }
+        }
         struct NoteState {
             bool on = false;
             uint8_t velocity = 64; ///< note on and off velocity
             uint8_t afterTouch = 0;
         };
 
+        
         class NoteStateArray : public std::array<NoteState, 128> {
         public:
             [[nodiscard]] constexpr inline long long count() const noexcept

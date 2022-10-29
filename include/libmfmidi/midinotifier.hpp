@@ -19,6 +19,8 @@
 /// \author Creepercdn (creepercdn@outlook.com)
 /// \brief High-level notifier
 
+#pragma once
+
 #include <functional>
 
 namespace libmfmidi {
@@ -31,14 +33,17 @@ namespace libmfmidi {
 
     enum class NotifyType { // update getNotifyCategoryOfNotifyType too
         All,
+        C_All,
         C_Tempo,
         C_KeySig,
         C_TimeSig,
         C_Marker,
+        T_All,
         T_Mode, // play, stop...
         T_Measure,
         T_Beat,
         T_EndOfSong, ///< End of playback, when player stop at end, \a T_EndOfSong will notify.
+        TR_All,
         TR_Name,
         TR_Note,
         TR_PG,
@@ -49,17 +54,21 @@ namespace libmfmidi {
 
     constexpr NotifyCategory getNotifyCategoryOfNotifyType(NotifyType type) noexcept
     {
+        using enum NotifyType;
         switch (type) {
+        case NotifyType::C_All:
         case NotifyType::C_Tempo:
         case NotifyType::C_KeySig:
         case NotifyType::C_TimeSig:
         case NotifyType::C_Marker:
             return NotifyCategory::Conductor;
+        case NotifyType::T_All:
         case NotifyType::T_Mode:
         case NotifyType::T_Measure:
         case NotifyType::T_Beat:
         case NotifyType::T_EndOfSong:
             return NotifyCategory::Transport;
+        case NotifyType::TR_All:
         case NotifyType::TR_Name:
         case NotifyType::TR_Note:
         case NotifyType::TR_PG:
