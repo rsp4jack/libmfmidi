@@ -24,14 +24,14 @@
 #include "mfconcepts.hpp"
 #include "midiutils.hpp"
 #include "midimatrix.hpp"
+#include "midinotifier.hpp"
 #include <array>
 #include <tuple>
 
 namespace libmfmidi {
     using MIDIUtils::MIDIClockTime;
 
-    class MIDIChannelState {
-    public:
+    struct MIDIChannelState {
         MIDIChannelState() noexcept
         {
             reset();
@@ -56,7 +56,8 @@ namespace libmfmidi {
         uint16_t expression{};
         uint16_t pan{}; // most use
         uint16_t balance{};
-        uint8_t aftertouch{};
+        uint8_t  aftertouch{};
+        // TODO: pitch bend
     };
 
     /// \brief A struct to hold MIDI Status
@@ -99,6 +100,13 @@ namespace libmfmidi {
         {
         }
 
+        /// \warning Will set MIDIMatrix's notifier
+        void setNotifier(const MIDINotifierFunctionType& func) noexcept
+        {
+            mnotifier = func;
+            mst.matrix.setNotifier(func);
+        }
+
         bool process(const MIDITimedMessage& msg, uint8_t port = 1)
         {
             using namespace MIDINumSpace;
@@ -108,9 +116,11 @@ namespace libmfmidi {
             case CHANNEL_PRESSURE:
             case POLY_PRESSURE:
                 mst.matrix.process(msg, port);
+                // notify by MIDIMatrix
                 break;
             case PROGRAM_CHANGE:
                 mst.channels.at(port - 1).at(msg.channel() - 1).program = msg.programChangeValue();
+                notify(NotifyType::TR_PG);
                 break;
             case CONTROL_CHANGE: {
                 auto& chst = mst.channels.at(port - 1).at(msg.channel() - 1);
@@ -144,16 +154,19 @@ namespace libmfmidi {
                     break;
                     // TODO: add more...
                 }
+                notify(NotifyType::TR_CC);
                 break;
             }
             case META_EVENT:
                 switch (msg.metaType()) {
                 case MIDIMetaNumSpace::TEMPO:
                     mst.tempo = msg.bpm();
+                    notify(NotifyType::C_Tempo);
                     break;
                 case MIDIMetaNumSpace::TIMESIG:
                     mst.denominator = msg.timeSigDenominator();
                     mst.numerator   = msg.timeSigNumerator();
+                    notify(NotifyType::C_TimeSig);
                     break;
                 }
             }
@@ -161,7 +174,14 @@ namespace libmfmidi {
         }
 
     private:
+        void notify(NotifyType type) noexcept
+        {
+            if (mnotifier) {
+                mnotifier(type);
+            }
+        }
         MIDIState& mst;
+        MIDINotifierFunctionType mnotifier;
     };
 
     static_assert(MIDIProcessorClass<MIDIStateProcessor>); // For coding
