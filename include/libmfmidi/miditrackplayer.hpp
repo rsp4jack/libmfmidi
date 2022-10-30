@@ -40,7 +40,14 @@ namespace libmfmidi {
     public:
         static constexpr int TICK_PER_CACHE = 2048;
 
-        explicit MIDITrackPlayer() noexcept = default;
+        explicit MIDITrackPlayer() noexcept
+        {
+            mstproc.setNotifier([&](NotifyType type) {
+                if(type==NotifyType::C_Tempo){
+                    reCalcDivns();
+                }
+            });
+        }
 
         void pause()
         {
@@ -67,7 +74,8 @@ namespace libmfmidi {
 
         void setDivision(MIDIDivision div) noexcept
         {
-            mdivns = static_cast<unsigned long long>(divisionToSec(div, mstate.tempo) * 1000 * 1000 * 1000);
+            mdiv = div;
+            reCalcDivns();
         }
 
         void setTrack(const MIDITrack& trk)
@@ -134,6 +142,11 @@ namespace libmfmidi {
             mthread = std::jthread([&](const std::stop_token& tok) {
                 playerthread(tok);
             });
+        }
+
+        void reCalcDivns()
+        {
+            mdivns = static_cast<unsigned long long>(divisionToSec(mdiv, mstate.tempo) * 1000 * 1000 * 1000);
         }
 
         void revertSt() noexcept
@@ -210,6 +223,7 @@ namespace libmfmidi {
 
         std::jthread                       mthread;
         const MIDITrack*                   mtrk{};
+        MIDIDivision mdiv = 0;
         unsigned long long                 mdivns = 0; // division to nanosec
         std::barrier<>                     mpausebarrier{2};
         MIDIClockTime                      mabsTime    = 0; // Current abs tick time
