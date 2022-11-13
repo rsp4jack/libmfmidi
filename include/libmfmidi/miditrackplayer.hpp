@@ -29,7 +29,8 @@
 #include <map>
 #include <thread>
 #include <stop_token>
-#include <barrier>
+#include <mutex>
+#include <condition_variable>
 #include "nanosleep.hpp"
 #include <atomic>
 
@@ -38,15 +39,20 @@ namespace libmfmidi {
     /// Support navigation, MIDIState calc and recovery
     class MIDITrackPlayer {
     public:
-        static constexpr int TICK_PER_CACHE = 2048;
+        static constexpr int TICK_PER_CACHE = 2048000;
 
         explicit MIDITrackPlayer() noexcept
         {
             mstproc.setNotifier([&](NotifyType type) {
-                if(type==NotifyType::C_Tempo){
+                if (type == NotifyType::C_Tempo) {
                     reCalcDivns();
                 }
             });
+        }
+
+        ~MIDITrackPlayer() noexcept
+        {
+            mcv.notify_all(); // wake up sleeping thread to stop
         }
 
         void pause()
@@ -61,8 +67,14 @@ namespace libmfmidi {
             }
             if (!mplaying) {
                 mplaying = true;
-                mpausebarrier.arrive_and_wait();
+                mcv.notify_all();
+                // UNUSED(mpausebarrier.arrive());
             }
+        }
+
+        [[nodiscard]] MIDIClockTime tickTime() const noexcept
+        {
+            return mabsTime;
         }
 
         void reset() noexcept
@@ -82,7 +94,7 @@ namespace libmfmidi {
         {
             mtrk   = &trk;
             mcurit = mtrk->cbegin();
-            if (museCache && mrevertState) {
+            if (museCache) {
                 generateCahce();
             }
         }
@@ -99,44 +111,63 @@ namespace libmfmidi {
 
         void goTo(MIDIClockTime clktime) noexcept
         {
-            if (mrevertState) {
-                mrelckltime = 0;
-                if (museCache && !mcache.empty()) {
-                    auto it  = mcache.begin();
-                    auto lit = it;
-                    while (it != mcache.end()) {
-                        if (it->first == clktime) {
-                            mabsTime = clktime;
-                            mstate   = it->second;
-                            return;
+            if (museCache && !mcache.empty()) {
+                auto it      = mcache.begin();
+                auto lit     = it;
+                bool matched = false;
+                while (it != mcache.end()) {
+                    if (it->first == clktime) {
+                        matched = true;
+                        revertSnapshot(it->second);
+                        return;
+                    }
+                    if (it->first > clktime) {
+                        matched = true;
+                        if (lit != it) { // not begin
+                            revertSnapshot(it->second);
+                            // directGoTo to pad remaining
+                        } else {
+                            // first cache is later; fallback to directGoTo
+                            revertSnapshot(defaultSnapshot());
                         }
-                        if (it->first > clktime) {
-                            if (lit != it) { // not begin
-                                mabsTime = lit->first;
-                                mstate   = lit->second;
-                                // directGoTo to pad remaining
-                            } else {
-                                mabsTime = 0; // first cache is bigger; fallback to directGoTo
-                                mstate.resetAll();
-                            }
-                            break;
-                        }
-                        lit = it;
-                        ++it;
+                        break;
+                    }
+                    lit = it;
+                    ++it;
+                }
+                if (!matched) {
+                    if (lit->second.absTime < clktime) {
+                        revertSnapshot(lit->second);
                     }
                 }
-                if (clktime > mabsTime) {
-                    mabsTime = 0; // begin from initial
-                    mstate.resetAll();
-                }
-                directGoTo(clktime);
             } else {
-                mstate.resetAll();
-                mabsTime = clktime;
+                revertSnapshot(defaultSnapshot());
             }
+            directGoTo(clktime);
+            revertSt();
         }
 
     private:
+        struct Snapshot {
+            MIDIClockTime             absTime;
+            MIDIClockTime             relckltime;
+            MIDIState                 state;
+            MIDITrack::const_iterator curit;
+        };
+
+        void revertSnapshot(const Snapshot& sht) noexcept
+        {
+            mabsTime    = sht.absTime;
+            mrelckltime = sht.relckltime;
+            mstate      = sht.state;
+            mcurit      = sht.curit;
+        }
+
+        Snapshot defaultSnapshot() const noexcept
+        {
+            return {0, 0, {}, mtrk->cbegin()};
+        }
+
         void initThread()
         {
             mthread = std::jthread([&](const std::stop_token& tok) {
@@ -160,37 +191,43 @@ namespace libmfmidi {
         void generateCahce() noexcept
         {
             mcache.clear();
-            MIDIClockTime      absTime = 0;
-            MIDIClockTime      relTime = 0;
+            MIDIClockTime      absTime      = 0;
+            MIDIClockTime      relTime      = 0;
+            MIDIClockTime      relCacheTime = 0;
             MIDIState          state;
             MIDIStateProcessor stateProc{state};
-            for (const auto& msg : *mtrk) {
-                absTime += msg.deltaTime();
-                relTime += msg.deltaTime();
-                stateProc.process(msg);
-                if (relTime >= TICK_PER_CACHE) {
-                    mcache[absTime] = state;
-                    relTime -= TICK_PER_CACHE;
+            auto               curit = mtrk->cbegin();
+            while (true) {
+                if (curit == mtrk->cend()) {
+                    break;
                 }
+                if (relCacheTime >= TICK_PER_CACHE) {
+                    mcache[absTime] = Snapshot{absTime, relTime, state, curit};
+                }
+                if (relTime >= curit->deltaTime()) {
+                    stateProc.process(*curit);
+                    ++curit;
+                    relTime = 0;
+                }
+                ++relTime;
+                ++relCacheTime;
+                ++absTime;
             }
         }
 
-        void directGoTo(MIDIClockTime clktime) noexcept
+        void directGoTo(MIDIClockTime clktime)
         {
-            if (mrevertState) {
-                while (mabsTime < clktime) {
-                    while (true) { // for repeated 0 delta time msg
-                        if (mrelckltime >= mcurit->deltaTime()) {
-                            mstproc.process(*mcurit);
-                            mrelckltime = 0;
-                            ++mcurit;
-                            continue;
-                        }
-                        break;
-                    }
-                    ++mabsTime;
-                    ++mrelckltime;
+            while (mabsTime < clktime) {
+                if (mcurit == mtrk.cend()) {
+                    throw mf_;
                 }
+                if (mrelckltime >= mcurit->deltaTime()) {
+                    mstproc.process(*mcurit);
+                    mrelckltime = 0;
+                    ++mcurit;
+                }
+                ++mabsTime;
+                ++mrelckltime;
             }
         }
 
@@ -198,10 +235,15 @@ namespace libmfmidi {
         {
             while (!tok.stop_requested()) {
                 if (!mplaying) {
-                    mpausebarrier.arrive_and_wait();
+                    std::unique_lock<std::mutex> ulk{mcvmutex};
+                    mcv.wait(ulk, [&] { return mplaying; });
                 }
                 MIDITimedMessage tempmsg;
                 while (true) { // for repeated 0 delta time msg
+                    if (mcurit == mtrk->cend()) {
+                        mplaying = false;
+                        break;
+                    }
                     if (mrelckltime >= mcurit->deltaTime()) {
                         tempmsg = *mcurit; // TODO: state change(like divns)
                         mstproc.process(tempmsg);
@@ -221,22 +263,32 @@ namespace libmfmidi {
             }
         }
 
-        std::jthread                       mthread;
-        const MIDITrack*                   mtrk{};
-        MIDIDivision mdiv = 0;
-        unsigned long long                 mdivns = 0; // division to nanosec
-        std::barrier<>                     mpausebarrier{2};
-        MIDIClockTime                      mabsTime    = 0; // Current abs tick time
-        MIDIClockTime                      mrelckltime = 0;
-        MIDIState                          mstate;
-        MIDIStateProcessor                 mstproc{mstate};
-        MIDIProcessorFunction              mprocfunc;
-        AbstractMIDIDevice*                mdev{};
-        bool                               mplaying{false};
-        MIDITrack::const_iterator          mcurit;
-        bool                               museCache    = true; // use MIDIState cache
-        bool                               mrevertState = true; // revert MIDIState when navigate
-        std::map<MIDIClockTime, MIDIState> mcache;
-        std::vector<MIDIClockTime>         mtrkabsimes;
+        // Multi-thread
+        std::jthread            mthread;
+        std::mutex              mcvmutex;
+        std::condition_variable mcv;
+
+        // Settings
+        bool museCache = true; // use MIDIState cache
+
+        const MIDITrack* mtrk{};
+
+        // Playing info
+        MIDIDivision       mdiv   = 0;
+        unsigned long long mdivns = 0; // division to nanosec
+        bool               mplaying{false};
+
+        // Snapshot-able
+        MIDIClockTime             mabsTime    = 0; // Current abs tick time
+        MIDIClockTime             mrelckltime = 0;
+        MIDIState                 mstate;
+        MIDITrack::const_iterator mcurit;
+
+        MIDIStateProcessor    mstproc{mstate};
+        MIDIProcessorFunction mprocfunc;
+        AbstractMIDIDevice*   mdev{};
+
+        // Cache
+        std::map<MIDIClockTime, Snapshot> mcache;
     };
 }

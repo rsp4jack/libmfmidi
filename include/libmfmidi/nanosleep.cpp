@@ -75,16 +75,21 @@ int nanosleep(const struct timespec* requested_delay, struct timespec* remaining
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <climits>
+#include <thread>
+#include <algorithm>
 
 /* The Windows API function Sleep() has a resolution of about 15 ms and takes
    at least 5 ms to execute.  We use this function for longer time periods.
    Additionally, we use busy-looping over short time periods, to get a
    resolution of about 0.01 ms.  In order to measure such short timespans,
    we use the QueryPerformanceCounter() function.  */
-
+#undef max
+#undef min
+#if 1
+// very high resolution
 int nanosleep(unsigned long long nsec)
 {
-    static bool initialized;
+    static bool initialized = false;
     /* Number of performance counter increments per nanosecond,
        or zero if it could not be determined.  */
     static double ticks_per_nanosecond;
@@ -108,7 +113,18 @@ int nanosleep(unsigned long long nsec)
         /* Number of milliseconds to pass to the Sleep function.
            Since Sleep can take up to 8 ms less or 8 ms more than requested
            (or maybe more if the system is loaded), we subtract 10 ms.  */
-        const DWORD sleep_millis = max(static_cast<long long>(min(LLONG_MAX, nsec)) / 1000000 - 10, 0);
+        // clang-format off
+        const DWORD sleep_millis = 
+            std::max(
+                static_cast<long long>(
+                    std::min(
+                        static_cast<unsigned long long>(LLONG_MAX),
+                        nsec
+                    )
+                ) / 1000000 - 10,
+                0LL
+            );
+        // clang-format on
         /* Determine how many ticks to delay.  */
         const LONGLONG wait_ticks = nsec * ticks_per_nanosecond;
         /* Start.  */
@@ -135,11 +151,38 @@ int nanosleep(unsigned long long nsec)
                     /* The requested time has elapsed.  */
                     break;
                 }
+                std::this_thread::yield();
             }
         }
     }
     return 0;
 }
+#else
+// waitable timer
+int nanosleep(unsigned long long nsec)
+{
+    /* Declarations */
+    HANDLE        timer; /* Timer handle */
+    LARGE_INTEGER li;    /* Time defintion */
+                         /* Create timer */
+    timer = CreateWaitableTimerEx(NULL, NULL, CREATE_WAITABLE_TIMER_MANUAL_RESET | CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, DELETE | SYNCHRONIZE | TIMER_MODIFY_STATE);
+    if (!timer) {
+        return FALSE;
+    }
+    /* Set timer properties */
+    li.QuadPart = -(nsec / 100ULL);
+    if (!SetWaitableTimer(timer, &li, 0, NULL, NULL, FALSE)) {
+        CloseHandle(timer);
+        return FALSE;
+    }
+    /* Start & wait for timer */
+    WaitForSingleObject(timer, INFINITE);
+    /* Clean resources */
+    CloseHandle(timer);
+    /* Slept without problems */
+    return TRUE;
+}
+#endif
 
 #else
 /* Other platforms lacking nanosleep.

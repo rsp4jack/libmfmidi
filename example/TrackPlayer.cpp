@@ -9,14 +9,20 @@
 #include "libmfmidi/details/win32mmtimer.hpp"
 #include "libmfmidi/midimessagefdc.hpp"
 #include "libmfmidi/midiprocessor.hpp"
+#include <processthreadsapi.h>
+#include <timeapi.h>
+#include <ranges>
 
 using namespace libmfmidi;
 using std::cout;
+using std::cin;
 using std::endl;
 
 int main(int argc, char** argv)
 {
-    cout << "SimpleTrackPlayer: Example of libmfmidi" << endl;
+    SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
+    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_IDLE);
+    cout << "TrackPlayer: Example of libmfmidi" << endl;
     if (argc == 1) {
         std::cerr << "Error: No input file" << std::endl;
         return -1;
@@ -83,10 +89,36 @@ int main(int argc, char** argv)
     player.setDriver(dev);
     player.setTrack(trk);
 
-    cout << "Calling playing" << endl;
-    player.play();
-    cout << "Playing, Press a key to quit" << endl;
-    std::system("pause");
-    player.pause();
+    std::vector<std::string> splitedcmd;
+    std::getchar();
+    while (true) {
+        cout << "> ";
+        std::string cmd;
+        std::getline(cin, cmd);
+        splitedcmd.clear();
+        for (const auto& i : std::ranges::views::split(cmd, std::string_view(" "))) {
+            splitedcmd.emplace_back(i.begin(), i.end());
+        }
+
+        if (splitedcmd.empty()) {
+            
+        } else if (splitedcmd[0] == "play") {
+            player.play();
+        } else if (splitedcmd[0] == "pause") {
+            player.pause();
+        } else if (splitedcmd[0] == "seek") {
+            if (splitedcmd.size() < 2) {
+                cout << "Current tick time: " << player.tickTime() << endl;
+                continue;
+            }
+            const MIDIClockTime clk = std::stoul(splitedcmd[1]);
+            cout << "Seeking to " << clk << endl;
+            player.goTo(clk);
+        } else if (splitedcmd[0] == "exit") {
+            break;
+        } else {
+            cout << "Unknown Command: " << cmd << endl;
+        }
+    }
     return 0;
 }
