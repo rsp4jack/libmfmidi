@@ -80,8 +80,10 @@ namespace libmfmidi {
             return NotifyCategory::Full;
         }
     }
+
     /// \brief Notifier
     /// Notifier is high-level interface of MIDI real-time message handling.
     /// e.g. Note on and off, program change, playback start and stop...
+    /// \warning Notifier function \b MUST \b NOT throw any expection.
     using MIDINotifierFunctionType = std::function<void(NotifyType)>;
 }
