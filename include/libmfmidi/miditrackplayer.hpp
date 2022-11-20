@@ -55,7 +55,7 @@ namespace libmfmidi {
             mcv.notify_all(); // wake up sleeping thread to stop
         }
 
-        void pause()
+        void pause() noexcept
         {
             mplaying = false;
         }
@@ -68,7 +68,6 @@ namespace libmfmidi {
             if (!mplaying) {
                 mplaying = true;
                 mcv.notify_all();
-                // UNUSED(mpausebarrier.arrive());
             }
         }
 
@@ -79,9 +78,7 @@ namespace libmfmidi {
 
         void reset() noexcept
         {
-            mrelckltime = 0;
-            mabsTime    = 0;
-            mstate.resetAll();
+            revertSnapshot(defaultSnapshot());
         }
 
         void setDivision(MIDIDivision div) noexcept
@@ -90,27 +87,44 @@ namespace libmfmidi {
             reCalcDivns();
         }
 
-        void setTrack(const MIDITrack& trk)
+        void setTrack(const MIDITrack& trk) noexcept
         {
-            mtrk   = &trk;
-            mcurit = mtrk->cbegin();
+            mtrk = &trk;
+            revertSnapshot(defaultSnapshot());
             if (museCache) {
                 generateCahce();
             }
         }
 
-        void setDriver(AbstractMIDIDevice* dev)
+        void setDriver(AbstractMIDIDevice* dev) noexcept
         {
             mdev = dev;
         }
 
-        void setMsgProcessor(MIDIProcessorFunction func)
+        void setMsgProcessor(MIDIProcessorFunction func) noexcept
         {
             mprocfunc = std::move(func);
         }
 
-        void goTo(MIDIClockTime clktime) noexcept
+        /// \exception std::out_of_range \a clktime is out of range
+        /// Exception safety: \b Basic
+        /// Like \a goTo(MIDIClockTime,std::nothrow_t) , it will goTo the end if out range
+        /// \sa goTo(MIDIClockTime,std::nothrow_t)
+        void goTo(MIDIClockTime clktime)
         {
+            if (!goTo(clktime, std::nothrow)) {
+                throw std::out_of_range(std::format("clktime {} is out of range", clktime));
+            }
+        }
+
+        /// \brief nothrow version of goTo
+        /// it will goTo the end if out range.
+        /// \sa goTo(MIDIClockTime)
+        bool goTo(MIDIClockTime clktime, std::nothrow_t /*unused*/) noexcept
+        {
+            bool const toPlay = mplaying;
+            pause(); // avoid data race
+
             if (museCache && !mcache.empty()) {
                 auto it      = mcache.begin();
                 auto lit     = it;
@@ -119,7 +133,11 @@ namespace libmfmidi {
                     if (it->first == clktime) {
                         matched = true;
                         revertSnapshot(it->second);
-                        return;
+
+                        if (toPlay) {
+                            play();
+                        }
+                        return true;
                     }
                     if (it->first > clktime) {
                         matched = true;
@@ -137,14 +155,43 @@ namespace libmfmidi {
                 }
                 if (!matched) {
                     if (lit->second.absTime < clktime) {
-                        revertSnapshot(lit->second);
+                        revertSnapshot(lit->second); // revert to the latest cache
+                    } else {
+                        std::unreachable();
                     }
                 }
             } else {
-                revertSnapshot(defaultSnapshot());
+                revertSnapshot(defaultSnapshot()); // cant use cache
             }
-            directGoTo(clktime);
-            revertSt();
+
+            const bool result = directGoTo(clktime); // padding
+            revertState();
+
+            if (toPlay) {
+                play();
+            }
+            return result;
+        }
+
+        /// \brief If you changed \a mtrk , call this.
+        void regenerateAllSnapshots()
+        {
+            bool const toPlay = mplaying;
+            pause();
+            MIDIClockTime const clktime = mabsTime;
+            revertSnapshot(defaultSnapshot());
+            if (museCache) {
+                generateCahce();
+            }
+            goTo(clktime, std::nothrow);
+            if (toPlay) {
+                play();
+            }
+        }
+
+        std::jthread::native_handle_type nativeHandle() noexcept
+        {
+            return mthread.native_handle();
         }
 
     private:
@@ -175,12 +222,12 @@ namespace libmfmidi {
             });
         }
 
-        void reCalcDivns()
+        void reCalcDivns() noexcept
         {
             mdivns = static_cast<unsigned long long>(divisionToSec(mdiv, mstate.tempo) * 1000 * 1000 * 1000);
         }
 
-        void revertSt() noexcept
+        void revertState() noexcept
         {
             auto rst = reportMIDIState(mstate, false);
             for (auto& i : rst) {
@@ -215,20 +262,21 @@ namespace libmfmidi {
             }
         }
 
-        void directGoTo(MIDIClockTime clktime)
+        bool directGoTo(MIDIClockTime clktime) noexcept
         {
             while (mabsTime < clktime) {
-                if (mcurit == mtrk.cend()) {
-                    throw mf_;
-                }
                 if (mrelckltime >= mcurit->deltaTime()) {
                     mstproc.process(*mcurit);
                     mrelckltime = 0;
+                    if (mcurit == mtrk->end() - 1) {
+                        return false;
+                    }
                     ++mcurit;
                 }
                 ++mabsTime;
                 ++mrelckltime;
             }
+            return true;
         }
 
         void playerthread(const std::stop_token& tok)
