@@ -12,6 +12,9 @@
 #include <processthreadsapi.h>
 #include <timeapi.h>
 #include <ranges>
+#include <filesystem>
+#define _HAS_CXX23 1
+#include <spanstream>
 
 using namespace libmfmidi;
 using std::cout;
@@ -20,26 +23,31 @@ using std::endl;
 
 int main(int argc, char** argv)
 {
-    SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
-    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_IDLE);
+    SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS);
+
     cout << "TrackPlayer: Example of libmfmidi" << endl;
     if (argc == 1) {
         std::cerr << "Error: No input file" << std::endl;
         return -1;
     }
 
+    // spanstream for speed
     cout << "Opening file " << argv[1] << endl;
     std::fstream stm;
-    char         filebuffer[2048]{};
-    stm.rdbuf()->pubsetbuf(filebuffer, 2048);
-
     stm.open(argv[1], std::ios::in | std::ios::binary);
+    std::vector<char> memory; // just for own memory, like unique_ptr
+    auto filesize = std::filesystem::file_size(argv[1]);
+    memory.resize(filesize);
+    stm.read(memory.data(), filesize);
+    std::span<char> preread{memory.begin(), memory.end()};
+    std::basic_spanstream<char, std::char_traits<char>> ss{preread, std::ios::in | std::ios::binary};
+    stm.close();
     cout << "Opened" << endl;
 
     MIDIMultiTrack    file;
     SMFFileInfo       info;
     SMFFileSAMHandler hsam(&file, &info);
-    SMFReader         rd(&stm, 0, &hsam);
+    SMFReader         rd(&ss, 0, &hsam);
 
     cout << "Parsing SMF" << endl;
     rd.parse();
@@ -47,7 +55,7 @@ int main(int argc, char** argv)
     cout << "SMF File: Format " << info.type << "; Division: " << static_cast<uint16_t>(info.division) << ";" << endl;
     cout << "NTrks: " << file.size() << ';' << endl;
 
-    stm.close();
+    
 
     cout << "Merging" << endl;
     MIDITrack trk;
@@ -89,6 +97,10 @@ int main(int argc, char** argv)
     player.setDriver(dev);
     player.setTrack(trk);
 
+    // manual init player thread to set priority
+    player.initThread();
+    SetThreadPriority(player.nativeHandle(), THREAD_PRIORITY_TIME_CRITICAL);
+
     std::vector<std::string> splitedcmd;
     std::getchar();
     while (true) {
@@ -116,6 +128,8 @@ int main(int argc, char** argv)
             player.goTo(clk);
         } else if (splitedcmd[0] == "exit") {
             break;
+        } else if (splitedcmd[0] == "status") {
+            cout << "Is playing: " << player.isPlaying() << endl;
         } else {
             cout << "Unknown Command: " << cmd << endl;
         }

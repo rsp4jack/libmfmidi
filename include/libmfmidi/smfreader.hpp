@@ -177,18 +177,18 @@ namespace libmfmidi {
                 report("invalid header, expected MTrk");
                 return;
             }
-            uint8_t c = 0; // temp variable
-            uint8_t status = 0; // midi status
-            uint32_t      length  = readU32();
-            m_etc                 = length;
+            uint8_t  c      = 0; // temp variable
+            uint8_t  status = 0; // midi status
+            uint32_t length = readU32();
+            m_etc           = length;
             m_hand->on_starttrack(m_curtrk);
             while (m_etc > 0) {
                 // Read a event
                 MIDIClockTime deltatime = readVarNumE();
-                //m_hand->on_deltatime(deltatime);
+                // m_hand->on_deltatime(deltatime);
 
                 c = readU8E();
-                if ((c&0x80)==0) {
+                if ((c & 0x80) == 0) {
                     if (status == 0) {
                         report("Running Status without status");
                         return;
@@ -200,18 +200,18 @@ namespace libmfmidi {
                 MIDITimedMessage buffer{status};
                 buffer.setDeltaTime(deltatime);
                 if (buffer.isChannelMsg()) { // also if vaild (in range)
-                    for (int i = 0; i < buffer.expectedLength()-1; ++i) {
+                    for (int i = 0; i < buffer.expectedLength() - 1; ++i) {
                         buffer.push_back(readU8E());
                     }
                 } else {
                     switch (status) {
-                    case 0xFF:{
+                    case 0xFF: {
                         // Meta Event
                         // Reset wont in SMF file
                         buffer.push_back(readU8E()); // type
                         uint32_t len = readVarNumE();
                         writeVarNumIt(len, std::back_inserter(buffer));
-                        if(len > m_etc) {
+                        if (len > m_etc) {
                             report("invalid Meta Event length: bigger than track length");
                             break;
                         }
@@ -259,14 +259,14 @@ namespace libmfmidi {
         size_t                 m_etc = 0;
         std::istream*          ise;
         uint16_t               m_type{};
-        MIDIDivision               m_division{};
+        MIDIDivision           m_division{};
         uint16_t               m_trks{};
         std::istream::off_type m_off;
         AbstractSAMHandler*    m_hand;
-        bool                   m_sucheader = false;
-        bool                   m_suclasttrk = false;
-        bool                   m_suc       = false; ///< Fully parsed
-        bool                   m_warn       = false; ///< Parsed with warning, false if fully not parsed
+        bool                   m_sucheader        = false;
+        bool                   m_suclasttrk       = false;
+        bool                   m_suc              = false; ///< Fully parsed
+        bool                   m_warn             = false; ///< Parsed with warning, false if fully not parsed
         bool                   m_userunningstatus = false;
         uint16_t               m_curtrk{};
     };

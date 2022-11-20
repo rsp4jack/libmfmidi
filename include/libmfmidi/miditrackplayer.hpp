@@ -52,7 +52,22 @@ namespace libmfmidi {
 
         ~MIDITrackPlayer() noexcept
         {
-            mcv.notify_all(); // wake up sleeping thread to stop
+            using namespace std::literals;
+            pause();
+            mthread.request_stop();
+            while (!mthreadexit) {
+                mcv.notify_all(); // wake up sleeping thread to stop
+                std::this_thread::sleep_for(2ms);
+            }
+        }
+
+        void initThread()
+        {
+            if (!mthread.joinable()) {
+                mthread = std::jthread([&](const std::stop_token& tok) {
+                    playerthread(tok);
+                });
+            }
         }
 
         void pause() noexcept
@@ -69,6 +84,11 @@ namespace libmfmidi {
                 mplaying = true;
                 mcv.notify_all();
             }
+        }
+
+        [[nodiscard]] bool isPlaying() const noexcept
+        {
+            return mplaying;
         }
 
         [[nodiscard]] MIDIClockTime tickTime() const noexcept
@@ -215,13 +235,6 @@ namespace libmfmidi {
             return {0, 0, {}, mtrk->cbegin()};
         }
 
-        void initThread()
-        {
-            mthread = std::jthread([&](const std::stop_token& tok) {
-                playerthread(tok);
-            });
-        }
-
         void reCalcDivns() noexcept
         {
             mdivns = static_cast<unsigned long long>(divisionToSec(mdiv, mstate.tempo) * 1000 * 1000 * 1000);
@@ -309,12 +322,14 @@ namespace libmfmidi {
                 ++mabsTime;
                 ++mrelckltime;
             }
+            mthreadexit = true;
         }
 
         // Multi-thread
         std::jthread            mthread;
         std::mutex              mcvmutex;
         std::condition_variable mcv;
+        bool                    mthreadexit = false;
 
         // Settings
         bool museCache = true; // use MIDIState cache
