@@ -22,28 +22,15 @@
 #include <ios>
 #include <stdexcept>
 #include "mfutils.hpp"
+#include "smfreaderpolicy.hpp"
 
 namespace libmfmidi {
-    class mf_error : public std::exception {
+    class smf_reader_error : public std::exception {
     public:
-        explicit mf_error(const char* msg) noexcept
-            : std::exception(msg)
-        {
-        }
-
-        explicit mf_error(const std::string& msg) noexcept
-            : std::exception(msg.c_str())
-        {
-        }
-
-    private:
-    };
-
-    class smf_reader_error : public mf_error {
-    public:
-        explicit smf_reader_error(std::streampos pos, const char* msg)
-            : mf_error(std::format("Error on byte {}: {}", static_cast<std::streamoff>(pos), msg))
+        explicit smf_reader_error(std::streampos pos, const char* msg, SMFReaderPolicy policy = SMFReaderPolicy::None)
+            : std::exception(std::format("Error on byte {}: {}, Cause by policy: P{}", static_cast<std::streamoff>(pos), msg, static_cast<unsigned int>(policy)).c_str())
         {
         }
     };
+
 }

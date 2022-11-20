@@ -23,6 +23,7 @@
 
 namespace libmfmidi {
     enum class SMFReaderPolicy {
+        None,
         UnexceptedEOF,
         InvaildHeader, // When read file header, treat it as MThd; when read tracks, treat it as MTrk
         NoEndOfTrack,
