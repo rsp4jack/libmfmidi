@@ -56,27 +56,27 @@ namespace libmfmidi {
     {
         using enum NotifyType;
         switch (type) {
-        case NotifyType::C_All:
-        case NotifyType::C_Tempo:
-        case NotifyType::C_KeySig:
-        case NotifyType::C_TimeSig:
-        case NotifyType::C_Marker:
+        case C_All:
+        case C_Tempo:
+        case C_KeySig:
+        case C_TimeSig:
+        case C_Marker:
             return NotifyCategory::Conductor;
-        case NotifyType::T_All:
-        case NotifyType::T_Mode:
-        case NotifyType::T_Measure:
-        case NotifyType::T_Beat:
-        case NotifyType::T_EndOfSong:
+        case T_All:
+        case T_Mode:
+        case T_Measure:
+        case T_Beat:
+        case T_EndOfSong:
             return NotifyCategory::Transport;
-        case NotifyType::TR_All:
-        case NotifyType::TR_Name:
-        case NotifyType::TR_Note:
-        case NotifyType::TR_PG:
-        case NotifyType::TR_CC:
-        case NotifyType::TR_PitchBend:
-        case NotifyType::TR_AfterTouch:
+        case TR_All:
+        case TR_Name:
+        case TR_Note:
+        case TR_PG:
+        case TR_CC:
+        case TR_PitchBend:
+        case TR_AfterTouch:
             return NotifyCategory::Track;
-        case NotifyType::All:
+        case All:
             return NotifyCategory::Full;
         }
     }

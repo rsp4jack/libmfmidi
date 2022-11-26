@@ -34,8 +34,8 @@ namespace libmfmidi {
             insert(cend(), rhs.cbegin(), rhs.cend());
 
             while (true) {
-                int           count = 0;
-                MIDIClockTime min   = std::numeric_limits<MIDIClockTime>::max();
+                int           count     = 0;
+                MIDIClockTime min       = MIDICLKTM_MAX;
                 size_t        min_index = 0;
                 for (size_t i = 0; i < size(); ++i) {
                     if (at(i).isEndOfTrack()) {
@@ -77,23 +77,21 @@ namespace libmfmidi {
         }
     };
 
-    namespace Utils {
-        constexpr void toAbsTimeTrack(MIDITrack& trk)
-        {
-            MIDIClockTime time = 0;
-            for (auto& event : trk) {
-                event.setDeltaTime(time += event.deltaTime());
-            }
+    constexpr void toAbsTimeTrack(MIDITrack& trk)
+    {
+        MIDIClockTime time = 0;
+        for (auto& event : trk) {
+            event.setDeltaTime(time += event.deltaTime());
         }
+    }
 
-        constexpr void toRelTimeTrack(MIDITrack& trk)
-        {
-            MIDIClockTime time = 0;
-            for (auto& event : trk) {
-                MIDIClockTime tmp =  event.deltaTime();
-                event.setDeltaTime(tmp - time);
-                time = tmp;
-            }
+    constexpr void toRelTimeTrack(MIDITrack& trk)
+    {
+        MIDIClockTime time = 0;
+        for (auto& event : trk) {
+            MIDIClockTime tmp = event.deltaTime();
+            event.setDeltaTime(tmp - time);
+            time = tmp;
         }
     }
 }

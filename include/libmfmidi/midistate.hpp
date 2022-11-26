@@ -29,8 +29,6 @@
 #include <tuple>
 
 namespace libmfmidi {
-    using MIDIUtils::MIDIClockTime;
-
     struct MIDIChannelState {
         MIDIChannelState() noexcept
         {
@@ -109,7 +107,6 @@ namespace libmfmidi {
 
         bool process(const MIDITimedMessage& msg, uint8_t port = 1)
         {
-            using namespace MIDINumSpace;
             switch (msg.type()) {
             case NOTE_ON:
             case NOTE_OFF:
@@ -159,11 +156,11 @@ namespace libmfmidi {
             }
             case META_EVENT:
                 switch (msg.metaType()) {
-                case MIDIMetaNumSpace::TEMPO:
+                case MIDIMetaNumber::TEMPO:
                     mst.tempo = msg.bpm();
                     notify(NotifyType::C_Tempo);
                     break;
-                case MIDIMetaNumSpace::TIMESIG:
+                case MIDIMetaNumber::TIMESIG:
                     mst.denominator = msg.timeSigDenominator();
                     mst.numerator   = msg.timeSigNumerator();
                     notify(NotifyType::C_TimeSig);
@@ -174,6 +171,8 @@ namespace libmfmidi {
         }
 
     private:
+        using enum MIDIMsgStatus;
+        using enum MIDICCNumber;
         void notify(NotifyType type) noexcept
         {
             if (mnotifier) {

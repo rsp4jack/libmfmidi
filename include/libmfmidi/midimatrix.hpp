@@ -12,8 +12,6 @@
 #include "midinotifier.hpp"
 
 namespace libmfmidi {
-    using std::uint8_t;
-
     /// \brief A matrix to keep note and pedal
     ///
     class MIDIMatrix {

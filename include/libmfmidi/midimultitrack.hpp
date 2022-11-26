@@ -62,45 +62,40 @@ namespace libmfmidi {
         }
     };
 
-    namespace Utils {
-        constexpr void toAbsTimeMultiTrack(MIDIMultiTrack& mtrk)
-        {
-            for (auto& trk : mtrk) {
-                toAbsTimeTrack(trk);
-            }
+    constexpr void toAbsTimeMultiTrack(MIDIMultiTrack& mtrk)
+    {
+        for (auto& trk : mtrk) {
+            toAbsTimeTrack(trk);
         }
-
-        constexpr void toRelTimeMultiTrack(MIDIMultiTrack& mtrk)
-        {
-            for (auto& trk : mtrk) {
-                toRelTimeTrack(trk);
-            }
-        }
-
     }
 
-    namespace Utils {
-        inline void mergeMultiTrack(MIDIMultiTrack&& mtrk, MIDITrack& trk)
-        {
-            toAbsTimeMultiTrack(mtrk);
-            trk.clear();
-            size_t middle;
-            for (auto& tr : mtrk) {
-                middle = trk.size();
-                trk.reserve(trk.size() + tr.size());
-                for (auto& ev : tr) {
-                    if(!ev.isEndOfTrack()){
-                        trk.push_back(std::move(ev));
-                    }
-                }
-                if (middle < trk.size()) {
-                    gfx::timmerge(trk.begin(), trk.begin()+middle, trk.end());
+    constexpr void toRelTimeMultiTrack(MIDIMultiTrack& mtrk)
+    {
+        for (auto& trk : mtrk) {
+            toRelTimeTrack(trk);
+        }
+    }
+
+    inline void mergeMultiTrack(MIDIMultiTrack&& mtrk, MIDITrack& trk)
+    {
+        toAbsTimeMultiTrack(mtrk);
+        trk.clear();
+        size_t middle;
+        for (auto& tr : mtrk) {
+            middle = trk.size();
+            trk.reserve(trk.size() + tr.size());
+            for (auto& ev : tr) {
+                if (!ev.isEndOfTrack()) {
+                    trk.push_back(std::move(ev));
                 }
             }
-            // TODO: Remove it
-            assert(std::is_sorted(trk.cbegin(), trk.cend()));
-            toRelTimeTrack(trk);
-            mtrk.clear();
+            if (middle < trk.size()) {
+                gfx::timmerge(trk.begin(), trk.begin() + middle, trk.end());
+            }
         }
+        // TODO: Remove it
+        assert(std::is_sorted(trk.cbegin(), trk.cend()));
+        toRelTimeTrack(trk);
+        mtrk.clear();
     }
 }

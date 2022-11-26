@@ -4,16 +4,10 @@
 
 #pragma once
 
+#include <bit>
 #include <algorithm>
 #include <concepts>
-#include <cstdint>
-#include <iostream>
 #include <type_traits>
-#include <utility>
-#include <version>
-#include <iterator>
-//#define __cpp_lib_format
-#include <format>
 
 namespace std {
 #if !defined(__cpp_lib_byteswap)
@@ -27,7 +21,7 @@ namespace std {
     }
 #endif
 #if !defined(__cpp_lib_unreachable)
-    [[noreturn]] inline void unreachable()
+    [[noreturn]] inline void unreachable() // c++23 https://en.cppreference.com/w/cpp/utility/unreachable
     {
         // Uses compiler specific extensions if possible.
         // Even if no extension is used, undefined behavior is still raised by
@@ -57,7 +51,7 @@ inline constexpr void UNUSED(const T& arg) noexcept
     static_cast<void>(arg);
 }
 
-namespace libmfmidi::Utils {
+namespace libmfmidi {
     template <std::integral T>
     constexpr T byteswapbe(T val) noexcept
     {
@@ -70,12 +64,19 @@ namespace libmfmidi::Utils {
     /// \brief Special markers for \a MIDMessage .
     ///
     enum class MFMessageMark {
-        None, ///< None. default, no data
-        NoOp, ///< No operate, no data
+        None,  ///< None. default, no data
+        NoOp,  ///< No operate, no data
         Tempo, ///< Set tempo in BPM, data: Big-endian 32 bit unsigned integer, tempo in BPM
         User
     };
 
+    using std::int16_t;
+    using std::int32_t;
+    using std::int64_t;
+    using std::int8_t;
+    using std::uint16_t;
+    using std::uint32_t;
+    using std::uint64_t;
     using std::uint8_t;
 
     // https://stackoverflow.com/a/72161270/

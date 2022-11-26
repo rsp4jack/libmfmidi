@@ -24,7 +24,7 @@
 #include "abstractmididevice.hpp"
 #include "miditrack.hpp"
 #include "midistate.hpp"
-#include "abstracttimer.hpp"
+#include <format>
 #include <memory>
 #include <map>
 #include <thread>
@@ -163,7 +163,7 @@ namespace libmfmidi {
                         matched = true;
                         if (lit != it) { // not begin
                             revertSnapshot(it->second);
-                            // directGoTo to pad remaining
+                            // directGoTo for the rest
                         } else {
                             // first cache is later; fallback to directGoTo
                             revertSnapshot(defaultSnapshot());
@@ -184,7 +184,7 @@ namespace libmfmidi {
                 revertSnapshot(defaultSnapshot()); // cant use cache
             }
 
-            const bool result = directGoTo(clktime); // padding
+            const bool result = directGoTo(clktime); // for the rest
             revertState();
 
             if (toPlay) {

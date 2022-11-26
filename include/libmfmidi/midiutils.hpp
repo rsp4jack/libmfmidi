@@ -1,22 +1,26 @@
 /// \file midiutils.hpp
 /// \author Creepercdn (creepercdn@outlook.com)
 /// \brief MIDI utils
-/// Rewrite requested.
 
-// FIXME: Rewrite it.
+// TODO: Rewrite it.
 
 #pragma once
 
-#include "libmfmidi/mfconfig.hpp"
-#include "mfutils.hpp"
+#include "libmfmidi/mfutils.hpp"
 #include <array>
 #include <cstdint>
 #include <istream>
 #include <limits>
 #include <iterator>
 
-#undef max
-namespace libmfmidi::MIDIUtils {
+#if defined(max)
+#undef max // msvc max macro
+#endif
+#if defined(min)
+#undef min // msvc min marco
+#endif
+
+namespace libmfmidi {
     using MIDIClockTime = uint32_t;
     static_assert(sizeof(MIDIClockTime) == 4);
     constexpr uint8_t       NUM_CHANNELS  = 16;

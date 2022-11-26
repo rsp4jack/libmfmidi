@@ -6,7 +6,6 @@
 
 #include "mfutils.hpp"
 #include "midiutils.hpp"
-#include <cassert>
 #include <cmath>
 #include <cstdint>
 #include <iostream>
@@ -19,12 +18,6 @@
 #include <any>
 
 namespace libmfmidi {
-    using std::int16_t;
-    using std::int8_t;
-    using std::uint8_t;
-    using namespace Utils;
-    using namespace MIDIUtils;
-
     /// \brief Container for MIDI Message
     ///
     /// A container to store MIDI Messages. Contains a std::vector.
@@ -32,7 +25,7 @@ namespace libmfmidi {
     /// All setters and getters will auto match message types.
     /// For example, setVelcoity will set byte2 in note event and poly pressure(aftertouch).
     /// and set byte1 in channel pressure.
-    /// All getters and is-ers may assert message types.
+    /// All getters and is-ers may C message types.
 
     class MIDIMessage {
     private:
@@ -70,7 +63,7 @@ namespace libmfmidi {
         constexpr void clear() noexcept
         {
             _data.clear();
-            marker = Utils::MFMessageMark::None;
+            marker = MFMessageMark::None;
         }
 
         /// \name Getters
@@ -236,7 +229,7 @@ namespace libmfmidi {
 
         [[nodiscard]] constexpr uint8_t channel() const
         {
-            assert(isChannelMsg());
+            C(isChannelMsg());
             return (_data[0] & 0x0FU) + 1;
         }
 
@@ -250,19 +243,19 @@ namespace libmfmidi {
 
         [[nodiscard]] constexpr uint8_t note() const
         {
-            assert(isNote() || isPolyPressure());
+            C(isNote() || isPolyPressure());
             return _data[1];
         }
 
         [[nodiscard]] constexpr uint8_t velocity() const
         {
-            assert(isNote());
+            C(isNote());
             return _data[2];
         }
 
         [[nodiscard]] constexpr uint8_t pressure() const
         {
-            assert(isPolyPressure() || isChannelPressure());
+            C(isPolyPressure() || isChannelPressure());
             if (isPolyPressure()) {
                 return _data[2];
             }
@@ -274,75 +267,75 @@ namespace libmfmidi {
 
         [[nodiscard]] constexpr uint8_t controller() const
         {
-            assert(isControlChange());
+            C(isControlChange());
             return _data[1];
         }
 
         [[nodiscard]] constexpr uint8_t controllerValue() const
         {
-            assert(isControlChange());
+            C(isControlChange());
             return _data[2];
         }
 
         [[nodiscard]] constexpr uint8_t metaType() const
         {
-            assert(isMetaEvent());
+            C(isMetaEvent());
             return _data[1];
         }
 
         [[nodiscard]] constexpr uint8_t channelPressure() const
         {
-            assert(isChannelPressure());
+            C(isChannelPressure());
             return _data[1];
         }
 
         [[nodiscard]] constexpr uint8_t programChangeValue() const
         {
-            assert(isProgramChange());
+            C(isProgramChange());
             return _data[1];
         }
 
         /// \brief Get signed pitch bend value
         [[nodiscard]] constexpr int16_t pitchBendValue() const
         {
-            assert(isPitchBend());
+            C(isPitchBend());
             return (static_cast<int16_t>(_data[2] << 7U) | _data[1]) - 0x2000;
         }
 
         [[nodiscard]] constexpr uint8_t timeSigNumerator() const
         {
-            assert(isTimeSignature());
+            C(isTimeSignature());
             return _data[3];
         }
 
         /// \brief Get \b Powered Denominator
         [[nodiscard]] uint8_t timeSigDenominator() const
         {
-            assert(isTimeSignature());
+            C(isTimeSignature());
             return static_cast<uint8_t>(std::pow(2, _data[4]));
         }
 
         [[nodiscard]] constexpr uint8_t timeSigDenominatorRaw() const
         {
-            assert(isTimeSignature());
+            C(isTimeSignature());
             return _data[4];
         }
 
         [[nodiscard]] constexpr int8_t keySigSharpFlats() const
         {
-            assert(isKeySignature());
+            C(isKeySignature());
             return static_cast<int8_t>(_data[3]); // In C++20
         }
 
         [[nodiscard]] constexpr bool keySigMajorMinor() const
         {
-            assert(isKeySignature());
+            C(isKeySignature());
             return _data[4] != 0U;
         }
 
         [[nodiscard]] constexpr double balancePan() const
         {
-            assert(isCCBalance() || isCCPan());
+            C(isCCBalance() || isCCPan());
             int val = controllerValue();
             if (val == 127) {
                 val = 128;
@@ -352,7 +345,7 @@ namespace libmfmidi {
 
         [[nodiscard]] constexpr MIDITempo rawTempo() const
         {
-            assert(isTempo());
+            C(isTempo());
             return rawCat(_data[3], _data[4], _data[5]);
         }
 
@@ -363,7 +356,7 @@ namespace libmfmidi {
 
         [[nodiscard]] constexpr std::string textEventText() const
         {
-            assert(isTextEvent());
+            C(isTextEvent());
             if (_data.size() > 2) {
                 auto result = readVarNumIt(_data.cbegin() + 2, _data.cend());
                 if (result.first == -1 && result.second == -1) {
@@ -507,7 +500,7 @@ namespace libmfmidi {
         constexpr void setChannel(uint8_t a)
         {
             expandLength(1);
-            assert(a <= 16);
+            C(a <= 16);
             _data[0] = (_data[0] & 0xF0) | (a - 1);
         }
 
@@ -516,7 +509,7 @@ namespace libmfmidi {
         constexpr void setTyoe(uint8_t a)
         {
             expandLength(1);
-            assert((a >> 1) <= 0xF);
+            C((a >> 1) <= 0xF);
             _data[0] = (_data[0] & 0x0F) | a;
         }
 
@@ -632,13 +625,13 @@ namespace libmfmidi {
 
         constexpr void setNote(uint8_t a)
         {
-            assert(isNote() || isPolyPressure());
+            C(isNote() || isPolyPressure());
             _data[1] = a;
         }
 
         constexpr void setVelocity(uint8_t a)
         {
-            assert(isNote() || isPolyPressure() || isChannelPressure());
+            C(isNote() || isPolyPressure() || isChannelPressure());
             if (isNote() || isPolyPressure()) {
                 _data[2] = a;
             } else if (isChannelPressure()) {
@@ -648,27 +641,27 @@ namespace libmfmidi {
 
         constexpr void setProgramChangeValue(uint8_t a)
         {
-            assert(isProgramChange());
+            C(isProgramChange());
             _data[1] = a;
         }
 
         constexpr void setController(uint8_t a)
         {
-            assert(isControlChange());
+            C(isControlChange());
             expandLength(2);
             _data[1] = a;
         }
 
         constexpr void setControllerValue(uint8_t a)
         {
-            assert(isControlChange());
+            C(isControlChange());
             expandLength(3);
             _data[2] = a;
         }
 
         constexpr void setPitchBendValue(int16_t a)
         {
-            assert(isPitchBend());
+            C(isPitchBend());
             int16_t b = a + 0x2000;
             _data[1]  = b & 0x7F;
             _data[2]  = (b >> 7) & 0x7F;
@@ -676,7 +669,7 @@ namespace libmfmidi {
 
         constexpr void setMetaNumber(uint8_t a)
         {
-            assert(isMetaEvent());
+            C(isMetaEvent());
             _data[1] = a;
         }
 
@@ -1014,7 +1007,7 @@ namespace libmfmidi {
 
     protected:
         std::vector<uint8_t> _data;
-        Utils::MFMessageMark marker = MFMessageMark::None;
+        MFMessageMark marker = MFMessageMark::None;
 
         // not mf mark
         [[nodiscard]] constexpr inline bool M() const
@@ -1026,6 +1019,14 @@ namespace libmfmidi {
         [[nodiscard]] constexpr inline bool L(size_t len) const
         {
             return _data.size() >= len;
+        }
+
+        // internal C
+        static constexpr inline void C(bool cond)
+        {
+            if(!cond){
+                throw std::logic_error("MIDIMessage: C failed");
+            }
         }
 
         [[nodiscard]] constexpr bool isMetaVaild() const
@@ -1070,8 +1071,6 @@ namespace libmfmidi {
     };
 
     namespace details {
-        using MIDIUtils::MIDIClockTime;
-
         /// \brief MIDIMessage SysEx Extension
         template <class... Base>
         class MIDIMessageSysExExt : public Base... {

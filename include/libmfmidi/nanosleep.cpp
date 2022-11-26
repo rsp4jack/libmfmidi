@@ -75,7 +75,6 @@ int nanosleep(const struct timespec* requested_delay, struct timespec* remaining
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <climits>
-#include <thread>
 #include <algorithm>
 
 /* The Windows API function Sleep() has a resolution of about 15 ms and takes
@@ -151,7 +150,7 @@ int nanosleep(unsigned long long nsec)
                     /* The requested time has elapsed.  */
                     break;
                 }
-                std::this_thread::yield();
+                SwitchToThread();
             }
         }
     }
