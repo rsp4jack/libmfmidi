@@ -12,7 +12,7 @@
 #include <utility>
 #include <version>
 #include <iterator>
-#define __cpp_lib_format
+//#define __cpp_lib_format
 #include <format>
 
 namespace std {

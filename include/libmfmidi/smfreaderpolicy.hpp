@@ -19,13 +19,17 @@
 /// \author Creepercdn (creepercdn@outlook.com)
 /// \brief SMFReader Policies
 
+#pragma once
+
 #include <functional>
 
 namespace libmfmidi {
     enum class SMFReaderPolicy {
         None,
         UnexceptedEOF,
-        InvaildHeader, // When read file header, treat it as MThd; when read tracks, treat it as MTrk
+        InvaildHeaderType, // When read file header, treat it as MThd; when read tracks, treat it as MTrk
+        InvaildHeaderSize, // read as provided size
+        InvaildSMFType, // not 0,1,2, and multiple tracks on type 0 (will fix to 1 when multiple tracks, 0 when single track or no tracks)
         NoEndOfTrack,
         // TODO: More...
     };

@@ -33,6 +33,8 @@ namespace libmfmidi::details {
             if (IsKDMAPIAvailable() == 0) {
                 std::cerr << "Warning: IsKDMAPIAvailable returns false" << std::endl;
                 available |= false;
+            } else {
+                available = true;
             }
         }
 

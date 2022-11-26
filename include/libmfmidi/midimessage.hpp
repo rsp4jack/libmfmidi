@@ -32,9 +32,12 @@ namespace libmfmidi {
     /// All setters and getters will auto match message types.
     /// For example, setVelcoity will set byte2 in note event and poly pressure(aftertouch).
     /// and set byte1 in channel pressure.
-    /// All getters and is-ers will assert message types.
+    /// All getters and is-ers may assert message types.
 
     class MIDIMessage {
+    private:
+        using enum MIDIMsgStatus;
+
     public:
         /// \brief The default constructor
         constexpr explicit MIDIMessage() noexcept = default;
@@ -172,25 +175,25 @@ namespace libmfmidi {
             str << dec << endl;
 
             switch (type()) {
-            case MIDIMsgStatus::NOTE_ON: // We cant print a uint8_t like int, A cast needed.
+            case NOTE_ON: // We cant print a uint8_t like int, A cast needed.
                 str << "Note On " << static_cast<int>(note()) << ' ' << static_cast<int>(velocity());
                 break;
-            case MIDIMsgStatus::NOTE_OFF:
+            case NOTE_OFF:
                 str << "Note Off " << static_cast<int>(note()) << ' ' << static_cast<int>(velocity());
                 break;
-            case MIDIMsgStatus::POLY_PRESSURE:
+            case POLY_PRESSURE:
                 str << "Poly Pressure " << static_cast<int>(note()) << ' ' << static_cast<int>(pressure());
                 break;
-            case MIDIMsgStatus::CONTROL_CHANGE:
+            case CONTROL_CHANGE:
                 str << "Control Change " << static_cast<int>(controller()) << ' ' << static_cast<int>(controllerValue());
                 break;
-            case MIDIMsgStatus::PROGRAM_CHANGE:
+            case PROGRAM_CHANGE:
                 str << "Program Change " << static_cast<int>(programChangeValue());
                 break;
-            case MIDIMsgStatus::CHANNEL_PRESSURE:
+            case CHANNEL_PRESSURE:
                 str << "Channel Pressure " << static_cast<int>(pressure());
                 break;
-            case MIDIMsgStatus::PITCH_BEND:
+            case PITCH_BEND:
                 str << "Pitch Bend " << pitchBendValue();
                 break;
             }
@@ -214,6 +217,7 @@ namespace libmfmidi {
         }
 
         /// \warning May return negative
+        /// \warning If {0xFF} is provided, \a MIDIMessage treats it as Reset. so it returns 1.
         [[nodiscard]] constexpr int expectedLength() const
         {
             if (isMetaEvent()) {
@@ -238,11 +242,10 @@ namespace libmfmidi {
 
         [[nodiscard]] constexpr uint8_t type() const
         {
-            if(isChannelMsg()){
+            if (isChannelMsg()) {
                 return _data[0] & 0xF0U;
-            } else {
-                return _data[0];
             }
+            return _data[0];
         }
 
         [[nodiscard]] constexpr uint8_t note() const
@@ -366,12 +369,12 @@ namespace libmfmidi {
                 if (result.first == -1 && result.second == -1) {
                     return {};
                 }
-                return {_data.cbegin()+2+result.second, _data.cend()};
+                return {_data.cbegin() + 2 + result.second, _data.cend()};
             }
             return "";
         }
 
-        [[nodiscard]] constexpr uint8_t atIf(std::size_t pos, uint8_t normal = 0x00) const
+        [[nodiscard]] constexpr uint8_t atIf(std::size_t pos, uint8_t normal = 0) const
         {
             if (pos >= size()) {
                 return normal;
@@ -679,7 +682,7 @@ namespace libmfmidi {
 
         constexpr void setupNoteOn(uint8_t channel, uint8_t note, uint8_t vel)
         {
-            _data[0] = MIDIMsgStatus::NOTE_ON | (channel - 1);
+            _data[0] = NOTE_ON | (channel - 1);
             _data[1] = note;
             _data[2] = vel;
         }
@@ -687,7 +690,7 @@ namespace libmfmidi {
         constexpr void setupNoteOff(uint8_t channel, uint8_t note, uint8_t vel)
         {
             setLength(3);
-            _data[0] = MIDIMsgStatus::NOTE_OFF | (channel - 1);
+            _data[0] = NOTE_OFF | (channel - 1);
             _data[1] = note;
             _data[2] = vel;
         }
@@ -695,7 +698,7 @@ namespace libmfmidi {
         constexpr void setupPolyPressure(uint8_t channel, uint8_t note, uint8_t press)
         {
             setLength(3);
-            _data[0] = MIDIMsgStatus::POLY_PRESSURE | (channel - 1);
+            _data[0] = POLY_PRESSURE | (channel - 1);
             _data[1] = note;
             _data[2] = press;
         }
@@ -703,7 +706,7 @@ namespace libmfmidi {
         constexpr void setupControlChange(uint8_t channel, uint8_t ctrl, uint8_t val)
         {
             setLength(3);
-            _data[0] = MIDIMsgStatus::CONTROL_CHANGE | (channel - 1);
+            _data[0] = CONTROL_CHANGE | (channel - 1);
             _data[1] = ctrl;
             _data[2] = val;
         }
@@ -721,14 +724,14 @@ namespace libmfmidi {
         constexpr void setupProgramChange(uint8_t chan, uint8_t val)
         {
             setLength(2);
-            _data[0] = MIDIMsgStatus::PROGRAM_CHANGE | (chan - 1);
+            _data[0] = PROGRAM_CHANGE | (chan - 1);
             _data[1] = val;
         }
 
         constexpr void setupPitchBend(uint8_t chan, uint8_t lsb, uint8_t msb)
         {
             setLength(3);
-            _data[0] = MIDIMsgStatus::PITCH_BEND | (chan - 1);
+            _data[0] = PITCH_BEND | (chan - 1);
             _data[1] = lsb;
             _data[2] = msb;
         }
@@ -736,7 +739,7 @@ namespace libmfmidi {
         constexpr void setupPitchBend(uint8_t chan, int16_t val)
         {
             setLength(3);
-            _data[0] = MIDIMsgStatus::PITCH_BEND | (chan - 1);
+            _data[0] = PITCH_BEND | (chan - 1);
             setPitchBendValue(val);
         }
 
@@ -796,7 +799,7 @@ namespace libmfmidi {
         template <std::convertible_to<uint8_t>... T>
         constexpr void setupMFMarker(MFMessageMark mark, T... init)
         {
-            _data = {init...};
+            _data  = {init...};
             marker = mark;
         }
 
@@ -811,7 +814,7 @@ namespace libmfmidi {
             return isMFMarker() || (!_data.empty() && (
                 (isVoiceMessage() && getExpectedMessageLength(status()) == _data.size()) // voice message: expected length
                 || (isSystemMessage() && ( // system message
-                    (isSysEx() && *(_data.end()-1) == MIDIMsgStatus::SYSEX_END) // sysex: have sysex_start and sysex_end
+                    (isSysEx() && *(_data.end()-1) == SYSEX_END) // sysex: have sysex_start and sysex_end
                     || ((status() >= 0xF1 && status() <= 0xF1) && getExpectedSMessageLength(status()) == _data.size()) // some system message: expected length, sometimes LUT return 0, so wont match and get false
                 ))
                 || (isMetaEvent() && _data.size() >= 3 && isMetaVaild()) // meta msg
@@ -842,74 +845,79 @@ namespace libmfmidi {
 
         [[nodiscard]] constexpr bool isChannelMsg() const
         {
-            return M() && L(1) && (status() >= MIDIMsgStatus::NOTE_OFF) && (status() < MIDIMsgStatus::SYSEX_START);
+            return M() && L(1) && (status() >= NOTE_OFF) && (status() < SYSEX_START);
         }
 
         [[nodiscard]] constexpr bool isNoteOn() const
         {
-            return M() && L(1) && (type() == MIDIMsgStatus::NOTE_ON);
+            return M() && L(1) && (type() == NOTE_ON);
         }
 
         [[nodiscard]] constexpr bool isNoteOff() const
         {
-            return M() && L(1) && (type() == MIDIMsgStatus::NOTE_OFF);
+            return M() && L(1) && (type() == NOTE_OFF);
         }
 
         [[nodiscard]] constexpr bool isPolyPressure() const
         {
-            return M() && L(1) && (type() == MIDIMsgStatus::POLY_PRESSURE);
+            return M() && L(1) && (type() == POLY_PRESSURE);
         }
 
         [[nodiscard]] constexpr bool isControlChange() const
         {
-            return M() && L(1) && (type() == MIDIMsgStatus::CONTROL_CHANGE);
+            return M() && L(1) && (type() == CONTROL_CHANGE);
         }
 
         [[nodiscard]] constexpr bool isProgramChange() const
         {
-            return M() && L(1) && (type() == MIDIMsgStatus::PROGRAM_CHANGE);
+            return M() && L(1) && (type() == PROGRAM_CHANGE);
         }
 
         [[nodiscard]] constexpr bool isChannelPressure() const
         {
-            return M() && L(1) && (type() == MIDIMsgStatus::CHANNEL_PRESSURE);
+            return M() && L(1) && (type() == CHANNEL_PRESSURE);
         }
 
         [[nodiscard]] constexpr bool isPitchBend() const
         {
-            return M() && L(1) && (type() == MIDIMsgStatus::PITCH_BEND);
+            return M() && L(1) && (type() == PITCH_BEND);
         }
 
         [[nodiscard]] constexpr bool isSysEx() const
         {
-            return M() && L(1) && (status() == MIDIMsgStatus::SYSEX_START);
+            return M() && L(1) && (status() == SYSEX_START);
         }
 
         [[nodiscard]] constexpr bool isMTC() const
         {
-            return M() && L(1) && (status() == MIDIMsgStatus::MTC);
+            return M() && L(1) && (status() == MTC);
         }
 
         [[nodiscard]] constexpr bool isSongPosition() const
         {
-            return M() && L(1) && (status() == MIDIMsgStatus::SONG_POSITION);
+            return M() && L(1) && (status() == SONG_POSITION);
         }
 
         [[nodiscard]] constexpr bool isSongSelect() const
         {
-            return M() && L(1) && (status() == MIDIMsgStatus::SONG_SELECT);
+            return M() && L(1) && (status() == SONG_SELECT);
         }
 
         [[nodiscard]] constexpr bool isTuneRequest() const
         {
-            return M() && L(1) && (status() == MIDIMsgStatus::TUNE_REQUEST);
+            return M() && L(1) && (status() == TUNE_REQUEST);
         }
 
         // TODO: Reset or Meta?
         /// \warning Currently only {0xFF} is reset.
         [[nodiscard]] constexpr bool isMetaEvent() const
         {
-            return M() && L(2) && (status() == MIDIMsgStatus::META_EVENT);
+            return M() && L(2) && (status() == META_EVENT);
+        }
+
+        [[nodiscard]] constexpr bool isReset() const
+        {
+            return M() && (size() == 1) && (status() == RESET);
         }
 
         /// \brief Universal Real Time System Exclusive message
@@ -1026,7 +1034,7 @@ namespace libmfmidi {
             if (!isMetaEvent() || _data.size() < 3) {
                 return false;
             }
-            int explen = getExpectedMetaLength(metaType());
+            int  explen = getExpectedMetaLength(metaType());
             auto result = readVarNumIt(_data.cbegin() + 2, _data.cend());
             if (result.first == -1 && result.second == -1) {
                 // "META: Reading length: Invalid variable number";
