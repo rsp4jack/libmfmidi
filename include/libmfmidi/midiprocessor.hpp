@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include "mfconcepts.hpp"
-#include "midimessage.hpp"
+#include "libmfmidi/mfconcepts.hpp"
+#include "libmfmidi/midimessage.hpp"
 #include <functional>
 #include <utility>
 

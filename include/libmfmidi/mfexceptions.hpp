@@ -21,8 +21,9 @@
 
 #include <ios>
 #include <stdexcept>
-#include "mfutils.hpp"
-#include "smfreaderpolicy.hpp"
+#include <format>
+#include "libmfmidi/mfutils.hpp"
+#include "libmfmidi/smfreaderpolicy.hpp"
 
 namespace libmfmidi {
     class smf_reader_error : public std::exception {

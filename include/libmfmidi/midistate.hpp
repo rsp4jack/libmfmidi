@@ -21,10 +21,10 @@
 
 #pragma once
 
-#include "mfconcepts.hpp"
-#include "midiutils.hpp"
-#include "midimatrix.hpp"
-#include "midinotifier.hpp"
+#include "libmfmidi/mfconcepts.hpp"
+#include "libmfmidi/midiutils.hpp"
+#include "libmfmidi/midimatrix.hpp"
+#include "libmfmidi/midinotifier.hpp"
 #include <array>
 #include <tuple>
 

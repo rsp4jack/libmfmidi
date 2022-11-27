@@ -6,10 +6,10 @@
 
 #include <istream>
 #include <functional>
-#include "abstractsamhandler.hpp"
-#include "midiutils.hpp"
-#include "mfexceptions.hpp"
-#include "smfreaderpolicy.hpp"
+#include "libmfmidi/abstractsamhandler.hpp"
+#include "libmfmidi/midiutils.hpp"
+#include "libmfmidi/mfexceptions.hpp"
+#include "libmfmidi/smfreaderpolicy.hpp"
 
 namespace libmfmidi {
     /// \brief SMF Reader

@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "midimultitrack.hpp"
+#include "libmfmidi/midimultitrack.hpp"
 
 namespace libmfmidi {
     /// \brief SMF File Info

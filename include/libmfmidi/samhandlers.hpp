@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include "abstractsamhandler.hpp"
-#include "smffile.hpp"
+#include "libmfmidi/abstractsamhandler.hpp"
+#include "libmfmidi/smffile.hpp"
 
 namespace libmfmidi {
     class HumanReadableSAMHandler : public AbstractSAMHandler {

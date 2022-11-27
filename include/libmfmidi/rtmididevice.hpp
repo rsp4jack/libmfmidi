@@ -22,7 +22,7 @@
 #pragma once
 
 #include "rtmidi/RtMidi.h"
-#include "../abstractmididevice.hpp"
+#include "libmfmidi/abstractmididevice.hpp"
 #include <string>
 #include <utility>
 #include <unordered_set>

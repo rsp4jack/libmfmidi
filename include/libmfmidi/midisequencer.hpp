@@ -21,8 +21,8 @@
 
 #pragma once
 
-#include "midiutils.hpp"
-#include "midimultitrack.hpp"
+#include "libmfmidi/midiutils.hpp"
+#include "libmfmidi/midimultitrack.hpp"
 
 namespace libmfmidi {
     /// \brief A full-function sequencer

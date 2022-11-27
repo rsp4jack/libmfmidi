@@ -344,6 +344,10 @@ namespace libmfmidi {
         return (pitch / 12) - 1;
     }
 
+    /// \brief Read SMF variable number using istream
+    ///
+    /// \param ise The input stream
+    /// \return std::pair<MIDIVarNum, size_t> value and length in bytes
     inline std::pair<MIDIVarNum, size_t> readVarNum(std::istream* ise)
     {
         auto readU8 = [&]() {
@@ -366,6 +370,9 @@ namespace libmfmidi {
         return {value, cnt};
     }
 
+    /// \brief Read SMF variable number using iterator
+    /// If invaild, return {-1, -1}
+    /// \sa readVarNum
     template <std::forward_iterator FwdIt>
     inline constexpr std::pair<MIDIVarNum, size_t> readVarNumIt(FwdIt iter, FwdIt end)
     {
@@ -393,6 +400,11 @@ namespace libmfmidi {
         return {value, cnt};
     }
 
+    /// \brief Write SMF variable number
+    /// 
+    /// \param data value
+    /// \param ose output stream
+    /// \return size_t written bytes count
     inline size_t writeVarNum(MIDIVarNum data, std::ostream* ose)
     {
         MIDIVarNum buf;
@@ -415,6 +427,8 @@ namespace libmfmidi {
         return cnt;
     }
 
+    /// \brief Write SMF variable number
+    /// \sa writeVarNum
     template <std::output_iterator<uint8_t> OutIt>
     inline constexpr size_t writeVarNumIt(MIDIVarNum data, OutIt iter)
     {
@@ -440,6 +454,10 @@ namespace libmfmidi {
         return cnt;
     }
 
+    /// \brief Get length in bytes of a SMF variable number
+    /// 
+    /// \param data Data
+    /// \return size_t 
     inline size_t varNumLen(MIDIVarNum data)
     {
         MIDIVarNum buf;
@@ -462,16 +480,34 @@ namespace libmfmidi {
         return cnt;
     }
 
+    /// \name MSB and LSB convertion
+    /// \{
+
+    /// \brief Convert MSB and LSB to \p uint16_t
+    /// 
+    /// \param msb MSB
+    /// \param lsb LSB
+    /// \return uint16_t Value
     inline uint16_t MLSBtoU16(uint8_t msb, uint8_t lsb) noexcept
     {
         return (msb << 7) | (lsb & 0x7F);
     }
 
+    /// \brief convert \p uint16_t to MSB and LSB
+    /// 
+    /// \param val Value
+    /// \return std::pair<uint8_t, uint8_t> MSB and LSB (First is MSB, second is LSB)
     inline std::pair<uint8_t, uint8_t> U16toMLSB(uint16_t val) noexcept
     {
         return {(val >> 7) & 0x7F, val & 0x7F};
     }
+    /// \}
 
+    /// \brief Convert SMF division and tempo to tick time (in second)
+    /// 
+    /// \param val Division (can be negative)
+    /// \param bpm BPM
+    /// \return double Tick time in second
     inline constexpr double divisionToSec(MIDIDivision val, MIDITempo bpm) noexcept
     {
         if (val > 0) {

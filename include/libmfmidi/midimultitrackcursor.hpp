@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include "midimultitrack.hpp"
-#include "midistate.hpp"
+#include "libmfmidi/midimultitrack.hpp"
+#include "libmfmidi/midistate.hpp"
 #include <type_traits>
 #include <array>
 #include <execution>

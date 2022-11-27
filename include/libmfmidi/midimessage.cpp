@@ -4,4 +4,4 @@
 
 // TODO: Now it is just a dummy source.
 
-#include "midimessage.hpp"
+#include "libmfmidi/midimessage.hpp"

@@ -22,10 +22,11 @@
 #pragma once
 
 #if defined(_WIN32)
+#define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #include <timeapi.h>
 #include <mmsystem.h>
-#include "../abstracttimer.hpp"
+#include "libmfmidi/abstracttimer.hpp"
 #include <stdexcept>
 #include <algorithm>
 #include <string>

@@ -21,7 +21,7 @@
 
 #ifdef _WIN32
 
-#include "../abstractmididevice.hpp" // "max" macro
+#include "libmfmidi/abstractmididevice.hpp" // "max" macro
 #include "omnimidi/OmniMIDI.h"
 
 namespace libmfmidi::details {

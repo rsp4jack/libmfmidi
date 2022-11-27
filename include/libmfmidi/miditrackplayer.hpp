@@ -21,9 +21,9 @@
 
 #pragma once
 
-#include "abstractmididevice.hpp"
-#include "miditrack.hpp"
-#include "midistate.hpp"
+#include "libmfmidi/abstractmididevice.hpp"
+#include "libmfmidi/miditrack.hpp"
+#include "libmfmidi/midistate.hpp"
 #include <format>
 #include <memory>
 #include <map>

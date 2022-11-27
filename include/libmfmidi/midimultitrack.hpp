@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "miditrack.hpp"
+#include "libmfmidi/miditrack.hpp"
 #include <unordered_set>
 #include "gfx/timsort.hpp"
 

@@ -4,12 +4,12 @@
 
 #pragma once
 
-#include "midimessage.hpp"
-#include "midiutils.hpp"
+#include "libmfmidi/midimessage.hpp"
+#include "libmfmidi/midiutils.hpp"
 #include <array>
 #include <bitset>
 #include <cstdint>
-#include "midinotifier.hpp"
+#include "libmfmidi/midinotifier.hpp"
 
 namespace libmfmidi {
     /// \brief A matrix to keep note and pedal

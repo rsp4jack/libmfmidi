@@ -2,20 +2,19 @@
 /// \author Creepercdn (creepercdn@outlook.com)
 /// \brief MIDIMessage class
 
+// NOLINTBEGIN(readability-identifier-length, bugprone-easily-swappable-parameters)
+
 #pragma once
 
-#include "mfutils.hpp"
-#include "midiutils.hpp"
+#include "libmfmidi/mfutils.hpp"
+#include "libmfmidi/midiutils.hpp"
 #include <cmath>
 #include <cstdint>
-#include <iostream>
 #include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
 #include <iomanip>
-#include <execution>
-#include <any>
 
 namespace libmfmidi {
     /// \brief Container for MIDI Message
@@ -25,7 +24,7 @@ namespace libmfmidi {
     /// All setters and getters will auto match message types.
     /// For example, setVelcoity will set byte2 in note event and poly pressure(aftertouch).
     /// and set byte1 in channel pressure.
-    /// All getters and is-ers may C message types.
+    /// All getters and is-ers may assert message types.
 
     class MIDIMessage {
     private:
@@ -662,9 +661,9 @@ namespace libmfmidi {
         constexpr void setPitchBendValue(int16_t a)
         {
             C(isPitchBend());
-            int16_t b = a + 0x2000;
-            _data[1]  = b & 0x7F;
-            _data[2]  = (b >> 7) & 0x7F;
+            const int16_t b = a + 0x2000;
+            _data[1]       = b & 0x7F;
+            _data[2]       = (b >> 7) & 0x7F;
         }
 
         constexpr void setMetaNumber(uint8_t a)
@@ -1007,7 +1006,7 @@ namespace libmfmidi {
 
     protected:
         std::vector<uint8_t> _data;
-        MFMessageMark marker = MFMessageMark::None;
+        MFMessageMark        marker = MFMessageMark::None;
 
         // not mf mark
         [[nodiscard]] constexpr inline bool M() const
@@ -1024,7 +1023,7 @@ namespace libmfmidi {
         // internal C
         static constexpr inline void C(bool cond)
         {
-            if(!cond){
+            if (!cond) {
                 throw std::logic_error("MIDIMessage: C failed");
             }
         }
@@ -1035,9 +1034,9 @@ namespace libmfmidi {
             if (!isMetaEvent() || _data.size() < 3) {
                 return false;
             }
-            int  explen = getExpectedMetaLength(metaType());
-            auto result = readVarNumIt(_data.cbegin() + 2, _data.cend());
-            if (result.first == -1 && result.second == -1) {
+            const int explen = getExpectedMetaLength(metaType());
+            auto      result = readVarNumIt(_data.cbegin() + 2, _data.cend());
+            if (result.first == -1U && result.second == -1U) {
                 // "META: Reading length: Invalid variable number";
                 return false; // too early eof
             }
@@ -1146,3 +1145,5 @@ namespace libmfmidi {
 
     using MIDITimedMessage = details::MIDIMessageTimedExt<MIDIMessage>;
 }
+
+// NOLINTEND(readability-identifier-length, bugprone-easily-swappable-parameters)

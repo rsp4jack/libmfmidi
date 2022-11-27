@@ -19,7 +19,7 @@
 /// \author Creepercdn (creepercdn@outlook.com)
 /// \brief MIDI message F2D and D2F (FDC)
 
-#include "midimessage.hpp"
+#include "libmfmidi/midimessage.hpp"
 
 namespace libmfmidi {
     /// \brief F2D MIDIProcessor

@@ -21,11 +21,11 @@
 
 #pragma once
 
-#include "mfconcepts.hpp"
-#include "miditrack.hpp"
+#include "libmfmidi/mfconcepts.hpp"
+#include "libmfmidi/miditrack.hpp"
 #include <functional>
-#include "abstractmididevice.hpp"
-#include "abstracttimer.hpp"
+#include "libmfmidi/abstractmididevice.hpp"
+#include "libmfmidi/abstracttimer.hpp"
 
 // Together for a std::shared_future!
 

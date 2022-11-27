@@ -6,7 +6,7 @@
 
 #include <vector>
 #include <algorithm>
-#include "midimessage.hpp"
+#include "libmfmidi/midimessage.hpp"
 
 #undef max
 

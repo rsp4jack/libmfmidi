@@ -4,8 +4,10 @@
 
 #pragma once
 
-#include "midimessage.hpp"
+#include "libmfmidi/midimessage.hpp"
+#include <format>
 #include <stdexcept>
+
 namespace libmfmidi {
     class AbstractSAMHandler {
     public:

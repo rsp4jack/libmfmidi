@@ -118,7 +118,12 @@ namespace libmfmidi {
     template <class... T>
     constexpr auto rawCat(uint8_t fbyte, T... bytes)
     {
-        typeof<sizeof...(bytes) + 1> result = static_cast<decltype(result)>(fbyte) << (sizeof...(bytes) * 8);
+        // clang-format off
+        typeof<sizeof...(bytes) + 1> result =
+            static_cast<decltype(result)>( // mute warning
+                static_cast<decltype(result)>(fbyte) << (sizeof...(bytes) * 8) // integral promotion
+            );
+        // clang-format on
         if constexpr (sizeof...(bytes) > 0) {
             result |= rawCat(bytes...);
         }
