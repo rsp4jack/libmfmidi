@@ -83,7 +83,7 @@ namespace libmfmidi::details {
             return false;
         }
 
-        void sendMsg(const MIDIMessage& msg) override {}
+        void sendMsg(const MIDIMessage& /*msg*/) override {}
 
     private:
         static void rtcallback(double /*timeStamp*/, std::vector<unsigned char>* message, void* userData)

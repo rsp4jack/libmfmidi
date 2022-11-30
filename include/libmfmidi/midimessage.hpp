@@ -6,6 +6,11 @@
 
 #pragma once
 
+#ifdef _MSC_VER
+#pragma warning(push) 
+#pragma warning(disable: 4244 4267 4146)
+#endif
+
 #include "libmfmidi/mfutils.hpp"
 #include "libmfmidi/midiutils.hpp"
 #include <cmath>
@@ -706,7 +711,7 @@ namespace libmfmidi {
         /// \a pan : -1.0 ~ 1.0
         void setupPan(uint8_t channel, double pan)
         {
-            uint8_t r = std::floor(64 * (pan + 1));
+            auto r = static_cast<uint8_t>(std::floor(64 * (pan + 1)));
             if (r > 127) {
                 r = 127;
             }
@@ -753,7 +758,7 @@ namespace libmfmidi {
             // sh*tty code
             clear();
             _data = {MIDINumSpace::META_EVENT, type};
-            writeVarNumIt(args.size(), std::back_inserter(_data));
+            writeVarNumIt(static_cast<MIDIVarNum>(args.size()), std::back_inserter(_data));
             std::copy(args.begin(), args.end(), std::back_inserter(_data));
         }
 
@@ -1040,14 +1045,14 @@ namespace libmfmidi {
                 // "META: Reading length: Invalid variable number";
                 return false; // too early eof
             }
-            if (_data.size() != 2 + result.first + result.second) { // uncorrect msg len
+            if (_data.size() != 2U + result.first + result.second) { // uncorrect msg len
                 // "META: Length check: Invalid message length";
                 return false;
             }
             if (explen < 0) { // var length and unspec meta type
                 return true;
             }
-            if (explen != result.first + 3) { // uncorrect meta length
+            if (static_cast<unsigned int>(explen) != result.first + 3U) { // uncorrect meta length
                 // "META: Length check: invalid meta length (not match spec)";
                 return false;
             }
@@ -1147,3 +1152,7 @@ namespace libmfmidi {
 }
 
 // NOLINTEND(readability-identifier-length, bugprone-easily-swappable-parameters)
+
+#ifdef _MSC_VER
+#pragma warning(pop) 
+#endif

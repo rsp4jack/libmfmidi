@@ -4,6 +4,11 @@
 
 #pragma once
 
+#ifdef _MSC_VER
+#pragma warning(push) 
+#pragma warning(disable: 4244)
+#endif
+
 #include "libmfmidi/midimessage.hpp"
 #include "libmfmidi/midiutils.hpp"
 #include <array>
@@ -239,3 +244,7 @@ namespace libmfmidi {
         std::array<std::bitset<NUM_CHANNELS>, NUM_PORTS> pedals;
     };
 }
+
+#ifdef _MSC_VER
+#pragma warning(pop) 
+#endif

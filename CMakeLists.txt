@@ -122,53 +122,6 @@ if(NEED_PTHREAD)
     list(APPEND PACKAGE_DEPENDENCIES "find_dependency(Threads)")
 endif()
 
-# --- KDMAPI (OmniMIDI)
-add_library(KDMAPI STATIC include/omnimidi/omnimidiapi.cpp)
-target_link_libraries(KDMAPI PUBLIC winmm)
-target_precompile_headers(KDMAPI PUBLIC <Windows.h>)
-
-# --- libmfmidi
-
-option(HEADER_ONLY "Enable header-only" OFF)
-# option(ENABLE_UNSPEC_FEATURES "Enable unspecification features." ON)
-
-if(HEADER_ONLY)
-    set(TYPE INTERFACE)
-    set(PUB INTERFACE)
-    set(PRI INTERFACE)
-else()
-    set(TYPE STATIC)
-    set(PUB PUBLIC)
-    set(PRI PRIVATE)
-endif()
-
-add_library(libmfmidi ${TYPE}
-    include/libmfmidi/abstractmididevice.hpp
-    include/libmfmidi/abstractsamhandler.hpp
-    include/libmfmidi/abstracttimer.hpp
-    include/libmfmidi/libmfmidi.hpp
-    include/libmfmidi/mfconcepts.hpp
-    include/libmfmidi/mfutils.hpp
-    include/libmfmidi/midimatrix.hpp
-    include/libmfmidi/midimessage.hpp
-    include/libmfmidi/midimessage.cpp
-    include/libmfmidi/midimultitrack.hpp
-    include/libmfmidi/midimultitrackcursor.hpp
-    include/libmfmidi/midiprocessor.hpp
-    include/libmfmidi/midisequencer.hpp
-    include/libmfmidi/midistate.hpp
-    include/libmfmidi/miditrack.hpp
-    include/libmfmidi/midiutils.hpp
-    include/libmfmidi/readerutils.hpp
-    include/libmfmidi/samhandlers.hpp
-    include/libmfmidi/smffile.hpp
-    include/libmfmidi/smfreader.hpp
-    include/libmfmidi/details/posixtimer.hpp
-    include/libmfmidi/details/rtmididevice.hpp
-    include/libmfmidi/details/win32mmtimer.hpp
-    include/libmfmidi/nanosleep.cpp
-)
-
 add_library(rtmidi STATIC src/RtMidi.cpp)
 target_link_libraries(rtmidi PUBLIC ${PUBLICLINKLIBS}
     PRIVATE ${LINKLIBS})
@@ -177,15 +130,54 @@ target_include_directories(rtmidi PRIVATE ${INCDIRS}
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 
-configure_file(include/libmfmidi/mfconfig.hpp.in ${CMAKE_CURRENT_SOURCE_DIR}/include/libmfmidi/mfconfig.hpp)
-
-target_precompile_headers(libmfmidi PUBLIC <Windows.h>)
-target_include_directories(libmfmidi ${PRI} ${CMAKE_CURRENT_BINARY_DIR} ${PRI} ${CMAKE_CURRENT_SOURCE_DIR}/include/libmfmidi ${PUB} ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_include_directories(rtmidi PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include/rtmidi)
 target_compile_definitions(rtmidi PRIVATE ${API_DEFS})
 target_include_directories(rtmidi PRIVATE ${INCDIRS})
 
-target_link_libraries(libmfmidi ${PUB} rtmidi KDMAPI)
+# --- KDMAPI (OmniMIDI)
+add_library(KDMAPI STATIC include/omnimidi/omnimidiapi.cpp)
+target_link_libraries(KDMAPI PUBLIC winmm)
+target_precompile_headers(KDMAPI PUBLIC <Windows.h>)
+
+# --- libmfmidi
+
+add_library(libmfmidi STATIC
+    include/libmfmidi/abstractmididevice.hpp
+    include/libmfmidi/abstractsamhandler.hpp
+    include/libmfmidi/abstracttimer.hpp
+    include/libmfmidi/kdmapidevice.hpp
+    include/libmfmidi/libmfmidi.hpp
+    include/libmfmidi/mfconcepts.hpp
+    include/libmfmidi/mfexceptions.hpp
+    include/libmfmidi/mfutils.hpp
+    include/libmfmidi/midimatrix.hpp
+    include/libmfmidi/midimessage.hpp
+    include/libmfmidi/midimessagefdc.hpp
+    include/libmfmidi/midimultitrack.hpp
+    include/libmfmidi/midimultitrackcursor.hpp
+    include/libmfmidi/midinotifier.hpp
+    include/libmfmidi/midiprocessor.hpp
+    include/libmfmidi/midisequencer.hpp
+    include/libmfmidi/midistate.hpp
+    include/libmfmidi/miditrack.hpp
+    include/libmfmidi/miditrackplayer.hpp
+    include/libmfmidi/midiutils.hpp
+    include/libmfmidi/nanosleep.cpp
+    include/libmfmidi/nanosleep.hpp
+    include/libmfmidi/posixtimer.hpp
+    include/libmfmidi/rtmididevice.hpp
+    include/libmfmidi/samhandlers.hpp
+    include/libmfmidi/simpletrackplayer.hpp
+    include/libmfmidi/smffile.hpp
+    include/libmfmidi/smfreader.hpp
+    include/libmfmidi/smfreaderpolicy.hpp
+    include/libmfmidi/win32mmtimer.hpp
+)
+
+target_precompile_headers(libmfmidi PUBLIC <Windows.h>)
+target_include_directories(libmfmidi PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+target_link_libraries(libmfmidi PRIVATE rtmidi KDMAPI)
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})

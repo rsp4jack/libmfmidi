@@ -10,7 +10,7 @@ namespace libmfmidi {
     /// \brief SMF File Info
     struct SMFFileInfo {
         uint16_t type{};
-        MIDIUtils::MIDIDivision  division{};
+        MIDIDivision  division{};
         uint16_t ntrk;
     };
 }

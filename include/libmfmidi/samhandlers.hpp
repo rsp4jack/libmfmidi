@@ -20,7 +20,7 @@ namespace libmfmidi {
             *stm << "Delta time: " << msg.deltaTime() << ' ' << "Message: " << msg.msgText() << std::endl;
         }
 
-        void on_header(uint32_t format, uint16_t ntrk, MIDIUtils::MIDIDivision division) override
+        void on_header(uint32_t format, uint16_t ntrk, MIDIDivision division) override
         {
             *stm << "Header: " << std::format("Format {}; {} tracks; Division: {:x}", format, ntrk, division) << std::endl;
         }
@@ -64,7 +64,7 @@ namespace libmfmidi {
             curtrk = trk;
         }
 
-        void on_endtrack(uint32_t trk) override
+        void on_endtrack(uint32_t  /*trk*/) override
         {
             curtrk = 0xFFFFFFFF;
         }

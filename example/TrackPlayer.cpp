@@ -1,19 +1,17 @@
 #include <iostream>
 #include <fstream>
 #include "libmfmidi/miditrackplayer.hpp"
-#include "libmfmidi/simpletrackplayer.hpp"
 #include "libmfmidi/smfreader.hpp"
 #include "libmfmidi/samhandlers.hpp"
-#include "libmfmidi/details/rtmididevice.hpp"
-#include "libmfmidi/details/kdmapidevice.hpp"
-#include "libmfmidi/details/win32mmtimer.hpp"
+#include "libmfmidi/rtmididevice.hpp"
+#include "libmfmidi/kdmapidevice.hpp"
+#include "libmfmidi/win32mmtimer.hpp"
 #include "libmfmidi/midimessagefdc.hpp"
 #include "libmfmidi/midiprocessor.hpp"
 #include <processthreadsapi.h>
 #include <timeapi.h>
 #include <ranges>
 #include <filesystem>
-#define _HAS_CXX23 1
 #include <spanstream>
 
 using namespace libmfmidi;

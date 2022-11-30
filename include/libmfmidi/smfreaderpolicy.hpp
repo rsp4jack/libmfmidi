@@ -29,8 +29,9 @@ namespace libmfmidi {
         UnexceptedEOF,
         InvaildHeaderType, // When read file header, treat it as MThd; when read tracks, treat it as MTrk
         InvaildHeaderSize, // read as provided size
-        InvaildSMFType, // not 0,1,2, and multiple tracks on type 0 (will fix to 1 when multiple tracks, 0 when single track or no tracks)
+        InvaildSMFType,    // not 0,1,2, and multiple tracks on type 0 (will fix to 1 when multiple tracks, 0 when single track or no tracks)
         NoEndOfTrack,
+        InvaildSysExLength,
         // TODO: More...
     };
 

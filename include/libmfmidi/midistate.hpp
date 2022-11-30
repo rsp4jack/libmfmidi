@@ -95,6 +95,7 @@ namespace libmfmidi {
     public:
         explicit MIDIStateProcessor(MIDIState& st, bool processNote = false) noexcept
             : mst(st)
+            , mprocessNote(processNote)
         {
         }
 
@@ -112,7 +113,9 @@ namespace libmfmidi {
             case NOTE_OFF:
             case CHANNEL_PRESSURE:
             case POLY_PRESSURE:
-                mst.matrix.process(msg, port);
+                if (mprocessNote) {
+                    mst.matrix.process(msg, port);
+                }
                 // notify by MIDIMatrix
                 break;
             case PROGRAM_CHANGE:
@@ -173,14 +176,17 @@ namespace libmfmidi {
     private:
         using enum MIDIMsgStatus;
         using enum MIDICCNumber;
+
         void notify(NotifyType type) noexcept
         {
             if (mnotifier) {
                 mnotifier(type);
             }
         }
-        MIDIState& mst;
+
+        MIDIState&               mst;
         MIDINotifierFunctionType mnotifier;
+        bool                     mprocessNote;
     };
 
     static_assert(MIDIProcessorClass<MIDIStateProcessor>); // For coding
@@ -189,13 +195,13 @@ namespace libmfmidi {
     ///
     /// \param st \a MIDIState
     /// \param forFile Enable meta events
-    /// \param defaultProgram -1 to not revert program change when st.program == -1, < -1 to not revert program change at all, > 0 to revert program to \a defaultProgram when st.program == -1
+    /// \param programSetting -1 to not revert program change when st.program == -1, < -1 to not revert program change at all, > 0 to revert program to \a defaultProgram when st.program == -1
     /// \param port lookup state in the port
     /// \return std::vector<MIDIMessage>
     ///
     /// \warning This function will NOT revert Channel Prefix and Port Prefix!
     ///
-    [[nodiscard]] inline std::vector<MIDIMessage> reportMIDIState(const MIDIState& st, bool forFile = true, int defaultProgram = 0, uint8_t port = 1) noexcept
+    [[nodiscard]] inline std::vector<MIDIMessage> reportMIDIState(const MIDIState& st, bool forFile = true, int programSetting = 0, uint8_t port = 1) noexcept
     {
         std::vector<MIDIMessage> res;
         MIDIMessage              tmp;
@@ -237,15 +243,15 @@ namespace libmfmidi {
             tmp.setupControlChange(chn, MIDICCNumber::VOLUME_LSB, lsb);
             res.push_back(std::move(tmp));
 
-            if (defaultProgram >= -1 && (st.program != -1 || defaultProgram != -1)) {
-                uint8_t rprog = (st.program == -1 ? defaultProgram : st.program);
+            if (programSetting >= -1 && (st.program != -1 || programSetting != -1)) {
+                auto rprog = static_cast<uint8_t>(st.program == -1 ? programSetting : st.program);
                 tmp.setupProgramChange(chn, rprog);
                 res.push_back(std::move(tmp));
             }
         };
 
         for (int i = 1; i <= NUM_CHANNELS; ++i) {
-            doChannel(st.channels.at(port-1).at(i-1), i);
+            doChannel(st.channels.at(port - 1).at(i - 1), static_cast<uint8_t>(i));
         }
         return res;
     }

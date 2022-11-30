@@ -70,7 +70,9 @@ namespace libmfmidi {
         /// All channel is begin from 1.
         void setRechan(uint8_t target, uint8_t dest)
         {
-            assert(target <=16 && dest <= 16);
+            if (target > 16 || dest > 16) {
+                throw std::invalid_argument("target or dest > 16");
+            }
             m_map.at(target-1) = dest;
         }
 
@@ -81,7 +83,9 @@ namespace libmfmidi {
 
         void setAllRechan(uint8_t dest)
         {
-            assert(dest<=16);
+            if (dest > 16) {
+                throw std::invalid_argument("dest > 16");
+            }
             std::fill(m_map.begin(), m_map.end(), dest);
         }
 

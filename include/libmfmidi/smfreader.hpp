@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <iostream>
 #include <istream>
 #include <functional>
 #include "libmfmidi/abstractsamhandler.hpp"
@@ -50,7 +51,7 @@ namespace libmfmidi {
 
     protected:
         using enum SMFReaderPolicy;
-        using enum MIDIUtils::MIDIMsgStatus;
+        using enum MIDIMsgStatus;
 
         bool policy(SMFReaderPolicy pol)
         {
@@ -152,7 +153,7 @@ namespace libmfmidi {
         /// Max variable number is 0X0FFFFFFF (32bit)
         std::pair<uint32_t, size_t> readVarNum()
         {
-            return MIDIUtils::readVarNum(ise);
+            return libmfmidi::readVarNum(ise);
         }
 
         uint32_t readVarNumE()
@@ -270,12 +271,34 @@ namespace libmfmidi {
                         }
                         break;
                     }
-                    case SYSEX_START:
+                    case 0xF0: { // first format of sysex: F0 <len> <data> F7
+                        const MIDIVarNum len = readVarNumE();
+                        if (len > m_etc) {
+                            report("invalid SysEx Event length: bigger than track length");
+                        }
+                        MIDIVarNum count = 0;
                         do {
                             data = readU8E();
                             buffer.push_back(data);
+                            ++count;
                         } while (data != SYSEX_END);
+                        if (count - 1 != len) {
+                            reportp(InvaildSysExLength, "Invaild SysEx length: given length != actually length");
+                        }
                         break;
+                    }
+                    case 0xF7: { // second format of sysex: F7 <len> <data>
+                        const MIDIVarNum len = readVarNumE();
+                        if (len > m_etc) {
+                            report("invalid SysEx Event length: bigger than track length");
+                        }
+                        for (MIDIVarNum i = 0; i < len; ++i) {
+                            data = readU8E();
+                            buffer.push_back(data);
+                        }
+                        break;
+                    }
+
                     default:
                         report("Unknown or Unexpected status: not a Channel Message, Meta Event or SysEx");
                     }

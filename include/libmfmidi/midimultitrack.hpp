@@ -94,7 +94,7 @@ namespace libmfmidi {
             }
         }
         // TODO: Remove it
-        assert(std::is_sorted(trk.cbegin(), trk.cend()));
+        //assert(std::is_sorted(trk.cbegin(), trk.cend()));
         toRelTimeTrack(trk);
         mtrk.clear();
     }
