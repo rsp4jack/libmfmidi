@@ -58,7 +58,7 @@ namespace libmfmidi {
             if (m_pol) {
                 return m_pol(pol);
             }
-            return true;
+            return false;
         }
 
         void reportp(SMFReaderPolicy pol, const std::string_view& why)
@@ -218,6 +218,7 @@ namespace libmfmidi {
 
         void readTrack()
         {
+            // FIXME: A big bug in onestop test, see https://github.com/craigsapp/midifile
             m_warntrk = false;
             m_warn    = false;
 
@@ -300,10 +301,20 @@ namespace libmfmidi {
                     }
 
                     default:
-                        report("Unknown or Unexpected status: not a Channel Message, Meta Event or SysEx");
+                        if (buffer.isSystemMessage()) {
+                            reportp(IncompatibleEvent, "Incompatible SMF event: System Message (0xF1-0xFE) in SMF file");
+                            for (int i = 0; i < buffer.expectedLength() - 1; ++i) {
+                                buffer.push_back(readU8E());
+                            }
+                        } else {
+                            report("Unknown or Unexpected status: not a Channel Message, Meta Event or SysEx");
+                        }
                     }
                 }
                 m_hand->on_midievent(buffer);
+                if (m_etc < 0) {
+                    report("m_etc is negative, that means underflow");
+                }
             }
 
             m_hand->on_endtrack(m_curtrk);
@@ -311,7 +322,7 @@ namespace libmfmidi {
         }
 
     private:
-        size_t                       m_etc = 0;
+        int64_t                      m_etc = 0; // signed because we need negative number to detect if underflow
         std::istream*                ise;
         uint16_t                     m_type{};
         MIDIDivision                 m_division{};

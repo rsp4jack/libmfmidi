@@ -13,6 +13,7 @@
 #include <ranges>
 #include <filesystem>
 #include <spanstream>
+#include <exception>
 
 using namespace libmfmidi;
 using std::cout;
@@ -21,6 +22,14 @@ using std::endl;
 
 int main(int argc, char** argv)
 {
+    std::set_terminate([]() {
+        try {
+            std::rethrow_exception(std::current_exception());
+        } catch (const std::exception& e) {
+            std::cerr << "[FATAL] " << e.what() << endl;
+        }
+    });
+
     SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS);
 
     cout << "TrackPlayer: Example of libmfmidi" << endl;

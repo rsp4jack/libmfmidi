@@ -9,9 +9,12 @@
 #include "libmfmidi/mfutils.hpp"
 #include <array>
 #include <cstdint>
+#include <format>
 #include <istream>
 #include <limits>
 #include <iterator>
+
+#include <iostream>
 
 #if defined(max)
 #undef max // msvc max macro
@@ -30,7 +33,7 @@ namespace libmfmidi {
     using MIDIVarNum                      = uint32_t;
     constexpr MIDIVarNum MIDIVARNUM_MAX   = std::numeric_limits<MIDIVarNum>::max();
     using MIDITempo                       = uint32_t;
-    using MIDIDivision = int16_t;
+    using MIDIDivision                    = int16_t;
 
     namespace MIDINumSpace {
         // Yes. That make it like enum class but with implicit conversion
@@ -352,7 +355,12 @@ namespace libmfmidi {
     {
         auto readU8 = [&]() {
             uint8_t d;
-            ise->read(reinterpret_cast<char*>(&d), 1);
+            try {
+                ise->read(reinterpret_cast<char*>(&d), 1);
+            } catch (const std::ios_base::failure& fail) {
+                std::cerr << fail.what() << std::endl;
+                throw fail;
+            }
             return d;
         };
         uint32_t value;
@@ -401,7 +409,7 @@ namespace libmfmidi {
     }
 
     /// \brief Write SMF variable number
-    /// 
+    ///
     /// \param data value
     /// \param ose output stream
     /// \return size_t written bytes count
@@ -455,9 +463,9 @@ namespace libmfmidi {
     }
 
     /// \brief Get length in bytes of a SMF variable number
-    /// 
+    ///
     /// \param data Data
-    /// \return size_t 
+    /// \return size_t
     inline size_t varNumLen(MIDIVarNum data)
     {
         MIDIVarNum buf;
@@ -484,7 +492,7 @@ namespace libmfmidi {
     /// \{
 
     /// \brief Convert MSB and LSB to \p uint16_t
-    /// 
+    ///
     /// \param msb MSB
     /// \param lsb LSB
     /// \return uint16_t Value
@@ -494,17 +502,18 @@ namespace libmfmidi {
     }
 
     /// \brief convert \p uint16_t to MSB and LSB
-    /// 
+    ///
     /// \param val Value
     /// \return std::pair<uint8_t, uint8_t> MSB and LSB (First is MSB, second is LSB)
     inline std::pair<uint8_t, uint8_t> U16toMLSB(uint16_t val) noexcept
     {
         return {(val >> 7) & 0x7F, val & 0x7F};
     }
+
     /// \}
 
     /// \brief Convert SMF division and tempo to tick time (in second)
-    /// 
+    ///
     /// \param val Division (can be negative)
     /// \param bpm BPM
     /// \return double Tick time in second
@@ -525,6 +534,56 @@ namespace libmfmidi {
                 realfps = 29.97;
             }
             return 1 / (realfps * ppf);
+        }
+        std::unreachable();
+    }
+
+    inline constexpr std::string divisionToText(MIDIDivision val) noexcept
+    {
+        if (val > 0) {
+            return std::format("{} PPQ", val);
+        }
+        if (val < 0) {
+            uint8_t fps;
+            uint8_t ppf;
+            ppf = val & 0xFF;
+            fps = (val >> 8) & 0x7F; // TODO: negative?
+                                     // 24 25 29(.97) 30
+            double realfps = fps;
+            if (fps == 29) {
+                realfps = 29.97;
+            }
+            return std::format("[{} FPS, {} PPF ({} PPS)]", realfps, ppf, realfps * ppf);
+        }
+        std::unreachable();
+    }
+
+    /// If you not sure the message is meta or reset, set \a isMeta to 0; If is meta, set to 1; If is reset, set to -1
+    inline constexpr std::string_view statusToText(uint8_t status, int isMeta = 0)
+    {
+        //using namespace std::string_view_literals;
+        // 0x80-0xE0
+        constexpr std::array<std::string_view, 7> tableA{"Note Off", "Note On", "Poly Pressure", "Control Change", "Program Change", "Channel Pressure", "Pitch Bend"};
+        // 0xF0-0xFF
+        constexpr std::array<std::string_view, 16> tableB{"SysEx Start", "MTC", "Song Position", "Song Select", "Undefined", "Undefined", "Tune Request", "SysEx End", "Timing Clock", "Undefined", "Start", "Continue", "Stop", "Undefined", "Active Sensing", "{0xFF}"};
+
+        if (status >= 0x80 && status < 0xF0) {
+            return tableA.at((status>>4)-0x8);
+        }
+        if ((status & 0xF0) == 0xF0) {
+            if (tableB.at(status & 0x0F) == "{0xFF}") {
+                if (isMeta > 0) {
+                    return "Meta Event";
+                }
+                if (isMeta == 0) {
+                    return "Meta Event or Reset";
+                }
+                if (isMeta < 0) {
+                    return "Reset";
+                }
+            } else {
+                return tableB.at(status & 0x0F);
+            }
         }
         std::unreachable();
     }

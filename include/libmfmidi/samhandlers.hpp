@@ -17,26 +17,33 @@ namespace libmfmidi {
 
         void on_midievent(const MIDITimedMessage& msg) override
         {
-            *stm << "Delta time: " << msg.deltaTime() << ' ' << "Message: " << msg.msgText() << std::endl;
+            ticktime += msg.deltaTime();
+            *stm << std::format("{}\t{}\t{}", ticktime, statusToText(msg.status(), 1), msg.msgHex()) << std::endl;
         }
 
         void on_header(uint32_t format, uint16_t ntrk, MIDIDivision division) override
         {
-            *stm << "Header: " << std::format("Format {}; {} tracks; Division: {:x}", format, ntrk, division) << std::endl;
+            using std::endl;
+            // *stm << "Header: " << std::format("Format {}; {} tracks; Division: {:x}", format, ntrk, division) << std::endl;
+            *stm << "Header:" << '\n'
+                 << "SMF Format: " << format << '\n'
+                 << "Tracks: " << ntrk << '\n'
+                 << "Division: " << divisionToText(division) << '\n' << endl;
         }
 
         void on_starttrack(uint32_t trk) override
         {
-            *stm << std::format("------TRACK {} BEGIN------", trk) << std::endl;
+            *stm << "Track " << trk << ":" << '\n' << "Tick Time\tMessage Type\tMessage" << std::endl;
         }
 
         void on_endtrack(uint32_t trk) override
         {
-            *stm << std::format("-----TRACK {} END-----", trk) << std::endl;
+            *stm << std::endl;
         }
 
     private:
         std::ostream* stm;
+        MIDIClockTime ticktime = 0;
     };
 
     class SMFFileSAMHandler : public AbstractSAMHandler {
@@ -54,7 +61,7 @@ namespace libmfmidi {
 
         void on_header(uint32_t format, uint16_t ntrk, MIDIDivision division) override
         {
-            _info->type = format;
+            _info->type     = format;
             _info->division = division;
             _file->resize(ntrk);
         }
@@ -64,14 +71,14 @@ namespace libmfmidi {
             curtrk = trk;
         }
 
-        void on_endtrack(uint32_t  /*trk*/) override
+        void on_endtrack(uint32_t /*trk*/) override
         {
             curtrk = 0xFFFFFFFF;
         }
 
     private:
         MIDIMultiTrack* _file;
-        SMFFileInfo* _info;
-        uint32_t curtrk=0xFFFFFFFF;
+        SMFFileInfo*    _info;
+        uint32_t        curtrk = 0xFFFFFFFF;
     };
 }

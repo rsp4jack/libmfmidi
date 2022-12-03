@@ -31,7 +31,8 @@ namespace libmfmidi {
         InvaildHeaderSize, // read as provided size
         InvaildSMFType,    // not 0,1,2, and multiple tracks on type 0 (will fix to 1 when multiple tracks, 0 when single track or no tracks)
         NoEndOfTrack,
-        InvaildSysExLength,
+        InvaildSysExLength, // will only read to F7
+        IncompatibleEvent, // smf event but is a system message
         // TODO: More...
     };
 

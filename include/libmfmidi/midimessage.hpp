@@ -7,8 +7,8 @@
 #pragma once
 
 #ifdef _MSC_VER
-#pragma warning(push) 
-#pragma warning(disable: 4244 4267 4146)
+#pragma warning(push)
+#pragma warning(disable : 4244 4267 4146)
 #endif
 
 #include "libmfmidi/mfutils.hpp"
@@ -154,11 +154,11 @@ namespace libmfmidi {
                 str << "MFMarker: " << static_cast<int>(marker) << endl;
             }
             if (isSysEx()) {
-                str << "SysEx";
+                str << "SysEx" << endl;
             }
 
             if (isChannelMsg()) {
-                str << "Channel: " << static_cast<int>(channel());
+                str << "Channel: " << static_cast<int>(channel()) << endl;
             }
             if (isTextEvent()) {
                 str << "Text: " << textEventText() << endl;
@@ -196,6 +196,35 @@ namespace libmfmidi {
             }
 
             return str.str();
+        }
+
+        [[nodiscard]] constexpr std::string msgHex() const
+        {
+            std::string result;
+            result.reserve(size()*2-1);
+            char buffer[2]{};
+            bool ins = false;
+            for (const auto& dat : data()) {
+                buffer[0] = 0;
+                buffer[1] = 0;
+
+                auto fmt = std::to_chars(buffer, buffer + 2, dat, 16);
+                buffer[0] = std::toupper(buffer[0]);
+                buffer[1] = std::toupper(buffer[1]);
+
+                if (fmt.ptr == &buffer[1]) {
+                    buffer[1] = buffer[0];
+                    buffer[0] = '0';
+                }
+
+                if (ins) {
+                    result.push_back(' ');
+                } else {
+                    ins = true;
+                }
+                result.insert(result.end(), buffer, buffer + 2);
+            }
+            return result;
         }
 
         [[nodiscard]] constexpr size_t length() const
@@ -237,6 +266,7 @@ namespace libmfmidi {
             return (_data[0] & 0x0FU) + 1;
         }
 
+        /// \warning If not channel msg, return status(not &0xF0)
         [[nodiscard]] constexpr uint8_t type() const
         {
             if (isChannelMsg()) {
@@ -667,8 +697,8 @@ namespace libmfmidi {
         {
             C(isPitchBend());
             const int16_t b = a + 0x2000;
-            _data[1]       = b & 0x7F;
-            _data[2]       = (b >> 7) & 0x7F;
+            _data[1]        = b & 0x7F;
+            _data[2]        = (b >> 7) & 0x7F;
         }
 
         constexpr void setMetaNumber(uint8_t a)
@@ -806,7 +836,7 @@ namespace libmfmidi {
 
         [[nodiscard]] constexpr bool strictVaild() const
         {
-            // doggy-doo code but fun
+            // s**t code but fun
             // clang-format off
             return isMFMarker() || (!_data.empty() && (
                 (isVoiceMessage() && getExpectedMessageLength(status()) == _data.size()) // voice message: expected length
@@ -837,7 +867,7 @@ namespace libmfmidi {
         /// \warning Meta events are not system messages.
         [[nodiscard]] constexpr bool isSystemMessage() const
         {
-            return M() && !isMetaEvent() && type() == 0xF0;
+            return !isMetaEvent() && (status() & 0xF0) == 0xF0;
         }
 
         [[nodiscard]] constexpr bool isChannelMsg() const
@@ -1154,5 +1184,5 @@ namespace libmfmidi {
 // NOLINTEND(readability-identifier-length, bugprone-easily-swappable-parameters)
 
 #ifdef _MSC_VER
-#pragma warning(pop) 
+#pragma warning(pop)
 #endif
