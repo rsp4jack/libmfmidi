@@ -42,7 +42,7 @@ namespace libmfmidi {
         T_Mode, // play, stop...
         T_Measure,
         T_Beat,
-        T_EndOfSong, ///< End of playback, when player stop at end, \a T_EndOfSong will notify.
+        T_EndOfSong, ///< End of playback, when player stop at end, \a T_EndOfSong will notify without T_Mode.
         TR_All,
         TR_Name,
         TR_Note,

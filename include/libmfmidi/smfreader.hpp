@@ -13,6 +13,11 @@
 #include "libmfmidi/smfreaderpolicy.hpp"
 
 namespace libmfmidi {
+    using std::cerr;
+    using std::cout;
+    using std::endl;
+    using std::hex;
+    using std::dec;
     /// \brief SMF Reader
     class SMFReader {
     public:
@@ -40,6 +45,7 @@ namespace libmfmidi {
             m_warnheader = false;
             m_warntrk    = false;
             m_warn       = false;
+            ise->clear();
             ise->seekg(m_off, std::ios::beg);
             ise->exceptions(std::ios::badbit | std::ios::failbit | std::ios::eofbit);
         }
@@ -83,6 +89,8 @@ namespace libmfmidi {
 
 #pragma region io
 
+
+
         uint8_t readU8()
         {
             uint8_t d;
@@ -92,7 +100,6 @@ namespace libmfmidi {
 
         uint8_t readU8E()
         {
-            // TODO: Maybe need underflow check.
             --m_etc;
             return readU8();
         }
@@ -107,7 +114,7 @@ namespace libmfmidi {
 
         uint16_t readU16E()
         {
-            --m_etc;
+            m_etc -= 2;
             return readU16();
         }
 
@@ -121,7 +128,7 @@ namespace libmfmidi {
 
         uint32_t readU32E()
         {
-            --m_etc;
+            m_etc -= 4;
             return readU32();
         }
 
@@ -135,7 +142,7 @@ namespace libmfmidi {
 
         uint64_t readU64E()
         {
-            --m_etc;
+            m_etc -= 8;
             return readU64();
         }
 
@@ -239,20 +246,25 @@ namespace libmfmidi {
 
                 // status
                 data = readU8E();
-                if ((data & 0x80) == 0) {
+                if (data < 0x80) {
                     if (status == 0) {
                         report("Running Status without status");
                     }
                     m_usedrunningstatus = true;
+                    ise->seekg(-1, std::ios_base::cur); // seek back
+                    ++m_etc;
                 } else {
                     status = data;
                 }
 
-                MIDITimedMessage buffer{status};
+                MIDITimedMessage buffer;
+                buffer.reserve(4); // default to reserve 4 bytes
                 buffer.setDeltaTime(deltatime);
 
+                buffer.push_back(status);
+
                 if (buffer.isChannelMsg()) { // also test if status is vaild
-                    for (int i = 0; i < buffer.expectedLength() - 1; ++i) {
+                    for (int i = 0; i < buffer.expectedLength() - 1; ++i) { // if isrs, 
                         buffer.push_back(readU8E());
                     }
                 } else {
@@ -283,7 +295,7 @@ namespace libmfmidi {
                             buffer.push_back(data);
                             ++count;
                         } while (data != SYSEX_END);
-                        if (count - 1 != len) {
+                        if (count - 1 != len) { // also read sysex end but not in len
                             reportp(InvaildSysExLength, "Invaild SysEx length: given length != actually length");
                         }
                         break;

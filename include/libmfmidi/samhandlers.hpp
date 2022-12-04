@@ -33,6 +33,7 @@ namespace libmfmidi {
 
         void on_starttrack(uint32_t trk) override
         {
+            ticktime = 0;
             *stm << "Track " << trk << ":" << '\n' << "Tick Time\tMessage Type\tMessage" << std::endl;
         }
 

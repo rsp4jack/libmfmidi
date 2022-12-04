@@ -139,6 +139,15 @@ int nanosleep(unsigned long long nsec)
                 Sleep(sleep_millis);
             }
             /* Busy-loop for the rest.  */
+            HANDLE timer; /* Timer handle */
+            // TODO: Mark: nanosleep precision
+            const LARGE_INTEGER li{.QuadPart = -100LL}; // 1us precision /* Time defintion */
+                                                        /* Create timer */
+            timer = CreateWaitableTimerEx(NULL, NULL, CREATE_WAITABLE_TIMER_MANUAL_RESET | CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, DELETE | SYNCHRONIZE | TIMER_MODIFY_STATE);
+            if (timer == nullptr) {
+                return FALSE;
+            }
+
             LARGE_INTEGER counter_after;
             for (;;) {
                 if (QueryPerformanceCounter(&counter_after) == 0) {
@@ -150,6 +159,11 @@ int nanosleep(unsigned long long nsec)
                     /* The requested time has elapsed.  */
                     break;
                 }
+                if (SetWaitableTimer(timer, &li, 0, nullptr, nullptr, FALSE) == 0) { // A very short sleep
+                    CloseHandle(timer);
+                    return FALSE;
+                }
+                WaitForSingleObject(timer, INFINITE);
                 SwitchToThread();
             }
         }

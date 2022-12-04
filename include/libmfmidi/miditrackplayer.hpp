@@ -47,6 +47,9 @@ namespace libmfmidi {
                 if (type == NotifyType::C_Tempo) {
                     reCalcDivns();
                 }
+                if (mnotifier) {
+                    mnotifier(type);
+                }
             });
         }
 
@@ -55,10 +58,16 @@ namespace libmfmidi {
             using namespace std::literals;
             pause();
             mthread.request_stop();
+            mwakeup = true;
             while (!mthreadexit) {
                 mcv.notify_all(); // wake up sleeping thread to stop
                 std::this_thread::sleep_for(2ms);
             }
+        }
+
+        void setNotifier(MIDINotifierFunctionType func)
+        {
+            mnotifier = std::move(func);
         }
 
         void initThread()
@@ -82,6 +91,7 @@ namespace libmfmidi {
             }
             if (!mplaying) {
                 mplaying = true;
+                mwakeup = true;
                 mcv.notify_all();
             }
         }
@@ -297,7 +307,8 @@ namespace libmfmidi {
             while (!tok.stop_requested()) {
                 if (!mplaying) {
                     std::unique_lock<std::mutex> ulk{mcvmutex};
-                    mcv.wait(ulk, [&] { return mplaying; });
+                    mcv.wait(ulk, [&] { return mwakeup; });
+                    mwakeup = false;
                 }
                 MIDITimedMessage tempmsg;
                 while (true) { // for repeated 0 delta time msg
@@ -330,6 +341,7 @@ namespace libmfmidi {
         std::mutex              mcvmutex;
         std::condition_variable mcv;
         bool                    mthreadexit = false;
+        bool mwakeup = false;
 
         // Settings
         bool museCache = true; // use MIDIState cache
@@ -350,6 +362,7 @@ namespace libmfmidi {
         MIDIStateProcessor    mstproc{mstate};
         MIDIProcessorFunction mprocfunc;
         AbstractMIDIDevice*   mdev{};
+        MIDINotifierFunctionType mnotifier;
 
         // Cache
         std::map<MIDIClockTime, Snapshot> mcache;

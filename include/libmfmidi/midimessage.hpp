@@ -198,33 +198,9 @@ namespace libmfmidi {
             return str.str();
         }
 
-        [[nodiscard]] constexpr std::string msgHex() const
+        [[nodiscard]] std::string msgHex() const
         {
-            std::string result;
-            result.reserve(size()*2-1);
-            char buffer[2]{};
-            bool ins = false;
-            for (const auto& dat : data()) {
-                buffer[0] = 0;
-                buffer[1] = 0;
-
-                auto fmt = std::to_chars(buffer, buffer + 2, dat, 16);
-                buffer[0] = std::toupper(buffer[0]);
-                buffer[1] = std::toupper(buffer[1]);
-
-                if (fmt.ptr == &buffer[1]) {
-                    buffer[1] = buffer[0];
-                    buffer[0] = '0';
-                }
-
-                if (ins) {
-                    result.push_back(' ');
-                } else {
-                    ins = true;
-                }
-                result.insert(result.end(), buffer, buffer + 2);
-            }
-            return result;
+            return memoryDump(reinterpret_cast<const char*>(data().data()), size());
         }
 
         [[nodiscard]] constexpr size_t length() const
@@ -240,6 +216,16 @@ namespace libmfmidi {
         [[nodiscard]] constexpr std::vector<uint8_t>& data()
         {
             return _data;
+        }
+
+        void resize(size_t size)
+        {
+            _data.resize(size);
+        }
+
+        void reserve(size_t size)
+        {
+            _data.reserve(size);
         }
 
         /// \warning May return negative

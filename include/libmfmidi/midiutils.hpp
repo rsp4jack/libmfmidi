@@ -198,6 +198,7 @@ namespace libmfmidi {
         };
     }
 
+// TODO: fix it
     // let them be visible in clangd
     // NOLINTBEGIN(misc-unused-using-decls)
     using MIDIMetaNumSpace::MIDIMetaNumber;

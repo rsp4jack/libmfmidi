@@ -6,8 +6,12 @@
 
 #include <bit>
 #include <algorithm>
+#include <charconv>
 #include <concepts>
+#include <span>
+#include <string>
 #include <type_traits>
+#include <cctype>
 
 namespace std {
 #if !defined(__cpp_lib_byteswap)
@@ -126,6 +130,35 @@ namespace libmfmidi {
         // clang-format on
         if constexpr (sizeof...(bytes) > 0) {
             result |= rawCat(bytes...);
+        }
+        return result;
+    }
+
+    constexpr std::string memoryDump(const char* memory, std::size_t size)
+    {
+        std::string result;
+        result.reserve(size * 2 - 1);
+        char buffer[2]{};
+        bool ins = false;
+        for (const auto& dat : std::span<const char>(memory, size)) {
+            buffer[0] = 0;
+            buffer[1] = 0;
+
+            auto fmt  = std::to_chars(buffer, buffer + 2, static_cast<unsigned char>(dat), 16);
+            buffer[0] = std::toupper(buffer[0]);
+            buffer[1] = std::toupper(buffer[1]);
+
+            if (fmt.ptr == &buffer[1]) {
+                buffer[1] = buffer[0];
+                buffer[0] = '0';
+            }
+
+            if (ins) {
+                result.push_back(' ');
+            } else {
+                ins = true;
+            }
+            result.insert(result.end(), buffer, buffer + 2);
         }
         return result;
     }

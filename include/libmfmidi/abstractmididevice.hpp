@@ -56,5 +56,11 @@ namespace libmfmidi {
 
     protected:
         callback_type mcb;
+
     };
+
+    inline void sendAllSoundsOff(AbstractMIDIDevice* dev)
+    {
+        dev->sendMsg({MIDIMsgStatus::CONTROL_CHANGE, MIDICCNumber::ALL_SOUND_OFF, 0});
+    }
 }

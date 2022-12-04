@@ -16,8 +16,8 @@
 #include <exception>
 
 using namespace libmfmidi;
-using std::cout;
 using std::cin;
+using std::cout;
 using std::endl;
 
 int main(int argc, char** argv)
@@ -43,10 +43,10 @@ int main(int argc, char** argv)
     std::fstream stm;
     stm.open(argv[1], std::ios::in | std::ios::binary);
     std::vector<char> memory; // just for own memory, like unique_ptr
-    auto filesize = std::filesystem::file_size(argv[1]);
+    auto              filesize = std::filesystem::file_size(argv[1]);
     memory.resize(filesize);
     stm.read(memory.data(), filesize);
-    std::span<char> preread{memory.begin(), memory.end()};
+    std::span<char>                                     preread{memory.begin(), memory.end()};
     std::basic_spanstream<char, std::char_traits<char>> ss{preread, std::ios::in | std::ios::binary};
     stm.close();
     cout << "Opened" << endl;
@@ -61,8 +61,6 @@ int main(int argc, char** argv)
     cout << "Parsed" << endl;
     cout << "SMF File: Format " << info.type << "; Division: " << static_cast<uint16_t>(info.division) << ";" << endl;
     cout << "NTrks: " << file.size() << ';' << endl;
-
-    
 
     cout << "Merging" << endl;
     MIDITrack trk;
@@ -104,6 +102,12 @@ int main(int argc, char** argv)
     player.setDriver(dev);
     player.setTrack(trk);
 
+    player.setNotifier([&](NotifyType type) {
+        if (type == NotifyType::T_Mode || type == NotifyType::T_EndOfSong) {
+            sendAllSoundsOff(dev);
+        }
+    });
+
     // manual init player thread to set priority
     player.initThread();
     SetThreadPriority(player.nativeHandle(), THREAD_PRIORITY_TIME_CRITICAL);
@@ -120,7 +124,7 @@ int main(int argc, char** argv)
         }
 
         if (splitedcmd.empty()) {
-            
+
         } else if (splitedcmd[0] == "play") {
             player.play();
         } else if (splitedcmd[0] == "pause") {
