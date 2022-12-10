@@ -162,8 +162,8 @@ add_library(libmfmidi STATIC
     include/libmfmidi/miditrack.hpp
     include/libmfmidi/miditrackplayer.hpp
     include/libmfmidi/midiutils.hpp
-    include/libmfmidi/nanosleep.cpp
-    include/libmfmidi/nanosleep.hpp
+    include/libmfmidi/platformapi.cpp
+    include/libmfmidi/platformapi.hpp
     include/libmfmidi/posixtimer.hpp
     include/libmfmidi/rtmididevice.hpp
     include/libmfmidi/samhandlers.hpp

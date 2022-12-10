@@ -31,7 +31,7 @@
 #include <stop_token>
 #include <mutex>
 #include <condition_variable>
-#include "nanosleep.hpp"
+#include "platformapi.hpp"
 #include <atomic>
 
 namespace libmfmidi {
@@ -45,7 +45,7 @@ namespace libmfmidi {
         {
             mstproc.setNotifier([&](NotifyType type) {
                 if (type == NotifyType::C_Tempo) {
-                    reCalcDivns();
+                    reCalcDivus();
                 }
                 if (mnotifier) {
                     mnotifier(type);
@@ -114,7 +114,7 @@ namespace libmfmidi {
         void setDivision(MIDIDivision div) noexcept
         {
             mdiv = div;
-            reCalcDivns();
+            reCalcDivus();
         }
 
         void setTrack(const MIDITrack& trk) noexcept
@@ -245,9 +245,9 @@ namespace libmfmidi {
             return {0, 0, {}, mtrk->cbegin()};
         }
 
-        void reCalcDivns() noexcept
+        void reCalcDivus() noexcept
         {
-            mdivns = static_cast<unsigned long long>(divisionToSec(mdiv, mstate.tempo) * 1000 * 1000 * 1000);
+            mdivus = static_cast<unsigned long long>(divisionToSec(mdiv, mstate.tempo) * 1000 * 1000);
         }
 
         void revertState() noexcept
@@ -329,7 +329,7 @@ namespace libmfmidi {
 
                     break;
                 }
-                nanosleep(mdivns);
+                usleep(mdivus);
                 ++mabsTime;
                 ++mrelckltime;
             }
@@ -350,7 +350,7 @@ namespace libmfmidi {
 
         // Playing info
         MIDIDivision       mdiv   = 0;
-        unsigned long long mdivns = 0; // division to nanosec
+        unsigned long long mdivus = 0; // division to microsec
         bool               mplaying{false};
 
         // Snapshot-able

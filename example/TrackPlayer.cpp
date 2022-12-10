@@ -136,6 +136,7 @@ int main(int argc, char** argv)
             }
             const MIDIClockTime clk = std::stoul(splitedcmd[1]);
             cout << "Seeking to " << clk << endl;
+            sendAllSoundsOff(dev);
             player.goTo(clk);
         } else if (splitedcmd[0] == "exit") {
             break;

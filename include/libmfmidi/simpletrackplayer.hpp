@@ -32,10 +32,10 @@
 namespace libmfmidi {
     class SimpleTrackPlayer {
     public:
-        static constexpr unsigned int PLAYER_RESOLUTION = 1; // 1ms
+        static constexpr unsigned int PLAYER_TICKDELAY = 1; // 1ms
         void play()
         {
-            mtimer->start(PLAYER_RESOLUTION);
+            mtimer->start(PLAYER_TICKDELAY);
             mplay = true;
         }
 
@@ -139,7 +139,7 @@ namespace libmfmidi {
                     pause();
                     return;
                 }
-                if (mreltimertick * PLAYER_RESOLUTION < tickTime * cur->deltaTime()) {
+                if (mreltimertick * PLAYER_TICKDELAY < tickTime * cur->deltaTime()) {
                     ++mreltimertick;
                     return;
                 }

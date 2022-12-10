@@ -64,7 +64,7 @@ namespace libmfmidi {
             if (m_pol) {
                 return m_pol(pol);
             }
-            return false;
+            return true;
         }
 
         void reportp(SMFReaderPolicy pol, const std::string_view& why)
