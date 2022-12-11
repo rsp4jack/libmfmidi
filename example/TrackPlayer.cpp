@@ -93,6 +93,11 @@ int main(int argc, char** argv)
 
     MIDITrackPlayer player; // init player after everything
 
+    bool useCache;
+    cout << "Use cache? 1/0: ";
+    cin >> useCache;
+    player.setUseCache(useCache);
+
     auto compfdc = [&](MIDITimedMessage& msg) {
         fdc::MFMarkTempo::process(msg);
         return MIDIMessageF2D::process(msg);

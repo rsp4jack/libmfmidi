@@ -7,6 +7,7 @@
 #pragma once
 
 #include "libmfmidi/mfutils.hpp"
+#include "libmfmidi/mididatatypes.hpp"
 #include <array>
 #include <cstdint>
 #include <format>
@@ -25,14 +26,12 @@
 
 namespace libmfmidi {
     using MIDIClockTime = uint32_t;
-    static_assert(sizeof(MIDIClockTime) == 4);
     constexpr uint8_t       NUM_CHANNELS  = 16;
     constexpr uint8_t       NUM_PORTS     = 16;
     constexpr uint16_t      NUM_TRACKS    = std::numeric_limits<uint16_t>::max();
     constexpr MIDIClockTime MIDICLKTM_MAX = std::numeric_limits<MIDIClockTime>::max(); ///< \brief Sometimes this means invalid value
     using MIDIVarNum                      = uint32_t;
     constexpr MIDIVarNum MIDIVARNUM_MAX   = std::numeric_limits<MIDIVarNum>::max();
-    using MIDITempo                       = uint32_t;
     using MIDIDivision                    = int16_t;
 
     namespace MIDINumSpace {
@@ -522,7 +521,7 @@ namespace libmfmidi {
     {
         if (val > 0) {
             // MIDI always 4/4
-            return 60.0 / (val * bpm);
+            return 60.0 / (val * bpm.bpmFP());
         }
         if (val < 0) {
             uint8_t fps;

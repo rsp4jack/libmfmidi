@@ -65,6 +65,16 @@ namespace libmfmidi {
             }
         }
 
+        [[nodiscard]] bool useCache() const noexcept
+        {
+            return museCache;
+        }
+
+        void setUseCache(bool use) noexcept
+        {
+            museCache = use;
+        }
+
         void setNotifier(MIDINotifierFunctionType func)
         {
             mnotifier = std::move(func);
