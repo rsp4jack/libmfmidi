@@ -122,7 +122,7 @@ if(NEED_PTHREAD)
     list(APPEND PACKAGE_DEPENDENCIES "find_dependency(Threads)")
 endif()
 
-add_library(rtmidi STATIC src/RtMidi.cpp)
+add_library(rtmidi STATIC src/rtmidi/RtMidi.cpp)
 target_link_libraries(rtmidi PUBLIC ${PUBLICLINKLIBS}
     PRIVATE ${LINKLIBS})
 target_include_directories(rtmidi PRIVATE ${INCDIRS}

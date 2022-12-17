@@ -23,37 +23,46 @@
 
 namespace libmfmidi {
 #if defined(__linux__)
-    int usleep(unsigned int usec)
+    int nanosleep(unsigned long long nsec)
     {
-        return ::usleep(usec);
+        return ::nanosleep(nsec);
     }
 #elif defined(_WIN32)
-    int usleep(unsigned int usec)
+    int nanosleep(unsigned long long nsec)
     {
         using namespace std;
         using namespace std::chrono;
-        using hclock                         = high_resolution_clock;
-        constexpr unsigned long long MIN_RES = 6; // in ms
-        constexpr unsigned long long MAX_RES = 2;  // in ms
+        constexpr DWORD MIN_RES = 3; // in ms
+        constexpr DWORD MAX_RES = 2; // in ms
 
         static bool     inited = false;
         static uint64_t freq;
+        static TIMECAPS caps;
         if (!inited) {
             QueryPerformanceFrequency(reinterpret_cast<LARGE_INTEGER*>(&freq));
+            if (timeGetDevCaps(&caps, sizeof(TIMECAPS)) != MMSYSERR_NOERROR) {
+                return -1;
+            }
             inited = true;
         }
 
-        timeBeginPeriod(1);
+        timeBeginPeriod(caps.wPeriodMin);
         // const hclock::time_point target_time{hclock::duration{hclock::now().time_since_epoch().count() + usec * (freq / 1'000'000)}};
-        uint64_t current_time, target_time;
+        uint64_t current_time;
+        uint64_t target_time;
         QueryPerformanceCounter(reinterpret_cast<LARGE_INTEGER*>(&target_time));
-        target_time += freq / 1'000'000 * usec;
+        target_time += freq / 1'000'000'000.0 * nsec;
 
         while (true) {
             QueryPerformanceCounter(reinterpret_cast<LARGE_INTEGER*>(&current_time));
             if (current_time < target_time) {
                 if ((target_time - current_time) > freq / 1000 * MIN_RES) {
-                    Sleep(max((target_time - current_time) / freq * 1000, MIN_RES) - MIN_RES); // avoid underflow
+                    Sleep(
+                        max(
+                            static_cast<DWORD>((target_time - current_time) / static_cast<double>(freq) * 1000), MIN_RES
+                        )
+                        - MIN_RES
+                    ); // avoid underflow
                 } else if ((target_time - current_time) > freq / 1000 * MAX_RES) {
                     Sleep(1);
                 } else {
@@ -64,7 +73,7 @@ namespace libmfmidi {
             }
         }
 
-        timeEndPeriod(1);
+        timeEndPeriod(caps.wPeriodMin);
         return 0;
     }
 

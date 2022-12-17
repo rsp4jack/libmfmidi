@@ -257,7 +257,7 @@ namespace libmfmidi {
 
         void reCalcDivus() noexcept
         {
-            mdivus = static_cast<unsigned long long>(divisionToSec(mdiv, mstate.tempo) * 1000 * 1000);
+            mdivns = static_cast<unsigned long long>(divisionToSec(mdiv, mstate.tempo) * 1000 * 1000* 1000);
         }
 
         void revertState() noexcept
@@ -339,7 +339,7 @@ namespace libmfmidi {
 
                     break;
                 }
-                usleep(mdivus);
+                nanosleep(mdivns);
                 ++mabsTime;
                 ++mrelckltime;
             }
@@ -347,9 +347,9 @@ namespace libmfmidi {
         }
 
         // Multi-thread
-        std::jthread            mthread;
-        std::mutex              mcvmutex;
-        std::condition_variable mcv;
+        std::jthread            mthread{};
+        std::mutex              mcvmutex{};
+        std::condition_variable mcv{};
         bool                    mthreadexit = false;
         bool mwakeup = false;
 
@@ -359,22 +359,22 @@ namespace libmfmidi {
         const MIDITrack* mtrk{};
 
         // Playing info
-        MIDIDivision       mdiv   = 0;
-        unsigned long long mdivus = 0; // division to microsec
+        MIDIDivision       mdiv{};
+        unsigned long long mdivns = 0; // division to microsec
         bool               mplaying{false};
 
         // Snapshot-able
         MIDIClockTime             mabsTime    = 0; // Current abs tick time
         MIDIClockTime             mrelckltime = 0;
-        MIDIState                 mstate;
-        MIDITrack::const_iterator mcurit;
+        MIDIState                 mstate{};
+        MIDITrack::const_iterator mcurit{};
 
         MIDIStateProcessor    mstproc{mstate};
-        MIDIProcessorFunction mprocfunc;
+        MIDIProcessorFunction mprocfunc{};
         AbstractMIDIDevice*   mdev{};
-        MIDINotifierFunctionType mnotifier;
+        MIDINotifierFunctionType mnotifier{};
 
         // Cache
-        std::map<MIDIClockTime, Snapshot> mcache;
+        std::map<MIDIClockTime, Snapshot> mcache{};
     };
 }

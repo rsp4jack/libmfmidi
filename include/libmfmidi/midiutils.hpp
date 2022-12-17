@@ -25,14 +25,14 @@
 #endif
 
 namespace libmfmidi {
-    using MIDIClockTime = uint32_t;
+    using MIDIClockTime                   = uint32_t;
     constexpr uint8_t       NUM_CHANNELS  = 16;
     constexpr uint8_t       NUM_PORTS     = 16;
     constexpr uint16_t      NUM_TRACKS    = std::numeric_limits<uint16_t>::max();
     constexpr MIDIClockTime MIDICLKTM_MAX = std::numeric_limits<MIDIClockTime>::max(); ///< \brief Sometimes this means invalid value
     using MIDIVarNum                      = uint32_t;
+    using SMFType = uint16_t;
     constexpr MIDIVarNum MIDIVARNUM_MAX   = std::numeric_limits<MIDIVarNum>::max();
-    using MIDIDivision                    = int16_t;
 
     namespace MIDINumSpace {
         // Yes. That make it like enum class but with implicit conversion
@@ -197,7 +197,7 @@ namespace libmfmidi {
         };
     }
 
-// TODO: fix it
+    // TODO: fix it
     // let them be visible in clangd
     // NOLINTBEGIN(misc-unused-using-decls)
     using MIDIMetaNumSpace::MIDIMetaNumber;
@@ -514,61 +514,52 @@ namespace libmfmidi {
 
     /// \brief Convert SMF division and tempo to tick time (in second)
     ///
-    /// \param val Division (can be negative)
+    /// \param val Division
     /// \param bpm BPM
     /// \return double Tick time in second
     inline constexpr double divisionToSec(MIDIDivision val, MIDITempo bpm) noexcept
     {
-        if (val > 0) {
+        if (!val || !bpm) {
+            return 0;
+        }
+        if (val.isPPQ()) {
             // MIDI always 4/4
-            return 60.0 / (val * bpm.bpmFP());
+            return 60.0 / (val.ppq() * bpm.bpmFP());
         }
-        if (val < 0) {
-            uint8_t fps;
-            uint8_t ppf;
-            ppf = val & 0xFF;
-            fps = (val >> 8) & 0x7F; // TODO: negative?
-                                     // 24 25 29(.97) 30
-            double realfps = fps;
-            if (fps == 29) {
-                realfps = 29.97;
-            }
-            return 1 / (realfps * ppf);
+        // 24 25 29(.97) 30
+        double realfps = val.fps();
+        if (val.fps() == 29) {
+            realfps = 29.97;
         }
-        std::unreachable();
+        return 1 / (realfps * val.tpf());
     }
 
     inline constexpr std::string divisionToText(MIDIDivision val) noexcept
     {
-        if (val > 0) {
-            return std::format("{} PPQ", val);
+        if (!val) {
+            return "Empty Division";
         }
-        if (val < 0) {
-            uint8_t fps;
-            uint8_t ppf;
-            ppf = val & 0xFF;
-            fps = (val >> 8) & 0x7F; // TODO: negative?
-                                     // 24 25 29(.97) 30
-            double realfps = fps;
-            if (fps == 29) {
-                realfps = 29.97;
-            }
-            return std::format("[{} FPS, {} PPF ({} PPS)]", realfps, ppf, realfps * ppf);
+        if (val.isPPQ()) {
+            return std::format("{} PPQ", val.ppq());
         }
-        std::unreachable();
+        double realfps = val.fps();
+        if (val.fps() == 29) {
+            realfps = 29.97;
+        }
+        return std::format("[{} FPS, {} TPF ({} Ticks per second)]", realfps, val.tpf(), realfps * val.tpf());
     }
 
     /// If you not sure the message is meta or reset, set \a isMeta to 0; If is meta, set to 1; If is reset, set to -1
     inline constexpr std::string_view statusToText(uint8_t status, int isMeta = 0)
     {
-        //using namespace std::string_view_literals;
-        // 0x80-0xE0
+        // using namespace std::string_view_literals;
+        //  0x80-0xE0
         constexpr std::array<std::string_view, 7> tableA{"Note Off", "Note On", "Poly Pressure", "Control Change", "Program Change", "Channel Pressure", "Pitch Bend"};
         // 0xF0-0xFF
         constexpr std::array<std::string_view, 16> tableB{"SysEx Start", "MTC", "Song Position", "Song Select", "Undefined", "Undefined", "Tune Request", "SysEx End", "Timing Clock", "Undefined", "Start", "Continue", "Stop", "Undefined", "Active Sensing", "{0xFF}"};
 
         if (status >= 0x80 && status < 0xF0) {
-            return tableA.at((status>>4)-0x8);
+            return tableA.at((status >> 4) - 0x8);
         }
         if ((status & 0xF0) == 0xF0) {
             if (tableB.at(status & 0x0F) == "{0xFF}") {

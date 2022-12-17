@@ -363,15 +363,10 @@ namespace libmfmidi {
             return (val - 64) / 64.0;
         }
 
-        [[nodiscard]] constexpr MIDITempo rawTempo() const
+        [[nodiscard]] constexpr MIDITempo tempo() const
         {
             C(isTempo());
-            return rawCat(_data[3], _data[4], _data[5]);
-        }
-
-        [[nodiscard]] constexpr MIDITempo bpm() const
-        {
-            return 60000000 / rawTempo();
+            return MIDITempo::fromMSPQ(rawCat(_data[3], _data[4], _data[5]));
         }
 
         [[nodiscard]] constexpr std::string textEventText() const
@@ -778,21 +773,17 @@ namespace libmfmidi {
             std::copy(args.begin(), args.end(), std::back_inserter(_data));
         }
 
-        constexpr void setupRawTempo(MIDITempo tempo)
+        constexpr void setupTempo(MIDITempo tempo)
         {
             uint8_t f;
             uint8_t s;
             uint8_t t;
-            f = (tempo >> 16) & 0xFF;
-            s = (tempo >> 8) & 0xFF;
-            t = tempo & 0xFF;
+            f = (tempo.mspq() >> 16) & 0xFF;
+            s = (tempo.mspq() >> 8) & 0xFF;
+            t = tempo.mspq() & 0xFF;
             setupMetaEvent(MIDIMetaNumber::TEMPO, {f, s, t});
         }
 
-        constexpr void setupBPM(MIDITempo bpm)
-        {
-            setupRawTempo(60000000 / bpm);
-        }
 
         constexpr void setupEndOfTrack()
         {

@@ -5,9 +5,9 @@
 #pragma once
 
 namespace libmfmidi {
-    /// \brief libmfmidi's usleep
-    /// 
-    /// \param usec time in us
+    /// \brief libmfmidi's nanosleep
+    ///
+    /// \param nsec time in nanoseconds
     /// \return int 0 if succeeded
-    int usleep(unsigned int usec);
+    int nanosleep(unsigned long long nsec);
 }

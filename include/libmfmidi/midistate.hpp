@@ -67,7 +67,7 @@ namespace libmfmidi {
 
         void reset() noexcept
         {
-            tempo       = 120;
+            tempo       = MIDITempo::fromBPM(120);
             numerator   = 4;
             denominator = 4;
             matrix.clear();
@@ -160,7 +160,7 @@ namespace libmfmidi {
             case META_EVENT:
                 switch (msg.metaType()) {
                 case MIDIMetaNumber::TEMPO:
-                    mst.tempo = msg.bpm();
+                    mst.tempo = msg.tempo();
                     notify(NotifyType::C_Tempo);
                     break;
                 case MIDIMetaNumber::TIMESIG:
@@ -206,7 +206,7 @@ namespace libmfmidi {
         std::vector<MIDIMessage> res;
         MIDIMessage              tmp;
         if (forFile) {
-            tmp.setupBPM(st.tempo);
+            tmp.setupTempo(st.tempo);
             res.push_back(std::move(tmp));
             tmp.setupTimeSignature(st.numerator, st.denominator, 24, 8);
             res.push_back(std::move(tmp));

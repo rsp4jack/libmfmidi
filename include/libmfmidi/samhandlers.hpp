@@ -21,23 +21,25 @@ namespace libmfmidi {
             *stm << std::format("{}\t{}\t{}", ticktime, statusToText(msg.status(), 1), msg.msgHex()) << std::endl;
         }
 
-        void on_header(uint32_t format, uint16_t ntrk, MIDIDivision division) override
+        void on_header(SMFType format, uint16_t ntrk, MIDIDivision division) override
         {
             using std::endl;
             // *stm << "Header: " << std::format("Format {}; {} tracks; Division: {:x}", format, ntrk, division) << std::endl;
             *stm << "Header:" << '\n'
                  << "SMF Format: " << format << '\n'
                  << "Tracks: " << ntrk << '\n'
-                 << "Division: " << divisionToText(division) << '\n' << endl;
+                 << "Division: " << divisionToText(division) << '\n'
+                 << endl;
         }
 
         void on_starttrack(uint32_t trk) override
         {
             ticktime = 0;
-            *stm << "Track " << trk << ":" << '\n' << "Tick Time\tMessage Type\tMessage" << std::endl;
+            *stm << "Track " << trk << ":" << '\n'
+                 << "Tick Time\tMessage Type\tMessage" << std::endl;
         }
 
-        void on_endtrack(uint32_t trk) override
+        void on_endtrack(uint32_t  /*trk*/) override
         {
             *stm << std::endl;
         }
@@ -60,7 +62,7 @@ namespace libmfmidi {
             _file->at(curtrk).push_back(msg);
         }
 
-        void on_header(uint32_t format, uint16_t ntrk, MIDIDivision division) override
+        void on_header(SMFType format, uint16_t ntrk, MIDIDivision division) override
         {
             _info->type     = format;
             _info->division = division;

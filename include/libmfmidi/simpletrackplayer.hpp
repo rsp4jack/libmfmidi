@@ -30,7 +30,9 @@
 // Together for a std::shared_future!
 
 namespace libmfmidi {
-    class SimpleTrackPlayer {
+    /// \deprecated This class is deprecated because it is unstable and buggy.
+    ///
+    class [[deprecated]] SimpleTrackPlayer {
     public:
         static constexpr unsigned int PLAYER_TICKDELAY = 1; // 1ms
         void play()
@@ -47,11 +49,17 @@ namespace libmfmidi {
             mplay = false;
         }
 
+        [[nodiscard]] MIDIClockTime tickTime() const
+        {
+            return mabstimertick;
+        }
+
         void goZero()
         {
             pause();
             cur      = mtrk.begin();
             mreltimertick = 0;
+            mabstimertick = 0;
         }
 
         void setTimer(AbstractTimer* timer)
@@ -118,33 +126,33 @@ namespace libmfmidi {
         MIDITrack::iterator   cur;
         MIDIClockTime         mreltimertick = 0;
         bool                  mplay    = false;
-        MIDITempo              tempobpm = 120;
-        MIDIDivision          division = 96;
-        MIDIProcessorFunction mprocess;
-        double                 tickTime = divisionToSec(division, tempobpm) * 1000; // cache: milliseconds per midi tick
+        MIDITempo              tempobpm = MIDITempo::fromBPM(120);
+        MIDIDivision          division{96};
+        MIDIProcessorFunction  mprocess;
+        MIDIClockTime mabstimertick = 0;
+        double                 tickDelay = divisionToSec(division, tempobpm) * 1000; // cache: milliseconds per midi tick
 
         void updateTickTime() noexcept
         {
-            tickTime = divisionToSec(division, tempobpm)*1000;
+            tickDelay = divisionToSec(division, tempobpm)*1000;
         }
 
         void _timertick()
         {
             // About this loop:
             // For repeated 0 or low deltatime events
-            // i think this will not work, because timer tick will overstock when callback spend too long time (> timer delay)
-            // but it works
             while(true){
                 if (cur >= mtrk.end()) {
                     pause();
                     return;
                 }
-                if (mreltimertick * PLAYER_TICKDELAY < tickTime * cur->deltaTime()) {
+                if (mreltimertick * PLAYER_TICKDELAY <= tickDelay * cur->deltaTime()) {
                     ++mreltimertick;
                     return;
                 }
+                mabstimertick += cur->deltaTime();
                 if (cur->MFMarker() == MFMessageMark::Tempo) {
-                    setTempo(rawCat(cur->byte0(), cur->byte1(), cur->byte2(), cur->byte3()));
+                    setTempo(MIDITempo::fromMSPQ(rawCat(cur->byte0(), cur->byte1(), cur->byte2(), cur->byte3())));
                 } else {
                     drv->sendMsg(*cur);
                 }

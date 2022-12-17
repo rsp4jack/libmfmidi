@@ -1,5 +1,10 @@
+/// \file SimpleTrackPlayer.cpp
+/// \author Creepercdn (creepercdn@outlook.com)
+/// \deprecated Deprecated because \c SimpleMIDIPlayer
+
 #include <iostream>
 #include <fstream>
+#include <ranges>
 #include "libmfmidi/simpletrackplayer.hpp"
 #include "libmfmidi/smfreader.hpp"
 #include "libmfmidi/samhandlers.hpp"
@@ -13,8 +18,9 @@ using namespace libmfmidi;
 using std::cout;
 using std::endl;
 
-int main(int argc, char** argv)
+[[deprecated]] int main(int argc, char** argv)
 {
+    std::cerr << "This example is deprecated." << endl;
     cout << "SimpleTrackPlayer: Example of libmfmidi" << endl;
     if (argc == 1) {
         std::cerr << "Error: No input file" << std::endl;
@@ -23,7 +29,7 @@ int main(int argc, char** argv)
 
     cout << "Opening file " << argv[1] << endl;
     std::fstream stm;
-    char filebuffer[2048]{};
+    char         filebuffer[2048]{};
     stm.rdbuf()->pubsetbuf(filebuffer, 2048);
 
     stm.open(argv[1], std::ios::in | std::ios::binary);
@@ -87,10 +93,37 @@ int main(int argc, char** argv)
     player.setTrack(std::move(trk));
     cout << "Preprocessed" << endl;
 
-    cout << "Calling playing" << endl;
-    player.play();
-    cout << "Playing, Press a key to quit" << endl;
-    std::system("pause");
+    std::vector<std::string> splitedcmd;
+    std::getchar();
+    while (true) {
+        cout << "> ";
+        std::string cmd;
+        std::getline(std::cin, cmd);
+        splitedcmd.clear();
+        for (const auto& i : std::ranges::views::split(cmd, std::string_view(" "))) {
+            splitedcmd.emplace_back(i.begin(), i.end());
+        }
+
+        if (splitedcmd.empty()) {
+
+        } else if (splitedcmd[0] == "play") {
+            player.play();
+        } else if (splitedcmd[0] == "pause") {
+            player.pause();
+        } else if (splitedcmd[0] == "pos") {
+            cout << "Current tick time: " << player.tickTime() << endl;
+            continue;
+        } else if (splitedcmd[0] == "seek") {
+            sendAllSoundsOff(dev);
+            player.goZero();
+        } else if (splitedcmd[0] == "exit") {
+            break;
+        } else if (splitedcmd[0] == "status") {
+            cout << "Is playing: " << player.isPlaying() << endl;
+        } else {
+            cout << "Unknown Command: " << cmd << endl;
+        }
+    }
     player.pause();
     return 0;
 }

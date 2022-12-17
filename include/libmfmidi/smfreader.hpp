@@ -13,11 +13,6 @@
 #include "libmfmidi/smfreaderpolicy.hpp"
 
 namespace libmfmidi {
-    using std::cerr;
-    using std::cout;
-    using std::endl;
-    using std::hex;
-    using std::dec;
     /// \brief SMF Reader
     class SMFReader {
     public:
@@ -212,10 +207,10 @@ namespace libmfmidi {
             }
 
             m_division = static_cast<MIDIDivision>(readU16());
-            if (m_division == 0) {
+            if (!m_division) {
                 report("MIDI Division is 0");
             }
-            if (m_division < 0) {
+            if (m_division.isSMPTE()) {
                 reportw("Experimental: Negative MIDI Division (SMPTE)");
             }
             m_hand->on_header(m_type, m_trks, m_division);
@@ -336,7 +331,7 @@ namespace libmfmidi {
     private:
         int64_t                      m_etc = 0; // signed because we need negative number to detect if underflow
         std::istream*                ise;
-        uint16_t                     m_type{};
+        SMFType                     m_type{};
         MIDIDivision                 m_division{};
         uint16_t                     m_trks{};
         std::istream::off_type       m_off;

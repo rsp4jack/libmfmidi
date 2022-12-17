@@ -23,26 +23,27 @@
 
 #include "libmfmidi/mfutils.hpp"
 #include <type_traits>
-#include "preshing/bitfield.hpp"
+#include "preshing/bitfields.hpp"
 
 namespace libmfmidi {
     class MIDITempo final {
     public:
-        MIDITempo() noexcept = default;
+        constexpr MIDITempo() noexcept = default;
 
-        static MIDITempo fromMicroSecPerQuarter(uint32_t usec) noexcept
+        /// MSPQ: MicroSecPerQuarter
+        constexpr static MIDITempo fromMSPQ(uint32_t usec) noexcept
         {
             return MIDITempo{usec};
         }
 
         template <class T>
             requires std::is_arithmetic_v<T>
-        static MIDITempo fromBPM(T bpm) noexcept
+        constexpr static MIDITempo fromBPM(T bpm) noexcept
         {
             return MIDITempo{uspermin / bpm};
         }
 
-        [[nodiscard]] double bpmFP() const noexcept
+        [[nodiscard]] constexpr double bpmFP() const noexcept
         {
             if (mtempo == 0) {
                 return 0;
@@ -50,7 +51,7 @@ namespace libmfmidi {
             return static_cast<double>(uspermin) / mtempo;
         }
 
-        [[nodiscard]] unsigned int bpm() const noexcept
+        [[nodiscard]] constexpr unsigned int bpm() const noexcept
         {
             if (mtempo == 0) {
                 return 0;
@@ -58,46 +59,106 @@ namespace libmfmidi {
             return uspermin / mtempo;
         }
 
+        [[nodiscard]] constexpr uint32_t mspq() const noexcept
+        {
+            return mtempo;
+        }
+
+        explicit constexpr operator bool() const noexcept
+        {
+            return mtempo != 0;
+        }
+
     private:
         static constexpr unsigned int uspermin = 60'000'000;
 
-        explicit MIDITempo(uint32_t raw) noexcept
+        explicit constexpr MIDITempo(uint32_t raw) noexcept
             : mtempo(raw)
         {
         }
 
-        uint32_t mtempo = 0; // microseconds (us) per a quarter note
+        uint32_t mtempo; // microseconds (us) per a quarter note
     };
 
     static_assert(sizeof(MIDITempo) == 4);
 
+    /// \brief SMF Division
+    /// TPF: Ticks per frame
+    /// You can directly \c reinterpret_cast a 16-bit integer to this class
     class MIDIDivision final {
     public:
-        MIDIDivision() noexcept = default;
+        constexpr MIDIDivision() noexcept = default;
 
-        MIDIDivision(int16_t val) noexcept
-            : mval{.value=val}
+        constexpr explicit MIDIDivision(uint16_t val) noexcept
+            : mval{val}
         {
         }
 
-        MIDIDivision(uint8_t fps, uint8_t ppf) noexcept
-            : mval{.ppf = {ppf}, .fps = {fps}, .flag = {1}}
+        /// \param fps Positive FPS like 25, 29(means 29.97)...
+        constexpr MIDIDivision(uint8_t fps, uint8_t tpf) noexcept
+            : mval((-fps << 8) & tpf)
         {
         }
 
-        /// You can directly \c reinterpret_cast
-        /// 
-        union MIDIDivisionData {
-            int16_t value;
-            using StorageType = int16_t;
-            BitFieldMember<StorageType, 0, 8>  ppf;
-            BitFieldMember<StorageType, 8, 7>  fps;
-            BitFieldMember<StorageType, 15, 1> flag;
-        };
+        [[nodiscard]] constexpr bool isSMPTE() const noexcept
+        {
+            return (mval >> 15 & 1U) != 0U;
+        }
+
+        [[nodiscard]] constexpr bool isPPQ() const noexcept
+        {
+            return !isSMPTE();
+        }
+
+        [[nodiscard]] constexpr uint8_t tpf() const noexcept
+        {
+            return mval & 0xFF;
+        }
+
+        [[nodiscard]] constexpr uint16_t ppq() const noexcept
+        {
+            return mval;
+        }
+
+        [[nodiscard]] constexpr uint8_t fps() const noexcept
+        {
+            return -(mval >> 8U);
+        }
+
+        constexpr void setPPQ(uint16_t ppq) noexcept
+        {
+            mval = ppq;
+        }
+
+        /// \param fps Positive FPS like 25, 29(means 29.97)...
+        constexpr void setFPS(uint8_t fps) noexcept
+        {
+            *this = MIDIDivision(fps, tpf());
+        }
+
+        constexpr void setTPF(uint8_t tpf) noexcept
+        {
+            *this = MIDIDivision(fps(), tpf);
+        }
+
+        constexpr operator uint16_t() const noexcept
+        {
+            return mval;
+        }
+
+        constexpr operator bool() const noexcept
+        {
+            if (isPPQ()) {
+                return mval != 0;
+            }
+            return mval != 0 && fps() != 0 && tpf() != 0;
+        }
 
     private:
-        MIDIDivisionData mval;
+        uint16_t mval;
     };
 
     static_assert(sizeof(MIDIDivision) == 2);
+    static_assert(static_cast<MIDIDivision>(0xE250).fps() == 30);
+    static_assert(static_cast<MIDIDivision>(0xE250).tpf() == 80);
 }

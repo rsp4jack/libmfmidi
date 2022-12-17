@@ -49,7 +49,7 @@ namespace libmfmidi {
             static bool process(MIDITimedMessage& msg) noexcept
             {
                 if (msg.isTempo() && msg.strictVaild()) {
-                    auto bpm = msg.bpm();
+                    auto bpm = msg.tempo().bpm();
                     msg.setupMFMarker(MFMessageMark::Tempo, static_cast<uint8_t>((bpm >> 24) & 0xFF), static_cast<uint8_t>((bpm >> 16) & 0xFF), static_cast<uint8_t>((bpm >> 8) & 0xFF), static_cast<uint8_t>(bpm & 0xFF));
                 }
                 return true;
