@@ -42,6 +42,7 @@ namespace libmfmidi {
             expression = 0xFF00;
             pan        = 0x4000;
             balance    = 0x4000;
+            aftertouch = 0;
         }
 
         void resetAll() noexcept
@@ -49,12 +50,12 @@ namespace libmfmidi {
             reset();
         }
 
-        int      program{}; ///< Current Program Change (it will never bigger than uint8_t or smaller than -1)
-        uint16_t volume{};  // msb and lsb
-        uint16_t expression{};
-        uint16_t pan{}; // most use
-        uint16_t balance{};
-        uint8_t  aftertouch{};
+        int      program = -1; ///< Current Program Change (it will never bigger than uint8_t or smaller than -1)
+        uint16_t volume = 0xFF00;
+        uint16_t expression = 0xFF00;
+        uint16_t pan = 0x4000; // most use
+        uint16_t balance = 0x4000;
+        uint8_t  aftertouch = 0;
         // TODO: pitch bend
     };
 

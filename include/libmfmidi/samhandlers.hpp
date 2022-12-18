@@ -15,7 +15,7 @@ namespace libmfmidi {
         {
         }
 
-        void on_midievent(const MIDITimedMessage& msg) override
+        void on_midievent(MIDITimedMessage&& msg) override
         {
             ticktime += msg.deltaTime();
             *stm << std::format("{}\t{}\t{}", ticktime, statusToText(msg.status(), 1), msg.msgHex()) << std::endl;
@@ -57,9 +57,9 @@ namespace libmfmidi {
         {
         }
 
-        void on_midievent(const MIDITimedMessage& msg) override
+        void on_midievent(MIDITimedMessage&& msg) override
         {
-            _file->at(curtrk).push_back(msg);
+            _file->at(curtrk).push_back(std::move(msg));
         }
 
         void on_header(SMFType format, uint16_t ntrk, MIDIDivision division) override

@@ -32,8 +32,8 @@ namespace libmfmidi {
     {
         using namespace std;
         using namespace std::chrono;
-        constexpr DWORD MIN_RES = 3; // in ms
-        constexpr DWORD MAX_RES = 2; // in ms
+        constexpr DWORD MIN_RES = 2; // in ms
+        constexpr DWORD MAX_RES = 1; // in ms
 
         static bool     inited = false;
         static uint64_t freq;
@@ -46,7 +46,7 @@ namespace libmfmidi {
             inited = true;
         }
 
-        timeBeginPeriod(caps.wPeriodMin);
+        timeBeginPeriod(caps.wPeriodMin); /*
         // const hclock::time_point target_time{hclock::duration{hclock::now().time_since_epoch().count() + usec * (freq / 1'000'000)}};
         uint64_t current_time;
         uint64_t target_time;
@@ -60,9 +60,9 @@ namespace libmfmidi {
                     Sleep(
                         max(
                             static_cast<DWORD>((target_time - current_time) / static_cast<double>(freq) * 1000), MIN_RES
-                        )
+                        ) // avoid underflow
                         - MIN_RES
-                    ); // avoid underflow
+                    );
                 } else if ((target_time - current_time) > freq / 1000 * MAX_RES) {
                     Sleep(1);
                 } else {
@@ -72,7 +72,18 @@ namespace libmfmidi {
                 break;
             }
         }
-
+        */
+        uint64_t st = 0, ct = 0;
+        QueryPerformanceCounter((LARGE_INTEGER*)&st);
+        do {
+            if (nsec/1000 > 10000 + (ct - st) * 1000000 / freq)
+                Sleep((nsec/1000 - (ct - st) * 1000000 / freq) / 2000);
+            else if (nsec/1000 > 5000 + (ct - st) * 1000000 / freq)
+                Sleep(1);
+            else
+                std::this_thread::yield();
+            QueryPerformanceCounter((LARGE_INTEGER*)&ct);
+        } while ((ct - st) * 1000000 < nsec/1000 * freq);
         timeEndPeriod(caps.wPeriodMin);
         return 0;
     }

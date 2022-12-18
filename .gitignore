@@ -34,3 +34,7 @@ build
 *.exe
 *.out
 *.app
+
+.vs
+out
+*.diagsession

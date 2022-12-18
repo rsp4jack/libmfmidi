@@ -161,6 +161,7 @@ add_library(libmfmidi STATIC
     include/libmfmidi/midistate.hpp
     include/libmfmidi/miditrack.hpp
     include/libmfmidi/miditrackplayer.hpp
+    include/libmfmidi/miditrackplayerlooply.hpp
     include/libmfmidi/midiutils.hpp
     include/libmfmidi/platformapi.cpp
     include/libmfmidi/platformapi.hpp

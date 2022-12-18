@@ -13,7 +13,7 @@ namespace libmfmidi {
     public:
         AbstractSAMHandler() noexcept = default;
         virtual ~AbstractSAMHandler() noexcept = default;
-        virtual void on_midievent(const MIDITimedMessage& msg) = 0;
+        virtual void on_midievent(MIDITimedMessage&& msg) = 0;
 
         virtual void on_error(std::streampos where, const std::string& what, bool warn)
         {

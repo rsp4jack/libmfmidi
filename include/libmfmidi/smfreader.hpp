@@ -220,7 +220,6 @@ namespace libmfmidi {
 
         void readTrack()
         {
-            // FIXME: A big bug in onestop test, see https://github.com/craigsapp/midifile
             m_warntrk = false;
             m_warn    = false;
 
@@ -235,6 +234,7 @@ namespace libmfmidi {
             const uint32_t length = readU32();
             m_etc                 = length;
             m_hand->on_starttrack(m_curtrk);
+            MIDITimedMessage buffer;
             while (m_etc > 0) {
                 // Read a event
                 const MIDIClockTime deltatime = readVarNumE();
@@ -252,8 +252,8 @@ namespace libmfmidi {
                     status = data;
                 }
 
-                MIDITimedMessage buffer;
-                buffer.reserve(4); // default to reserve 4 bytes
+                buffer.clear();
+                buffer.reserve(8); // default to reserve 8 bytes
                 buffer.setDeltaTime(deltatime);
 
                 buffer.push_back(status);
@@ -318,10 +318,10 @@ namespace libmfmidi {
                         }
                     }
                 }
-                m_hand->on_midievent(buffer);
-                if (m_etc < 0) {
+                m_hand->on_midievent(std::move(buffer));
+                /* if (m_etc < 0) {
                     report("m_etc is negative, that means underflow");
-                }
+                } */
             }
 
             m_hand->on_endtrack(m_curtrk);

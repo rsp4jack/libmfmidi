@@ -47,7 +47,9 @@ namespace libmfmidi {
                 if (type == NotifyType::C_Tempo) {
                     reCalcDivus();
                 }
-                notify(type);
+                if (mnotifier) {
+                    mnotifier(type);
+                }
             });
         }
 
@@ -60,13 +62,6 @@ namespace libmfmidi {
             while (!mthreadexit) {
                 mcv.notify_all(); // wake up sleeping thread to stop
                 std::this_thread::sleep_for(2ms);
-            }
-        }
-
-        void notify(NotifyType type)
-        {
-            if (mnotifier) {
-                mnotifier(type);
             }
         }
 
@@ -106,7 +101,7 @@ namespace libmfmidi {
             }
             if (!mplaying) {
                 mplaying = true;
-                mwakeup  = true;
+                mwakeup = true;
                 mcv.notify_all();
             }
         }
@@ -165,53 +160,52 @@ namespace libmfmidi {
         /// \brief nothrow version of goTo
         /// it will goTo the end if out range.
         /// \sa goTo(MIDIClockTime)
-        bool goTo(MIDIClockTime target, std::nothrow_t /*unused*/) noexcept
+        bool goTo(MIDIClockTime clktime, std::nothrow_t /*unused*/) noexcept
         {
-            // should play after goto
-            const bool toPlay = mplaying;
+            bool const toPlay = mplaying;
             pause(); // avoid data race
 
             if (museCache && !mcache.empty()) {
-                auto it      = mcache.begin(); // current msg
-                auto lit     = it; // last msg
+                auto it      = mcache.begin();
+                auto lit     = it;
                 bool matched = false;
                 while (it != mcache.end()) {
-                    if (it->first == target) { // there is a cache time==target
+                    if (it->first == clktime) {
                         matched = true;
                         revertSnapshot(it->second);
 
-                        if (toPlay) { // play if it is playing before goto
+                        if (toPlay) {
                             play();
                         }
                         return true;
                     }
-                    if (it->first > target) { // this cache is later than target, revert to pervious cache (lit)
+                    if (it->first > clktime) {
                         matched = true;
-                        if (lit != it) { // not the first cache
-                            revertSnapshot(lit->second);
+                        if (lit != it) { // not begin
+                            revertSnapshot(it->second);
                             // directGoTo for the rest
                         } else {
-                            // first cache is later than target; fallback to directGoTo
+                            // first cache is later; fallback to directGoTo
                             revertSnapshot(defaultSnapshot());
                         }
-                        break; // jump to directGoTo
+                        break;
                     }
                     lit = it;
                     ++it;
                 }
                 if (!matched) {
-                    if (lit->second.absTime < target) { // safe check if lastest cache is earlier than target, should always be true
-                        revertSnapshot(lit->second); // all cache is eariler than target, revert to the latest cache
+                    if (lit->second.absTime < clktime) {
+                        revertSnapshot(lit->second); // revert to the latest cache
                     } else {
                         std::unreachable();
                     }
                 }
             } else {
-                revertSnapshot(defaultSnapshot()); // cannot use cache, go to 0 and directGoTo
+                revertSnapshot(defaultSnapshot()); // cant use cache
             }
 
-            const bool result = directGoTo(target); // for the rest
-            revertState(); // send state to midi device
+            const bool result = directGoTo(clktime); // for the rest
+            revertState();
 
             if (toPlay) {
                 play();
@@ -243,7 +237,7 @@ namespace libmfmidi {
     private:
         struct Snapshot {
             MIDIClockTime             absTime;
-            MIDIClockTime             compensation;
+            MIDIClockTime             relckltime;
             MIDIState                 state;
             MIDITrack::const_iterator curit;
         };
@@ -251,7 +245,7 @@ namespace libmfmidi {
         void revertSnapshot(const Snapshot& sht) noexcept
         {
             mabsTime    = sht.absTime;
-            mcompensation = sht.compensation;
+            mrelckltime = sht.relckltime;
             mstate      = sht.state;
             mcurit      = sht.curit;
         }
@@ -263,7 +257,7 @@ namespace libmfmidi {
 
         void reCalcDivus() noexcept
         {
-            mdivns = static_cast<unsigned long long>(divisionToSec(mdiv, mstate.tempo) * 1000 * 1000 * 1000);
+            mdivns = static_cast<unsigned long long>(divisionToSec(mdiv, mstate.tempo) * 1000 * 1000* 1000);
         }
 
         void revertState() noexcept
@@ -278,6 +272,7 @@ namespace libmfmidi {
         {
             mcache.clear();
             MIDIClockTime      absTime      = 0;
+            MIDIClockTime      relTime      = 0;
             MIDIClockTime      relCacheTime = 0;
             MIDIState          state;
             MIDIStateProcessor stateProc{state};
@@ -287,29 +282,32 @@ namespace libmfmidi {
                     break;
                 }
                 if (relCacheTime >= TICK_PER_CACHE) {
-                    mcache[absTime] = Snapshot{absTime, 0, state, curit};
-                    relCacheTime = 0;
+                    mcache[absTime] = Snapshot{absTime, relTime, state, curit};
                 }
-                stateProc.process(*curit);
-                relCacheTime += curit->deltaTime();
-                absTime += curit->deltaTime();
-                ++curit;
+                if (relTime >= curit->deltaTime()) {
+                    stateProc.process(*curit);
+                    ++curit;
+                    relTime = 0;
+                }
+                ++relTime;
+                ++relCacheTime;
+                ++absTime;
             }
         }
 
         bool directGoTo(MIDIClockTime clktime) noexcept
         {
             while (mabsTime < clktime) {
-                if (mabsTime + mcurit->deltaTime() > clktime) {
-                    mcompensation = clktime - mabsTime;
-                    return true;
+                if (mrelckltime >= mcurit->deltaTime()) {
+                    mstproc.process(*mcurit);
+                    mrelckltime = 0;
+                    if (mcurit == mtrk->end() - 1) {
+                        return false;
+                    }
+                    ++mcurit;
                 }
-                mstproc.process(*mcurit);
-                if (mcurit == mtrk->end() - 1) {
-                    return false;
-                }
-                ++mcurit;
-                mabsTime += mcurit->deltaTime();
+                ++mabsTime;
+                ++mrelckltime;
             }
             return true;
         }
@@ -318,45 +316,34 @@ namespace libmfmidi {
         {
             while (!tok.stop_requested()) {
                 if (!mplaying) {
-                    notify(NotifyType::T_Mode);
                     std::unique_lock<std::mutex> ulk{mcvmutex};
                     mcv.wait(ulk, [&] { return mwakeup; });
                     mwakeup = false;
-                    if(mplaying){
-                        notify(NotifyType::T_Mode);
-                    }
                 }
-                if (mcurit == mtrk->cend()) {
-                    mplaying = false;
-                    notify(NotifyType::T_EndOfSong);
+                MIDITimedMessage tempmsg;
+                while (true) { // for repeated 0 delta time msg
+                    if (mcurit == mtrk->cend()) {
+                        mplaying = false;
+                        break;
+                    }
+                    if (mrelckltime >= mcurit->deltaTime()) {
+                        tempmsg = *mcurit; // TODO: state change(like divns)
+                        mstproc.process(tempmsg);
+                        if (mprocfunc(tempmsg) && !tempmsg.isMFMarker()) {
+                            mdev->sendMsg(tempmsg);
+                        }
+                        mrelckltime = 0;
+                        ++mcurit;
+                        continue;
+                    }
+
                     break;
                 }
-
-                MIDITimedMessage tempmsg;
-                tempmsg = *mcurit;
-                mstproc.process(tempmsg);
-                if (mprocfunc(tempmsg) && !tempmsg.isMFMarker()) {
-                    if (mcompensation != 0) {
-                        if (mcompensation < mcurit->deltaTime()) {
-                            nanosleep((mcurit->deltaTime() - mcompensation) * mdivns);
-                            mcompensation = 0;
-                        } else {
-                            mcompensation -= mcurit->deltaTime();
-                        }
-                    } else {
-                        nanosleep(mdivns * mcurit->deltaTime());
-                    }
-                    mdev->sendMsg(tempmsg);
-                    mabsTime += tempmsg.deltaTime();
-                }
-                ++mcurit;
+                nanosleep(mdivns);
+                ++mabsTime;
+                ++mrelckltime;
             }
             mthreadexit = true;
-        }
-
-        void updatingnanosleep()
-        {
-            
         }
 
         // Multi-thread
@@ -364,7 +351,7 @@ namespace libmfmidi {
         std::mutex              mcvmutex{};
         std::condition_variable mcv{};
         bool                    mthreadexit = false;
-        bool                    mwakeup     = false;
+        bool mwakeup = false;
 
         // Settings
         bool museCache = true; // use MIDIState cache
@@ -377,14 +364,14 @@ namespace libmfmidi {
         bool               mplaying{false};
 
         // Snapshot-able
-        MIDIClockTime             mabsTime      = 0; // Current abs tick time
-        MIDIClockTime             mcompensation = 0; // sleep less time
+        MIDIClockTime             mabsTime    = 0; // Current abs tick time
+        MIDIClockTime             mrelckltime = 0;
         MIDIState                 mstate{};
         MIDITrack::const_iterator mcurit{};
 
-        MIDIStateProcessor       mstproc{mstate};
-        MIDIProcessorFunction    mprocfunc{};
-        AbstractMIDIDevice*      mdev{};
+        MIDIStateProcessor    mstproc{mstate};
+        MIDIProcessorFunction mprocfunc{};
+        AbstractMIDIDevice*   mdev{};
         MIDINotifierFunctionType mnotifier{};
 
         // Cache

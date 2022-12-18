@@ -81,9 +81,13 @@ namespace libmfmidi {
         toAbsTimeMultiTrack(mtrk);
         trk.clear();
         size_t middle;
+        size_t size = 0;
+        for (const auto& tr : mtrk) {
+            size += tr.size();
+        }
+        trk.reserve(trk.size() + size);
         for (auto& tr : mtrk) {
             middle = trk.size();
-            trk.reserve(trk.size() + tr.size());
             for (auto& ev : tr) {
                 if (!ev.isEndOfTrack()) {
                     trk.push_back(std::move(ev));
@@ -96,6 +100,5 @@ namespace libmfmidi {
         // TODO: Remove it
         //assert(std::is_sorted(trk.cbegin(), trk.cend()));
         toRelTimeTrack(trk);
-        mtrk.clear();
     }
 }
