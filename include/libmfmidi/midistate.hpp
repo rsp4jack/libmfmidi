@@ -43,6 +43,7 @@ namespace libmfmidi {
             pan        = 0x4000;
             balance    = 0x4000;
             aftertouch = 0;
+            pitchbend = 0x4000;
         }
 
         void resetAll() noexcept
@@ -56,7 +57,7 @@ namespace libmfmidi {
         uint16_t pan = 0x4000; // most use
         uint16_t balance = 0x4000;
         uint8_t  aftertouch = 0;
-        // TODO: pitch bend
+        int16_t pitchbend = 0;
     };
 
     /// \brief A struct to hold MIDI Status
@@ -123,6 +124,10 @@ namespace libmfmidi {
                 mst.channels.at(port - 1).at(msg.channel() - 1).program = msg.programChangeValue();
                 notify(NotifyType::TR_PG);
                 break;
+            case PITCH_BEND:
+                mst.channels.at(port - 1).at(msg.channel() - 1).pitchbend = msg.pitchBendValue();
+                notify(NotifyType::TR_PitchBend);
+                break;
             case CONTROL_CHANGE: {
                 auto& chst = mst.channels.at(port - 1).at(msg.channel() - 1);
                 switch (msg.controller()) {
@@ -153,7 +158,7 @@ namespace libmfmidi {
                 case EXPRESSION_LSB:
                     chst.expression = MLSBtoU16(U16toMLSB(chst.expression).first, msg.controllerValue());
                     break;
-                    // TODO: add more...
+                // TODO: add more...
                 }
                 notify(NotifyType::TR_CC);
                 break;
