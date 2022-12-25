@@ -10,4 +10,9 @@ namespace libmfmidi {
     /// \param nsec time in nanoseconds
     /// \return int 0 if succeeded
     int nanosleep(unsigned long long nsec);
+
+    /// \brief Get high resolution time stamp in nanoseconds
+    /// 
+    /// \return unsigned long long time stamp in nanoseconds
+    unsigned long long hiresticktime(); // TODO: sched_clock in linux
 }

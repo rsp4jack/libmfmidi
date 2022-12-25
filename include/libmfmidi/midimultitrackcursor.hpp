@@ -5,7 +5,7 @@
 #pragma once
 
 #include "libmfmidi/midimultitrack.hpp"
-#include "libmfmidi/midistate.hpp"
+#include "libmfmidi/midistatus.hpp"
 #include <type_traits>
 #include <array>
 #include <execution>
@@ -29,7 +29,7 @@ namespace libmfmidi {
         MIDITrack::const_iterator end; // after-tail
     };
 
-    /// \brief Extension of \a MIDIState for \a MIDIMultiTrackCursor
+    /// \brief Extension of \a MIDIStatus for \a MIDIMultiTrackCursor
     class MIDIMultiTrackCursorState {
     public:
         constexpr void reset() noexcept

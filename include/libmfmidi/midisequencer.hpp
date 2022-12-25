@@ -25,9 +25,30 @@
 #include "libmfmidi/midimultitrack.hpp"
 
 namespace libmfmidi {
-    /// \brief A full-function sequencer
+    /// \brief A powerful sequencer
+    ///
     class MIDISequencer {
     public:
+        /// \brief A class holding status and play status
+        /// 
+        class MIDISequencerCursor {
+        public:
+            using Time = uintmax_t;
+            explicit MIDISequencerCursor(MIDISequencer& seq)
+                : mseq(seq)
+            {
+            }
+
+            void tick(Time sleept) // the time that slept
+            {
+                static 
+            }
+
+        private:
+            Time mtimetick{}; // in ns, support 5850 centuries long
+            Time mmiditick{};
+            MIDISequencer& mseq;
+        };
     };
 }
 

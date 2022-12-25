@@ -1017,7 +1017,7 @@ namespace libmfmidi {
         }
 
     protected:
-        std::vector<uint8_t> _data;
+        std::vector<uint8_t> _data; // i lov qt mplicit iharing
         MFMessageMark        marker = MFMessageMark::None;
 
         // not mf mark

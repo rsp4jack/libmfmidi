@@ -15,9 +15,9 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-/// \file midistate.hpp
+/// \file midistatus.hpp
 /// \author Creepercdn (creepercdn@outlook.com)
-/// \brief MIDIState
+/// \brief MIDIStatus
 
 #pragma once
 
@@ -29,8 +29,8 @@
 #include <tuple>
 
 namespace libmfmidi {
-    struct MIDIChannelState {
-        MIDIChannelState() noexcept
+    struct MIDIChannelStatus {
+        MIDIChannelStatus() noexcept
         {
             reset();
         }
@@ -61,8 +61,8 @@ namespace libmfmidi {
     };
 
     /// \brief A struct to hold MIDI Status
-    struct MIDIState {
-        MIDIState() noexcept
+    struct MIDIStatus {
+        MIDIStatus() noexcept
         {
             reset();
         }
@@ -89,13 +89,13 @@ namespace libmfmidi {
         uint8_t                                                           numerator{};
         uint8_t                                                           denominator{};
         MIDIMatrix                                                        matrix;
-        std::array<std::array<MIDIChannelState, NUM_CHANNELS>, NUM_PORTS> channels;
+        std::array<std::array<MIDIChannelStatus, NUM_CHANNELS>, NUM_PORTS> channels;
     };
 
-    /// \brief A state machine (Maybe?) Emulate state by MIDI eventS.
-    class MIDIStateProcessor {
+    /// \brief Emulate MIDIStatus
+    class MIDIStatusProcessor {
     public:
-        explicit MIDIStateProcessor(MIDIState& st, bool processNote = false) noexcept
+        explicit MIDIStatusProcessor(MIDIStatus& st, bool processNote = false) noexcept
             : mst(st)
             , mprocessNote(processNote)
         {
@@ -190,16 +190,16 @@ namespace libmfmidi {
             }
         }
 
-        MIDIState&               mst;
+        MIDIStatus&               mst;
         MIDINotifierFunctionType mnotifier;
         bool                     mprocessNote;
     };
 
-    static_assert(MIDIProcessorClass<MIDIStateProcessor>); // For coding
+    static_assert(MIDIProcessorClass<MIDIStatusProcessor>); // For coding
 
-    /// \brief Revert MIDIState to MIDI messages
+    /// \brief Revert MIDIStatus to MIDI messages
     ///
-    /// \param st \a MIDIState
+    /// \param st \a MIDIStatus
     /// \param forFile Enable meta events
     /// \param programSetting -1 to not revert program change when st.program == -1, < -1 to not revert program change at all, > 0 to revert program to \a defaultProgram when st.program == -1
     /// \param port lookup state in the port
@@ -207,7 +207,7 @@ namespace libmfmidi {
     ///
     /// \warning This function will NOT revert Channel Prefix and Port Prefix!
     ///
-    [[nodiscard]] inline std::vector<MIDIMessage> reportMIDIState(const MIDIState& st, bool forFile = true, int programSetting = 0, uint8_t port = 1) noexcept
+    [[nodiscard]] inline std::vector<MIDIMessage> reportMIDIStatus(const MIDIStatus& st, bool forFile = true, int programSetting = 0, uint8_t port = 1) noexcept
     {
         std::vector<MIDIMessage> res;
         MIDIMessage              tmp;
@@ -217,7 +217,7 @@ namespace libmfmidi {
             tmp.setupTimeSignature(st.numerator, st.denominator, 24, 8);
             res.push_back(std::move(tmp));
         }
-        auto doChannel = [&](const MIDIChannelState& st, uint8_t chn) {
+        auto doChannel = [&](const MIDIChannelStatus& st, uint8_t chn) {
             uint8_t lsb;
             uint8_t msb;
 

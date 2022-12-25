@@ -23,7 +23,7 @@
 
 #include "libmfmidi/abstractmididevice.hpp"
 #include "libmfmidi/miditrack.hpp"
-#include "libmfmidi/midistate.hpp"
+#include "libmfmidi/midistatus.hpp"
 #include <format>
 #include <memory>
 #include <map>
@@ -36,7 +36,7 @@
 
 namespace libmfmidi {
     /// \brief MIDITrack player powerful
-    /// Support navigation, MIDIState calc and recovery
+    /// Support navigation, MIDIStatus calc and recovery
     class MIDITrackPlayer {
     public:
         static constexpr int TICK_PER_CACHE = 2048000;
@@ -238,7 +238,7 @@ namespace libmfmidi {
         struct Snapshot {
             MIDIClockTime             absTime;
             MIDIClockTime             relckltime;
-            MIDIState                 state;
+            MIDIStatus                 state;
             MIDITrack::const_iterator curit;
         };
 
@@ -262,7 +262,7 @@ namespace libmfmidi {
 
         void revertState() noexcept
         {
-            auto rst = reportMIDIState(mstate, false);
+            auto rst = reportMIDIStatus(mstate, false);
             for (auto& i : rst) {
                 mdev->sendMsg(i);
             }
@@ -274,8 +274,8 @@ namespace libmfmidi {
             MIDIClockTime      absTime      = 0;
             MIDIClockTime      relTime      = 0;
             MIDIClockTime      relCacheTime = 0;
-            MIDIState          state;
-            MIDIStateProcessor stateProc{state};
+            MIDIStatus          state;
+            MIDIStatusProcessor stateProc{state};
             auto               curit = mtrk->cbegin();
             while (true) {
                 if (curit == mtrk->cend()) {
@@ -354,7 +354,7 @@ namespace libmfmidi {
         bool mwakeup = false;
 
         // Settings
-        bool museCache = true; // use MIDIState cache
+        bool museCache = true; // use MIDIStatus cache
 
         const MIDITrack* mtrk{};
 
@@ -366,10 +366,10 @@ namespace libmfmidi {
         // Snapshot-able
         MIDIClockTime             mabsTime    = 0; // Current abs tick time
         MIDIClockTime             mrelckltime = 0;
-        MIDIState                 mstate{};
+        MIDIStatus                 mstate{};
         MIDITrack::const_iterator mcurit{};
 
-        MIDIStateProcessor    mstproc{mstate};
+        MIDIStatusProcessor    mstproc{mstate};
         MIDIProcessorFunction mprocfunc{};
         AbstractMIDIDevice*   mdev{};
         MIDINotifierFunctionType mnotifier{};

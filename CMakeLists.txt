@@ -158,7 +158,7 @@ add_library(libmfmidi STATIC
     include/libmfmidi/midinotifier.hpp
     include/libmfmidi/midiprocessor.hpp
     include/libmfmidi/midisequencer.hpp
-    include/libmfmidi/midistate.hpp
+    include/libmfmidi/midistatus.hpp
     include/libmfmidi/miditrack.hpp
     include/libmfmidi/miditrackplayer.hpp
     include/libmfmidi/miditrackplayerlooply.hpp
