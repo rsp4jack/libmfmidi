@@ -28,7 +28,7 @@ namespace libmfmidi {
         return ::nanosleep(nsec);
     }
 #elif defined(_WIN32)
-    int nanosleep(unsigned long long nsec)
+    int nanosleep(std::chrono::duration<unsigned long long, std::nano> nsec)
     {
         using namespace std;
         using namespace std::chrono;
@@ -76,19 +76,19 @@ namespace libmfmidi {
         uint64_t st = 0, ct = 0;
         QueryPerformanceCounter((LARGE_INTEGER*)&st);
         do {
-            if (nsec / 1000 > 10000 + (ct - st) * 1000000 / freq)
-                Sleep((nsec / 1000 - (ct - st) * 1000000 / freq) / 2000);
-            else if (nsec / 1000 > 5000 + (ct - st) * 1000000 / freq)
+            if (nsec.count() / 1000 > 10000 + (ct - st) * 1000000 / freq)
+                Sleep((nsec.count() / 1000 - (ct - st) * 1000000 / freq) / 2000);
+            else if (nsec.count() / 1000 > 5000 + (ct - st) * 1000000 / freq)
                 Sleep(1);
             else
                 std::this_thread::yield();
             QueryPerformanceCounter((LARGE_INTEGER*)&ct);
-        } while ((ct - st) * 1000000 < nsec / 1000 * freq);
+        } while ((ct - st) * 1000000 < nsec.count() / 1000 * freq);
         timeEndPeriod(caps.wPeriodMin);
         return 0;
     }
 
-    unsigned long long hiresticktime()
+    std::chrono::duration<unsigned long long, std::nano> hiresticktime()
     {
         static uint64_t freq = 0;
         if (freq == 0) {
@@ -96,14 +96,13 @@ namespace libmfmidi {
         }
         uint64_t tick;
         QueryPerformanceCounter(reinterpret_cast<LARGE_INTEGER*>(&tick));
-        return tick / (freq / 1000.0 / 1000);
+        return std::chrono::duration<unsigned long long, std::nano>{static_cast<unsigned long long>(tick / (freq / 1000.0 / 1000))};
     }
 
 #else
-    int usleep(unsigned int usec)
+    std::chrono::duration<unsigned long long, std::nano> hiresticktime()
     {
-        std::this_thread::sleep_for(std::chrono::microseconds(usec));
-        return 0;
+        return std::chrono::duration_cast<std::chrono::duration<unsigned long long, std::nano>>(std::chrono::steady_clock::now().time_since_epoch());
     }
 #endif
 }

@@ -14,7 +14,7 @@
 #include <istream>
 #include <limits>
 #include <iterator>
-
+#include <chrono>
 #include <iostream>
 
 #if defined(max)
@@ -517,21 +517,22 @@ namespace libmfmidi {
     /// \param val Division
     /// \param bpm BPM
     /// \return double Tick time in second
-    inline constexpr double divisionToSec(MIDIDivision val, MIDITempo bpm) noexcept
+    inline constexpr auto divisionToSec(MIDIDivision val, MIDITempo bpm) noexcept
     {
+        using ResultType = std::chrono::duration<double>;
         if (!val || !bpm) {
-            return 0;
+            return ResultType{};
         }
         if (val.isPPQ()) {
             // MIDI always 4/4
-            return 60.0 / (val.ppq() * bpm.bpmFP());
+            return ResultType{60.0 / (val.ppq() * bpm.bpmFP())};
         }
         // 24 25 29(.97) 30
         double realfps = val.fps();
         if (val.fps() == 29) {
             realfps = 29.97;
         }
-        return 1 / (realfps * val.tpf());
+        return ResultType{1 / (realfps * val.tpf())};
     }
 
     inline constexpr std::string divisionToText(MIDIDivision val) noexcept

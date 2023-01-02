@@ -207,6 +207,8 @@ namespace libmfmidi {
             const bool result = directGoTo(clktime); // for the rest
             revertState();
 
+            reCalcDivus();
+
             if (toPlay) {
                 play();
             }

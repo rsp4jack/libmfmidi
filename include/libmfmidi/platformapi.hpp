@@ -4,15 +4,17 @@
 
 #pragma once
 
+#include <chrono>
+
 namespace libmfmidi {
     /// \brief libmfmidi's nanosleep
     ///
     /// \param nsec time in nanoseconds
     /// \return int 0 if succeeded
-    int nanosleep(unsigned long long nsec);
+    int nanosleep(std::chrono::duration<unsigned long long, std::nano> nsec);
 
     /// \brief Get high resolution time stamp in nanoseconds
     /// 
     /// \return unsigned long long time stamp in nanoseconds
-    unsigned long long hiresticktime(); // TODO: sched_clock in linux
+    std::chrono::duration<unsigned long long, std::nano> hiresticktime();
 }

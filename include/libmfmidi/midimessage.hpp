@@ -15,11 +15,12 @@
 #include "libmfmidi/midiutils.hpp"
 #include <cmath>
 #include <cstdint>
-#include <sstream>
+#include <ranges>
 #include <string>
 #include <utility>
 #include <vector>
 #include <iomanip>
+#include <sstream>
 
 namespace libmfmidi {
     /// \brief Container for MIDI Message
@@ -31,30 +32,31 @@ namespace libmfmidi {
     /// and set byte1 in channel pressure.
     /// All getters and is-ers may assert message types.
 
-    class MIDIMessage {
+    template <std::ranges::range Storage>
+    class MIDIBasicMessage {
     private:
         using enum MIDIMsgStatus;
 
     public:
         /// \brief The default constructor
-        constexpr explicit MIDIMessage() noexcept = default;
+        constexpr explicit MIDIBasicMessage() noexcept = default;
 
-        constexpr MIDIMessage(std::initializer_list<uint8_t> elems) noexcept
+        constexpr MIDIBasicMessage(std::initializer_list<uint8_t> elems) noexcept
             : _data(elems)
         {
         }
 
-        constexpr explicit MIDIMessage(std::vector<uint8_t> elems) noexcept
+        constexpr explicit MIDIBasicMessage(Storage elems) noexcept
             : _data(std::move(elems))
         {
         }
 
-        constexpr ~MIDIMessage() noexcept = default;
+        constexpr ~MIDIBasicMessage() noexcept = default;
 
-        constexpr MIDIMessage(const MIDIMessage& rhs) noexcept            = default;
-        constexpr MIDIMessage(MIDIMessage&& rhs) noexcept                 = default;
-        constexpr MIDIMessage& operator=(const MIDIMessage& rhs) noexcept = default;
-        constexpr MIDIMessage& operator=(MIDIMessage&& rhs) noexcept      = default;
+        constexpr MIDIBasicMessage(const MIDIBasicMessage& rhs) noexcept            = default;
+        constexpr MIDIBasicMessage(MIDIBasicMessage&& rhs) noexcept                 = default;
+        constexpr MIDIBasicMessage& operator=(const MIDIBasicMessage& rhs) noexcept = default;
+        constexpr MIDIBasicMessage& operator=(MIDIBasicMessage&& rhs) noexcept      = default;
 
         using value_type             = uint8_t;
         using iterator               = std::vector<value_type>::iterator;
@@ -1036,7 +1038,7 @@ namespace libmfmidi {
         static constexpr inline void C(bool cond)
         {
             if (!cond) {
-                throw std::logic_error("MIDIMessage: C failed");
+                throw std::logic_error("MIDIMessage: assert failed");
             }
         }
 
@@ -1081,6 +1083,8 @@ namespace libmfmidi {
         }
     };
 
+    using MIDIMessage = MIDIBasicMessage<std::vector<uint8_t>>;
+
     namespace details {
         /// \brief MIDIMessage SysEx Extension
         template <class... Base>
@@ -1095,7 +1099,7 @@ namespace libmfmidi {
             constexpr ~MIDIMessageTimedExt() noexcept = default;
 
             constexpr MIDIMessageTimedExt(std::initializer_list<uint8_t> args) noexcept
-                : MIDIMessage(args)
+                : Base(args)
             {
             }
 
@@ -1116,12 +1120,12 @@ namespace libmfmidi {
             {
             }
 
-            constexpr MIDIMessageTimedExt& operator=(const MIDIMessage& rhs) noexcept
+            constexpr MIDIMessageTimedExt& operator=(const Base& rhs) noexcept
             {
                 *this = MIDIMessageTimedExt<Base>(rhs); // call copy ctor and move assign
             }
 
-            constexpr MIDIMessageTimedExt& operator=(MIDIMessage&& rhs) noexcept
+            constexpr MIDIMessageTimedExt& operator=(Base&& rhs) noexcept
             {
                 ~this();
                 Base::_data  = std::exchange(rhs._data, {});
@@ -1155,7 +1159,10 @@ namespace libmfmidi {
         };
     }
 
-    using MIDITimedMessage = details::MIDIMessageTimedExt<MIDIMessage>;
+    template <class T>
+    using MIDIBasicTimedMessage = details::MIDIMessageTimedExt<MIDIBasicMessage<T>>;
+
+    using MIDITimedMessage = MIDIBasicTimedMessage<std::vector<uint8_t>>;
 }
 
 // NOLINTEND(readability-identifier-length, bugprone-easily-swappable-parameters)

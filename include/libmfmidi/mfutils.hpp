@@ -12,6 +12,7 @@
 #include <string>
 #include <type_traits>
 #include <cctype>
+#include <chrono>
 
 namespace std {
 #if !defined(__cpp_lib_byteswap)
@@ -30,7 +31,7 @@ namespace std {
         // Uses compiler specific extensions if possible.
         // Even if no extension is used, undefined behavior is still raised by
         // an empty function body and the noreturn attribute.
-#if defined(__GNUC__) // GCC, Clang, ICC
+#if defined(__GNUC__)   // GCC, Clang, ICC
         __builtin_unreachable();
 #elif defined(_MSC_VER) // MSVC
         __assume(false);
@@ -43,6 +44,11 @@ namespace std {
 class empty_class {};
 
 namespace libmfmidi {
+    using namespace std::literals;
+    using std::int16_t;
+    using std::int32_t;
+    using std::int64_t;
+    using std::int8_t;
     using std::uint16_t;
     using std::uint32_t;
     using std::uint64_t;
@@ -65,7 +71,7 @@ namespace libmfmidi {
         return val;
     }
 
-    /// \brief Special markers for \a MIDMessage .
+    /// \brief Special markers for \a MIDIMessage .
     ///
     enum class MFMessageMark {
         None,  ///< None. default, no data
@@ -73,15 +79,6 @@ namespace libmfmidi {
         Tempo, ///< Set tempo in BPM, data: Big-endian 32 bit unsigned integer, tempo in BPM
         User
     };
-
-    using std::int16_t;
-    using std::int32_t;
-    using std::int64_t;
-    using std::int8_t;
-    using std::uint16_t;
-    using std::uint32_t;
-    using std::uint64_t;
-    using std::uint8_t;
 
     // https://stackoverflow.com/a/72161270/
     // Removed. See https://github.com/clangd/clangd/issues/1179 and https://github.com/llvm/llvm-project/issues/55890

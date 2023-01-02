@@ -10,3 +10,4 @@ A powerful full-featured C++20 MIDI library
 - [ ] Better document
 - [ ] Sequencer
 - [ ] Performance
+- [ ] Notifier support

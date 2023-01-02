@@ -173,7 +173,7 @@ namespace libmfmidi {
 
             if (museCache && !mcache.empty()) {
                 auto it      = mcache.begin(); // current msg
-                auto lit     = it; // last msg
+                auto lit     = it;             // last msg
                 bool matched = false;
                 while (it != mcache.end()) {
                     if (it->first == target) { // there is a cache time==target
@@ -187,7 +187,7 @@ namespace libmfmidi {
                     }
                     if (it->first > target) { // this cache is later than target, revert to pervious cache (lit)
                         matched = true;
-                        if (lit != it) { // not the first cache
+                        if (lit != it) {      // not the first cache
                             revertSnapshot(lit->second);
                             // directGoTo for the rest
                         } else {
@@ -201,7 +201,7 @@ namespace libmfmidi {
                 }
                 if (!matched) {
                     if (lit->second.absTime < target) { // safe check if lastest cache is earlier than target, should always be true
-                        revertSnapshot(lit->second); // all cache is eariler than target, revert to the latest cache
+                        revertSnapshot(lit->second);    // all cache is eariler than target, revert to the latest cache
                     } else {
                         std::unreachable();
                     }
@@ -211,7 +211,9 @@ namespace libmfmidi {
             }
 
             const bool result = directGoTo(target); // for the rest
-            revertState(); // send state to midi device
+            revertState();                          // send state to midi device
+
+            reCalcDivus();
 
             if (toPlay) {
                 play();
@@ -244,16 +246,16 @@ namespace libmfmidi {
         struct Snapshot {
             MIDIClockTime             absTime;
             MIDIClockTime             compensation;
-            MIDIStatus                 state;
+            MIDIStatus                state;
             MIDITrack::const_iterator curit;
         };
 
         void revertSnapshot(const Snapshot& sht) noexcept
         {
-            mabsTime    = sht.absTime;
+            mabsTime      = sht.absTime;
             mcompensation = sht.compensation;
-            mstate      = sht.state;
-            mcurit      = sht.curit;
+            mstate        = sht.state;
+            mcurit        = sht.curit;
         }
 
         Snapshot defaultSnapshot() const noexcept
@@ -277,18 +279,18 @@ namespace libmfmidi {
         void generateCahce() noexcept
         {
             mcache.clear();
-            MIDIClockTime      absTime      = 0;
-            MIDIClockTime      relCacheTime = 0;
+            MIDIClockTime       absTime      = 0;
+            MIDIClockTime       relCacheTime = 0;
             MIDIStatus          state;
             MIDIStatusProcessor stateProc{state};
-            auto               curit = mtrk->cbegin();
+            auto                curit = mtrk->cbegin();
             while (true) {
                 if (curit == mtrk->cend()) {
                     break;
                 }
                 if (relCacheTime >= TICK_PER_CACHE) {
                     mcache[absTime] = Snapshot{absTime, 0, state, curit};
-                    relCacheTime = 0;
+                    relCacheTime    = 0;
                 }
                 stateProc.process(*curit);
                 relCacheTime += curit->deltaTime();
@@ -322,7 +324,7 @@ namespace libmfmidi {
                     std::unique_lock<std::mutex> ulk{mcvmutex};
                     mcv.wait(ulk, [&] { return mwakeup; });
                     mwakeup = false;
-                    if(mplaying){
+                    if (mplaying) {
                         notify(NotifyType::T_Mode);
                     }
                 }
@@ -374,10 +376,10 @@ namespace libmfmidi {
         // Snapshot-able
         MIDIClockTime             mabsTime      = 0; // Current abs tick time
         MIDIClockTime             mcompensation = 0; // sleep less time
-        MIDIStatus                 mstate{};
+        MIDIStatus                mstate{};
         MIDITrack::const_iterator mcurit{};
 
-        MIDIStatusProcessor       mstproc{mstate};
+        MIDIStatusProcessor      mstproc{mstate};
         MIDIProcessorFunction    mprocfunc{};
         AbstractMIDIDevice*      mdev{};
         MIDINotifierFunctionType mnotifier{};

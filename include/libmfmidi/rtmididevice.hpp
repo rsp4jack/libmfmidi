@@ -28,7 +28,7 @@
 #include <unordered_set>
 #include <memory>
 
-namespace libmfmidi::details {
+namespace libmfmidi::platform {
     class RtMidiInDevice : public AbstractMIDIDevice {
     public:
         explicit RtMidiInDevice(unsigned int id, std::string name = "libmfmidi RtMidiInDevice") noexcept

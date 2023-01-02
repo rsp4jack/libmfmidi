@@ -24,7 +24,7 @@
 #include "libmfmidi/abstractmididevice.hpp" // "max" macro
 #include "omnimidi/OmniMIDI.h"
 
-namespace libmfmidi::details {
+namespace libmfmidi::platform {
     class KDMAPIDevice : public AbstractMIDIDevice {
     public:
         explicit KDMAPIDevice(bool force = false) noexcept

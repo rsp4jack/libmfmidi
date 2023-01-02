@@ -31,7 +31,7 @@
 #include <algorithm>
 #include <string>
 
-namespace libmfmidi::details {
+namespace libmfmidi::platform {
     class Win32MMTimer : public AbstractTimer {
     public:
         static constexpr unsigned int resolution = 1;
