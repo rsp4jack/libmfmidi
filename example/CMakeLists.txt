@@ -11,3 +11,6 @@ target_link_libraries(stplayer PUBLIC libmfmidi)
 
 add_executable(trkplayer TrackPlayer.cpp)
 target_link_libraries(trkplayer PUBLIC libmfmidi)
+
+add_executable(advplayer AdvancedPlayer.cpp)
+target_link_libraries(advplayer PUBLIC libmfmidi)

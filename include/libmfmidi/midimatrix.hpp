@@ -19,14 +19,18 @@
 namespace libmfmidi {
     /// \brief A matrix to keep note and pedal
     ///
-    class MIDIMatrix {
+    class MIDIMatrix : protected NotifyUtils<MIDIMatrix> {
     public:
         MIDIMatrix() noexcept = default;
 
-        void setNotifier(MIDINotifierFunctionType func)
-        {
-            mnotifier = std::move(func);
-        }
+        struct NoteState {
+            bool on = false;
+            uint8_t velocity = 0; ///< note on and off velocity
+            uint8_t afterTouch = 0;
+        };
+
+        using NotifyUtils::addNotifier;
+        friend class NotifyUtils;
 
         bool process(const MIDITimedMessage& msg, uint8_t port = 1)
         {
@@ -114,6 +118,11 @@ namespace libmfmidi {
             return pedals[0].test(channel - 1);
         }
 
+        [[nodiscard]] NoteState noteState(uint8_t port, uint8_t channel, uint8_t note)
+        {
+            return notes.at(port-1).at(channel-1).at(note);
+        }
+
         void noteOn(uint8_t port, uint8_t channel, uint8_t note, uint8_t velocity)
         {
             notes.at(port - 1).at(channel - 1).at(note).on = true;
@@ -186,21 +195,6 @@ namespace libmfmidi {
         }
 
     private:
-        MIDINotifierFunctionType mnotifier;
-
-        void notify(NotifyType type) const noexcept
-        {
-            if(mnotifier){
-                mnotifier(type);
-            }
-        }
-        struct NoteState {
-            bool on = false;
-            uint8_t velocity = 64; ///< note on and off velocity
-            uint8_t afterTouch = 0;
-        };
-
-        
         class NoteStateArray : public std::array<NoteState, 128> {
         public:
             [[nodiscard]] constexpr inline long long count() const noexcept

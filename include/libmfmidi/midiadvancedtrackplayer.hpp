@@ -15,9 +15,9 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-/// \file midisequencer.hpp
+/// \file midiadvancedtrackplayer.hpp
 /// \author Creepercdn (creepercdn@outlook.com)
-/// \brief MIDI Sequencer
+/// \brief Advanced MIDI track player
 
 #pragma once
 
@@ -36,29 +36,31 @@
 #include <utility>
 
 namespace libmfmidi {
-    namespace sequencer {
+    namespace advtrkplayer {
         template <std::ranges::forward_range Container>
             requires is_simple_type<Container>
-        class MIDISequencer;
+        class MIDIAdvancedTrackPlayer;
 
         /// \brief Internal class for holding status and play status
         ///
         template <std::ranges::forward_range Container>
-        class MIDISequencerCursor {
+        class MIDIAdvTrkPlayerCursor : protected NotifyUtils<MIDIAdvTrkPlayerCursor<Container>> {
             template <std::ranges::forward_range T>
                 requires is_simple_type<T>
-            friend class MIDISequencer;
+            friend class MIDIAdvancedTrackPlayer;
+            friend class NotifyUtils<MIDIAdvTrkPlayerCursor<Container>>;
 
         public:
             static constexpr bool randomAccessible = std::ranges::random_access_range<Container>;
             using Time                             = std::chrono::nanoseconds; // must be signed
             using id                               = uint16_t;
+            using NotifyUtils<MIDIAdvTrkPlayerCursor<Container>>::addNotifier;
 
-            explicit MIDISequencerCursor(MIDISequencer<Container>& seq, uint16_t idx) noexcept
+            explicit MIDIAdvTrkPlayerCursor(MIDIAdvancedTrackPlayer<Container>& seq, uint16_t idx) noexcept
                 : mid(idx)
                 , mseq(seq)
             {
-                mstproc.setNotifier([&](NotifyType type) {
+                mstproc.addNotifier([&](NotifyType type) {
                     if (type == NotifyType::C_Tempo) {
                         recalcuateDivns();
                     }
@@ -70,15 +72,10 @@ namespace libmfmidi {
                 mdivns = divisionToSec(mseq.mdivision, mstatus.tempo); // 1 to std::nano, auto cast
             }
 
-            void setNotifier(MIDINotifierFunctionType func)
-            {
-                mnotifier = std::move(func);
-            }
-
             Time tick(Time slept /*the time that slept*/)
             {
                 assert(mactive);                                      // never tick when not active
-                mplaytick += slept;                                   // not move it to sequencer thread because of lastSleptTime = 0 in revertSnapshot
+                mplaytick += slept;                                   // not move it to playthread because of lastSleptTime = 0 in revertSnapshot
                 if (msleeptime != mnextevent->deltaTime() * mdivns) { // check if first tick
                     msleeptime = mnextevent->deltaTime() * mdivns;
                 }
@@ -105,7 +102,7 @@ namespace libmfmidi {
             // Information
             id                        mid;            // ID
             bool                      mactive = true; // tick-able
-            MIDISequencer<Container>& mseq;
+            MIDIAdvancedTrackPlayer<Container>& mseq;
 
             // Playing status
             std::chrono::duration<double, std::nano> mdivns{};     // 1 delta-time in nanoseconds
@@ -119,19 +116,18 @@ namespace libmfmidi {
 
             // Misc
             MIDIStatusProcessor      mstproc{mstatus};
-            MIDINotifierFunctionType mnotifier;
         };
 
-        /// \brief A powerful sequencer
-        ///
+        /// \brief A powerful MIDI track player
+        /// Support multi-cursor
         template <std::ranges::forward_range Container>
             requires is_simple_type<Container>
-        class MIDISequencer {
+        class MIDIAdvancedTrackPlayer {
             template <std::ranges::forward_range>
-            friend class MIDISequencerCursor;
+            friend class MIDIAdvTrkPlayerCursor;
 
         public:
-            using Cursor                                         = MIDISequencerCursor<Container>;
+            using Cursor                                         = MIDIAdvTrkPlayerCursor<Container>;
             using CursorID                                       = Cursor::id;
             using Time                                           = Cursor::Time;
             static constexpr Time                 MAX_SLEEP      = 500ms;
@@ -203,7 +199,7 @@ namespace libmfmidi {
                 return true;
             }
 
-            /// \return Return if the sequencer is playing before pause
+            /// \return Return if the player is playing before pause
             bool pause()
             {
                 bool play = mplay;
@@ -224,7 +220,7 @@ namespace libmfmidi {
                 Time                                     divns         = divisionToSec(mdivision, status.tempo);
                 Time                                     nextCacheTime = CACHE_INTERVAL;
                 Snapshot                                 snap{};
-                proc.setNotifier([&](NotifyType type) {
+                proc.addNotifier([&](NotifyType type) {
                     if (type == NotifyType::C_Tempo) {
                         divns = divisionToSec(mdivision, status.tempo);
                     }
@@ -296,6 +292,11 @@ namespace libmfmidi {
                 Pauser pauser;
                 for (auto& [cursorid, cursorinfo] : mcursors) {
                     goTo(targetTime + cursorinfo.offest, cursorid);
+                    if (cursorinfo.revertStatus && cursorinfo.cursor.mdev != nullptr) {
+                        for (const auto& msg : reportMIDIStatus(cursorinfo.cursor.mstatus, false)) {
+                            cursorinfo.cursor.mdev.sendMsg(msg);
+                        }
+                    }
                 }
             }
 
@@ -303,8 +304,8 @@ namespace libmfmidi {
             // RAII class for auto pause and play
             class Pauser {
             public:
-                explicit Pauser(MIDISequencer& seq)
-                    : sequencer(seq)
+                explicit Pauser(MIDIAdvancedTrackPlayer& seq)
+                    : player(seq)
                     , toplay(seq.pause())
                 {
                 }
@@ -312,7 +313,7 @@ namespace libmfmidi {
                 ~Pauser()
                 {
                     if (toplay) {
-                        sequencer.play();
+                        player.play();
                     }
                 }
 
@@ -322,7 +323,7 @@ namespace libmfmidi {
                 Pauser& operator=(Pauser&&)      = delete;
 
             private:
-                MIDISequencer& sequencer;
+                MIDIAdvancedTrackPlayer& player;
                 bool           toplay;
             };
 
@@ -462,6 +463,6 @@ namespace libmfmidi {
 
     }
 
-    using sequencer::MIDISequencer; // NOLINT(misc-unused-using-decls)
-    MIDISequencer<MIDITrack> abc;
+    using advtrkplayer::MIDIAdvancedTrackPlayer; // NOLINT(misc-unused-using-decls)
+    MIDIAdvancedTrackPlayer<MIDITrack> abc;
 }

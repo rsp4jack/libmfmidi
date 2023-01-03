@@ -93,7 +93,7 @@ namespace libmfmidi {
     };
 
     /// \brief Emulate MIDIStatus
-    class MIDIStatusProcessor {
+    class MIDIStatusProcessor : protected NotifyUtils<MIDIStatusProcessor> {
     public:
         explicit MIDIStatusProcessor(MIDIStatus& st, bool processNote = false) noexcept
             : mst(st)
@@ -101,12 +101,8 @@ namespace libmfmidi {
         {
         }
 
-        /// \warning Will set MIDIMatrix's notifier
-        void setNotifier(const MIDINotifierFunctionType& func) noexcept
-        {
-            mnotifier = func;
-            mst.matrix.setNotifier(func);
-        }
+        using NotifyUtils::addNotifier;
+        friend class NotifyUtils;
 
         bool process(const MIDITimedMessage& msg, uint8_t port = 1)
         {
@@ -184,15 +180,12 @@ namespace libmfmidi {
         using enum MIDIMsgStatus;
         using enum MIDICCNumber;
 
-        void notify(NotifyType type) noexcept
+        void doAddNotifier(const MIDINotifierFunctionType& func)
         {
-            if (mnotifier) {
-                mnotifier(type);
-            }
+            mst.matrix.addNotifier(func);
         }
 
         MIDIStatus&              mst;
-        MIDINotifierFunctionType mnotifier;
         bool                     mprocessNote;
     };
 

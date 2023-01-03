@@ -21,6 +21,7 @@
 
 #pragma once
 
+#include "libmfmidi/mfconcepts.hpp"
 #include <functional>
 
 namespace libmfmidi {
@@ -86,4 +87,43 @@ namespace libmfmidi {
     /// e.g. Note on and off, program change, playback start and stop...
     /// \warning Notifier function \b MUST \b NOT throw any expection.
     using MIDINotifierFunctionType = std::function<void(NotifyType)>;
+
+    /// \brief A utility class to support notifier in class. Use CRTP.
+    /// Usage:
+    /// \code {.cpp}
+    /// class A : protected NotifyUtils<A> {
+    /// public:
+    ///     using NotifyUtils::addNotifier;
+    ///     friend class NotifyUtils;
+    /// private:
+    ///     void doAddNotifier(const MIDINotifierFunctionType& func){
+    ///         "Things to do after added notifier."
+    ///     }
+    /// };
+    /// \endcode
+    template <class T>
+        requires is_simple_type<T>
+    class NotifyUtils {
+    public:
+        void notify(NotifyType type) const noexcept
+        {
+            for (const auto& func : mnotifiers) {
+                func(type);
+            }
+        }
+
+        void addNotifier(MIDINotifierFunctionType func)
+        {
+            if(func){
+                mnotifiers.push_back(func);
+                static_cast<T*>(this)->doAddNotifier(func);
+            }
+        }
+
+    protected:
+        std::vector<MIDINotifierFunctionType> mnotifiers;
+
+    private:
+        void doAddNotifier(const MIDINotifierFunctionType& func){} // default implemention
+    };
 }

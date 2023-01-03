@@ -150,6 +150,7 @@ add_library(libmfmidi STATIC
     include/libmfmidi/mfconcepts.hpp
     include/libmfmidi/mfexceptions.hpp
     include/libmfmidi/mfutils.hpp
+    include/libmfmidi/midiadvancedtrackplayer.hpp
     include/libmfmidi/midimatrix.hpp
     include/libmfmidi/midimessage.hpp
     include/libmfmidi/midimessagefdc.hpp
@@ -157,7 +158,6 @@ add_library(libmfmidi STATIC
     include/libmfmidi/midimultitrackcursor.hpp
     include/libmfmidi/midinotifier.hpp
     include/libmfmidi/midiprocessor.hpp
-    include/libmfmidi/midisequencer.hpp
     include/libmfmidi/midistatus.hpp
     include/libmfmidi/miditrack.hpp
     include/libmfmidi/miditrackplayer.hpp

@@ -43,7 +43,7 @@ namespace libmfmidi {
 
         explicit MIDITrackPlayer() noexcept
         {
-            mstproc.setNotifier([&](NotifyType type) {
+            mstproc.addNotifier([&](NotifyType type) {
                 if (type == NotifyType::C_Tempo) {
                     reCalcDivus();
                 }
