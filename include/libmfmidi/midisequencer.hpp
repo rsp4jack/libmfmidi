@@ -52,17 +52,22 @@ namespace libmfmidi {
         public:
             static constexpr bool randomAccessible = std::ranges::random_access_range<Container>;
             using Time                             = std::chrono::nanoseconds; // must be signed
-            using id                               = size_t;
+            using id                               = uint16_t;
 
-            explicit MIDISequencerCursor(MIDISequencer<Container>& seq, size_t id) noexcept
-                : mid(id)
+            explicit MIDISequencerCursor(MIDISequencer<Container>& seq, uint16_t idx) noexcept
+                : mid(idx)
                 , mseq(seq)
             {
+                mstproc.setNotifier([&](NotifyType type) {
+                    if (type == NotifyType::C_Tempo) {
+                        recalcuateDivns();
+                    }
+                });
             }
 
             void recalcuateDivns() noexcept
             {
-                mdivns = divisionToSec(mdivision, mstatus.tempo); // 1 to std::nano, auto cast
+                mdivns = divisionToSec(mseq.mdivision, mstatus.tempo); // 1 to std::nano, auto cast
             }
 
             void setNotifier(MIDINotifierFunctionType func)
@@ -72,9 +77,10 @@ namespace libmfmidi {
 
             Time tick(Time slept /*the time that slept*/)
             {
-                mplaytick += slept; // not move it to sequencer thread because of lastSleptTime = 0 in revertSnapshot
-                if (msleeptime != mcurit->deltaTime()) { // check if first tick
-                    msleeptime = mcurit->deltaTime();
+                assert(mactive);                                      // never tick when not active
+                mplaytick += slept;                                   // not move it to sequencer thread because of lastSleptTime = 0 in revertSnapshot
+                if (msleeptime != mnextevent->deltaTime() * mdivns) { // check if first tick
+                    msleeptime = mnextevent->deltaTime() * mdivns;
                 }
                 assert(slept <= msleeptime);
                 msleeptime -= slept;
@@ -82,16 +88,16 @@ namespace libmfmidi {
                     return msleeptime;
                 }
 
-                mstproc.process(*mcurit);
+                mstproc.process(*mnextevent);
                 if (mdev != nullptr) {
-                    mdev->sendMsg(*mcurit);
+                    mdev->sendMsg(*mnextevent);
                 }
-                ++mcurit;
-                if (mcurit == mseq.mdata->cend()) {
+                ++mnextevent;
+                if (mnextevent == mseq.mdata->cend()) {
                     mactive = false;
                     return {};
                 }
-                msleeptime = mcurit.deltaTime() * mdivns;
+                msleeptime = mnextevent.deltaTime() * mdivns;
                 return msleeptime;
             }
 
@@ -102,13 +108,12 @@ namespace libmfmidi {
             MIDISequencer<Container>& mseq;
 
             // Playing status
-            MIDIDivision                             mdivision{};
             std::chrono::duration<double, std::nano> mdivns{};     // 1 delta-time in nanoseconds
             Time                                     msleeptime{}; // time to sleep
             Time                                     mplaytick{};  // current time, support 5850 centuries long
 
             // Data
-            std::ranges::iterator_t<const Container> mcurit;
+            std::ranges::iterator_t<const Container> mnextevent;
             AbstractMIDIDevice*                      mdev{};
             MIDIStatus                               mstatus;
 
@@ -126,12 +131,13 @@ namespace libmfmidi {
             friend class MIDISequencerCursor;
 
         public:
-            using Cursor                    = MIDISequencerCursor<Container>;
-            using CursorID                  = Cursor::id;
-            using Time                      = Cursor::Time;
-            static constexpr Time MAX_SLEEP = 500ms;
+            using Cursor                                         = MIDISequencerCursor<Container>;
+            using CursorID                                       = Cursor::id;
+            using Time                                           = Cursor::Time;
+            static constexpr Time                 MAX_SLEEP      = 500ms;
+            static constexpr std::chrono::seconds CACHE_INTERVAL = 1min; // seconds
 
-            [[nodiscard]] inline bool useCache() noexcept
+            [[nodiscard]] inline bool useCache() const noexcept
             {
                 return museCache;
             }
@@ -141,16 +147,113 @@ namespace libmfmidi {
                 museCache = use;
             }
 
-            void regenerateCache()
+            void initThread()
+            {
+                if (!mthread.joinable()) {
+                    mthread = std::jthread([&](const std::stop_token& stop) {
+                        playThread(stop);
+                    });
+                }
+            }
+
+            [[nodiscard]] std::jthread::id threadID() const
+            {
+                return mthread.get_id();
+            }
+
+            [[nodiscard]] bool joinable() const
+            {
+                return mthread.joinable();
+            }
+
+            void setDivision(MIDIDivision division)
+            {
+                mdivision = division;
+            }
+
+            [[nodiscard]] MIDIDivision division() const
+            {
+                return mdivision;
+            }
+
+            [[nodiscard]] Time baseTime() const
+            {
+                if (!mcursors.empty()) {
+                    return {};
+                }
+                CursorInfo& info = (mcursors | std::views::filter([](const auto& arg) {
+                                        return arg.second.cursor.mactive;
+                                    })
+                                    | std::views::take(1))[0]
+                                       .second;
+                return info.cursor.mplaytick - info.offest;
+            }
+
+            bool play()
+            {
+                if (mcursors.empty()) {
+                    return false;
+                }
+                if (!mthread.joinable()) {
+                    initThread();
+                }
+                mplay   = true;
+                mwakeup = true;
+                mcondvar.notify_all();
+                return true;
+            }
+
+            /// \return Return if the sequencer is playing before pause
+            bool pause()
+            {
+                bool play = mplay;
+                mplay     = false;
+                return play;
+            }
+
+            void generateCache()
             {
                 if (!museCache) {
                     return;
+                }
+                mcaches.clear();
+                Time                                     playtick{};
+                std::ranges::iterator_t<const Container> nextevent = mdata->cbegin();
+                MIDIStatus                               status;
+                MIDIStatusProcessor                      proc{status};
+                Time                                     divns         = divisionToSec(mdivision, status.tempo);
+                Time                                     nextCacheTime = CACHE_INTERVAL;
+                Snapshot                                 snap{};
+                proc.setNotifier([&](NotifyType type) {
+                    if (type == NotifyType::C_Tempo) {
+                        divns = divisionToSec(mdivision, status.tempo);
+                    }
+                });
+                while (true) {
+                    while (playtick + nextevent->deltaTime() * divns < nextCacheTime) { // use < because ignore the event on nextCacheTime (the event will play when tick, but have not played yet when cache)
+                        playtick += nextevent->deltaTime() * divns;
+                        proc.process(*nextevent);
+                        ++nextevent;
+                        if (nextevent == mdata->cend()) {
+                            return; // see directGoTo
+                        }
+                    }
+                    snap.nextevent         = nextevent;
+                    snap.sleeptime         = playtick + nextevent->deltaTime() * divns - nextCacheTime; // see directGoTo
+                    snap.status            = status;
+                    mcaches[nextCacheTime] = std::move(snap);
+                    nextCacheTime += CACHE_INTERVAL;
                 }
             }
 
             void setData(const Container* data) noexcept
             {
-                mdata = data;
+                Pauser pauser;
+                mdata          = data;
+                mlastSleptTime = 0;
+                if (museCache) {
+                    generateCache();
+                }
             }
 
             /// \note If you are adding a cursor using a device that does not need to revert MIDIStatus, set \a revertStatus to false.
@@ -159,13 +262,70 @@ namespace libmfmidi {
                 if (mdata == nullptr) {
                     throw std::logic_error("mdata is nullptr");
                 }
-                Cursor cursor{*this, musableID++};
-                cursor.mdev   = device;
-                cursor.mcurit = mdata->cbegin();
-                mcursors.push_back({std::move(cursor), offest, revertStatus});
+                Pauser pauser;
+
+                Cursor cursor{*this, musableID};
+                cursor.mdev         = device;
+                cursor.mnextevent   = mdata->cbegin();
+                mcursors[musableID] = {std::move(cursor), offest, revertStatus};
+                goTo(musableID, baseTime() + offest);
+                return musableID++;
+            }
+
+            void removeCursor(CursorID cursorid)
+            {
+                if (!mcursors.contains(cursorid)) {
+                    throw std::invalid_argument("index out of range");
+                }
+                Pauser pauser;
+                mcursors.erase(cursorid);
+            }
+
+            void activeCursor(CursorID cursorid, bool active = true)
+            {
+                if (!mcursors.contains(cursorid)) {
+                    throw std::invalid_argument("index out of range");
+                }
+                Pauser pauser;
+                updateCursors();
+                mcursors[cursorid].cursor.mactive = active;
+            }
+
+            void goTo(Time targetTime)
+            {
+                Pauser pauser;
+                for (auto& [cursorid, cursorinfo] : mcursors) {
+                    goTo(targetTime + cursorinfo.offest, cursorid);
+                }
             }
 
         private:
+            // RAII class for auto pause and play
+            class Pauser {
+            public:
+                explicit Pauser(MIDISequencer& seq)
+                    : sequencer(seq)
+                    , toplay(seq.pause())
+                {
+                }
+
+                ~Pauser()
+                {
+                    if (toplay) {
+                        sequencer.play();
+                    }
+                }
+
+                Pauser(const Pauser&)            = delete;
+                Pauser(Pauser&&)                 = delete;
+                Pauser& operator=(const Pauser&) = delete;
+                Pauser& operator=(Pauser&&)      = delete;
+
+            private:
+                MIDISequencer& sequencer;
+                bool           toplay;
+            };
+
             struct CursorInfo {
                 Cursor cursor;
                 Time   offest;
@@ -173,10 +333,10 @@ namespace libmfmidi {
             };
 
             struct Snapshot {
-                Time sleeptime;
-                // playtime is key
-                std::ranges::iterator_t<const Container> curit;
-                MIDIStatus                               status;
+                Time sleeptime{}; // time to next event
+                // playtime is key // current time
+                std::ranges::iterator_t<const Container> nextevent{}; // next event, if sleeptime==0, this is current event
+                MIDIStatus                               status{};    // status of played events
             };
 
             void playThread(const std::stop_token& token)
@@ -187,27 +347,97 @@ namespace libmfmidi {
                         mcondvar.wait(lck, [&] { return mwakeup; });
                         mwakeup = false;
                     } else {
+                        nanosleep(mlastSleptTime); // because mlastSleptTime may be changed (such as when revert snapshot)
                         std::chrono::nanoseconds minTime = std::chrono::nanoseconds::max();
-                        for (size_t idx = 0; idx < mcursors.size(); ++idx) {
-                            minTime = min(minTime, (mcursors[idx].cursor.mactive ? mcursors[idx].cursor.tick(mlastSleptTime) : Time::max()));
+                        for (auto& [cursorid, cursorinfo] : mcursors | std::views::filter([](const auto& element) {
+                                                                return element.second.cursor.mactive;
+                                                            })) {
+                            minTime = min(minTime, cursorinfo.cursor.tick(mlastSleptTime));
                         }
-                        minTime = min(minTime, MAX_SLEEP);
-                        nanosleep(minTime);
+                        if (minTime == Time::max()) {
+                            mplay = false;
+                            continue;
+                        }
+                        minTime        = min(minTime, MAX_SLEEP);
                         mlastSleptTime = minTime;
                     }
                 }
             }
 
+            // return {Snapshot, playtick}
+            std::pair<Snapshot, Time> captureSnapshot(CursorID cursorid)
+            {
+                if (!mcursors.contains(cursorid)) {
+                    throw std::invalid_argument("index out of range");
+                }
+                Snapshot snap;
+                snap.sleeptime = mcursors[cursorid].cursor.msleeptime;
+                snap.nextevent = mcursors[cursorid].cursor.mnextevent;
+                snap.status    = mcursors[cursorid].cursor.mstatus;
+                return {std::move(snap), mcursors[cursorid].cursor.mplaytick};
+            }
+
             void revertSnapshot(CursorID cursorid, const Snapshot& snapshot, Time playtick)
             {
-                if (cursorid >= mcursors.size()) {
+                if (!mcursors.contains(cursorid)) {
                     throw std::invalid_argument("index out of range");
                 }
                 mlastSleptTime                       = {}; // = 0
                 mcursors[cursorid].cursor.msleeptime = snapshot.sleeptime;
                 mcursors[cursorid].cursor.mmplaytick = playtick;
                 mcursors[cursorid].cursor.mstatus    = snapshot.status;
-                mcursors[cursorid].cursor.mcurit     = snapshot.curit;
+                mcursors[cursorid].cursor.mnextevent = snapshot.nextevent;
+            }
+
+            bool goTo(Time targetTime, CursorID cursorid)
+            {
+                if (!mcursors.contains(cursorid)) {
+                    throw std::invalid_argument("index out of range");
+                }
+                if (targetTime == mcursors[cursorid].cursor.mplaytick) {
+                    return true;
+                }
+                mlastSleptTime = 0;
+                if (targetTime < mcursors[cursorid].cursor.mplaytick) {
+                    revertSnapshot(cursorid, {}, {}); // reset
+                }
+                if (museCache) {
+                    for (auto& [playtick, snap] : mcaches | std::views::reverse) {
+                        if (playtick <= targetTime) {
+                            revertSnapshot(cursorid, snap, playtick);
+                        }
+                    }
+                }
+                return directGoTo(targetTime, cursorid); // for the rest
+            }
+
+            bool directGoTo(Time targetTime, CursorID cursorid)
+            {
+                if (!mcursors.contains(cursorid)) {
+                    throw std::invalid_argument("index out of range");
+                }
+                Cursor& cur = mcursors[cursorid];
+                assert(cur.mplaytick < targetTime);
+                std::ranges::iterator_t<const Container> currentevent = cur.mnextevent;
+                while (cur.mplaytick + cur.mnextevent->deltaTime() * cur.mdivns < targetTime) { // use <, see cur.msleeptime under
+                    currentevent = cur.mnextevent;
+                    cur.mplaytick += currentevent->deltaTime() * cur.mdivns;
+                    cur.mproc.process(*currentevent);
+                    ++cur.mnextevent;
+                    if (cur.mnextevent == mdata->cend()) { // should not happen if targetTime is not out of range, because uses < above (so nextevent never point to the end iterator (sentinal))
+                        return false;
+                    }
+                }
+                cur.msleeptime = cur.mplaytick + cur.mnextevent->deltaTime() * cur.mdivns - targetTime; // if there is a event on targetTime, msleeptime will be 0 and mnextevent will play immediately when tick
+                cur.mplaytick  = targetTime;                                                            // this must be after cur.msleeptime, see above
+            }
+
+            // set position
+            void updateCursors()
+            {
+                for (auto& [cursorr, cursorinfo] : mcursors) {
+                    cursorinfo.cursor.goTo(baseTime() + cursorinfo.offest);
+                }
             }
 
             // Thread
@@ -218,11 +448,12 @@ namespace libmfmidi {
             bool                    mplay = false;
 
             // Playback
-            const Container*        mdata;
-            std::vector<CursorInfo> mcursors;
-            CursorID                musableID = 0;
+            MIDIDivision                             mdivision{};
+            const Container*                         mdata{};
+            std::unordered_map<uint16_t, CursorInfo> mcursors;
+            CursorID                                 musableID = 0;
             // std::vector<std::chrono::nanoseconds> msleeptimecache; // use in playThread, cache sleep time of cursors
-            Time mlastSleptTime{};
+            Time mlastSleptTime{}; // if you changed playback data, set this to 0 and it will be recalcuated
 
             // Caching
             bool                                     museCache = true;

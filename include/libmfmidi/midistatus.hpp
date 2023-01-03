@@ -43,7 +43,7 @@ namespace libmfmidi {
             pan        = 0x4000;
             balance    = 0x4000;
             aftertouch = 0;
-            pitchbend = 0x4000;
+            pitchbend  = 0x4000;
         }
 
         void resetAll() noexcept
@@ -51,13 +51,13 @@ namespace libmfmidi {
             reset();
         }
 
-        int      program = -1; ///< Current Program Change (it will never bigger than uint8_t or smaller than -1)
-        uint16_t volume = 0xFF00;
+        int      program    = -1; ///< Current Program Change (it will never bigger than uint8_t or smaller than -1)
+        uint16_t volume     = 0xFF00;
         uint16_t expression = 0xFF00;
-        uint16_t pan = 0x4000; // most use
-        uint16_t balance = 0x4000;
+        uint16_t pan        = 0x4000; // most use
+        uint16_t balance    = 0x4000;
         uint8_t  aftertouch = 0;
-        int16_t pitchbend = 0;
+        int16_t  pitchbend  = 0;
     };
 
     /// \brief A struct to hold MIDI Status
@@ -85,10 +85,10 @@ namespace libmfmidi {
             }
         }
 
-        MIDITempo                                                         tempo{}; // in bpm
-        uint8_t                                                           numerator{};
-        uint8_t                                                           denominator{};
-        MIDIMatrix                                                        matrix;
+        MIDITempo                                                          tempo{}; // in bpm
+        uint8_t                                                            numerator{};
+        uint8_t                                                            denominator{};
+        MIDIMatrix                                                         matrix;
         std::array<std::array<MIDIChannelStatus, NUM_CHANNELS>, NUM_PORTS> channels;
     };
 
@@ -110,6 +110,7 @@ namespace libmfmidi {
 
         bool process(const MIDITimedMessage& msg, uint8_t port = 1)
         {
+            //! Notify after change data
             switch (msg.type()) {
             case NOTE_ON:
             case NOTE_OFF:
@@ -158,7 +159,7 @@ namespace libmfmidi {
                 case EXPRESSION_LSB:
                     chst.expression = MLSBtoU16(U16toMLSB(chst.expression).first, msg.controllerValue());
                     break;
-                // TODO: add more...
+                    // TODO: add more...
                 }
                 notify(NotifyType::TR_CC);
                 break;
@@ -190,7 +191,7 @@ namespace libmfmidi {
             }
         }
 
-        MIDIStatus&               mst;
+        MIDIStatus&              mst;
         MIDINotifierFunctionType mnotifier;
         bool                     mprocessNote;
     };
