@@ -113,23 +113,23 @@ namespace libmfmidi {
             case CHANNEL_PRESSURE:
             case POLY_PRESSURE:
                 if (mprocessNote) {
-                    mst.matrix.process(msg, port);
+                    mst.get().matrix.process(msg, port);
                 }
                 // notify by MIDIMatrix
                 break;
             case PROGRAM_CHANGE:
-                mst.channels.at(port - 1).at(msg.channel() - 1).program = msg.programChangeValue();
+                mst.get().channels.at(port - 1).at(msg.channel() - 1).program = msg.programChangeValue();
                 notify(NotifyType::TR_PG);
                 break;
             case PITCH_BEND:
-                mst.channels.at(port - 1).at(msg.channel() - 1).pitchbend = msg.pitchBendValue();
+                mst.get().channels.at(port - 1).at(msg.channel() - 1).pitchbend = msg.pitchBendValue();
                 notify(NotifyType::TR_PitchBend);
                 break;
             case CONTROL_CHANGE: {
-                auto& chst = mst.channels.at(port - 1).at(msg.channel() - 1);
+                auto& chst = mst.get().channels.at(port - 1).at(msg.channel() - 1);
                 switch (msg.controller()) {
                 case SUSTAIN:
-                    mst.matrix.process(msg, port);
+                    mst.get().matrix.process(msg, port);
                     break;
                 case BALANCE:
                     chst.balance = MLSBtoU16(msg.controllerValue(), U16toMLSB(chst.balance).second);
@@ -163,12 +163,12 @@ namespace libmfmidi {
             case META_EVENT:
                 switch (msg.metaType()) {
                 case MIDIMetaNumber::TEMPO:
-                    mst.tempo = msg.tempo();
+                    mst.get().tempo = msg.tempo();
                     notify(NotifyType::C_Tempo);
                     break;
                 case MIDIMetaNumber::TIMESIG:
-                    mst.denominator = msg.timeSigDenominator();
-                    mst.numerator   = msg.timeSigNumerator();
+                    mst.get().denominator = msg.timeSigDenominator();
+                    mst.get().numerator   = msg.timeSigNumerator();
                     notify(NotifyType::C_TimeSig);
                     break;
                 }
@@ -182,11 +182,11 @@ namespace libmfmidi {
 
         void doAddNotifier(const MIDINotifierFunctionType& func)
         {
-            mst.matrix.addNotifier(func);
+            mst.get().matrix.addNotifier(func);
         }
 
-        MIDIStatus&              mst;
-        bool                     mprocessNote;
+        std::reference_wrapper<MIDIStatus> mst;
+        bool                               mprocessNote;
     };
 
     static_assert(MIDIProcessorClass<MIDIStatusProcessor>); // For coding

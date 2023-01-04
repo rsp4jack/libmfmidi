@@ -53,10 +53,8 @@ namespace libmfmidi {
 
         constexpr ~MIDIBasicMessage() noexcept = default;
 
-        constexpr MIDIBasicMessage(const MIDIBasicMessage& rhs) noexcept            = default;
-        constexpr MIDIBasicMessage(MIDIBasicMessage&& rhs) noexcept                 = default;
-        constexpr MIDIBasicMessage& operator=(const MIDIBasicMessage& rhs) noexcept = default;
-        constexpr MIDIBasicMessage& operator=(MIDIBasicMessage&& rhs) noexcept      = default;
+        MF_DEFAULT_MOVE(MIDIBasicMessage);
+        MF_DEFAULT_COPY(MIDIBasicMessage);
 
         using value_type             = uint8_t;
         using iterator               = std::vector<value_type>::iterator;
@@ -1103,10 +1101,8 @@ namespace libmfmidi {
             {
             }
 
-            constexpr MIDIMessageTimedExt(const MIDIMessageTimedExt& rhs) noexcept            = default;
-            constexpr MIDIMessageTimedExt(MIDIMessageTimedExt&& rhs) noexcept                 = default;
-            constexpr MIDIMessageTimedExt& operator=(const MIDIMessageTimedExt& rhs) noexcept = default;
-            constexpr MIDIMessageTimedExt& operator=(MIDIMessageTimedExt&& rhs) noexcept      = default;
+            MF_DEFAULT_COPY(MIDIMessageTimedExt);
+            MF_DEFAULT_MOVE(MIDIMessageTimedExt);
 
             constexpr explicit MIDIMessageTimedExt(const Base& rhs) noexcept
                 : Base::_data(rhs._data)

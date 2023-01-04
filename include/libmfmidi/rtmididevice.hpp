@@ -47,10 +47,9 @@ namespace libmfmidi::platform {
 
         ~RtMidiInDevice() noexcept override = default;
 
-        RtMidiInDevice(RtMidiInDevice&&) noexcept        = default;
-        RtMidiInDevice(const RtMidiInDevice&)            = delete;
-        RtMidiInDevice& operator=(const RtMidiInDevice&) = delete;
-        RtMidiInDevice& operator=(RtMidiInDevice&&)      = delete;
+        MF_DEFAULT_MOVE_CTOR(RtMidiInDevice);
+        MF_DISABLE_MOVE_ASGN(RtMidiInDevice);
+        MF_DISABLE_COPY(RtMidiInDevice);
 
         bool open() override
         {
@@ -117,10 +116,9 @@ namespace libmfmidi::platform {
         }
 
         ~RtMidiOutDevice() noexcept override = default;
-        RtMidiOutDevice(const RtMidiOutDevice& rhs) noexcept        = delete;
-        RtMidiOutDevice(RtMidiOutDevice&&) noexcept                 = default;
-        RtMidiOutDevice& operator=(const RtMidiOutDevice&) noexcept = delete;
-        RtMidiOutDevice& operator=(RtMidiOutDevice&&) noexcept      = delete;
+        MF_DEFAULT_MOVE_CTOR(RtMidiOutDevice);
+        MF_DISABLE_MOVE_ASGN(RtMidiOutDevice);
+        MF_DISABLE_COPY(RtMidiOutDevice);
 
         bool open() override
         {
@@ -187,13 +185,13 @@ namespace libmfmidi::platform {
             return auxout.getPortName(idx);
         }
 
-        static std::shared_ptr<RtMidiInDevice> buildupInputDevice(unsigned int idx, const std::string& name = "libmfmidi RtMidiMIDIDeviceProvider IN")
+        static std::unique_ptr<RtMidiInDevice> buildupInputDevice(unsigned int idx, const std::string& name = "libmfmidi RtMidiMIDIDeviceProvider IN")
         {
-            return std::make_shared<RtMidiInDevice>(idx, name);
+            return std::make_unique<RtMidiInDevice>(idx, name);
         }
 
-        static std::shared_ptr<RtMidiOutDevice> buildupOutputDevice(unsigned int idx, const std::string& name = "libmfmidi RtMidiMIDIDeviceProvider OUT"){
-            return std::make_shared<RtMidiOutDevice>(idx, name);
+        static std::unique_ptr<RtMidiOutDevice> buildupOutputDevice(unsigned int idx, const std::string& name = "libmfmidi RtMidiMIDIDeviceProvider OUT"){
+            return std::make_unique<RtMidiOutDevice>(idx, name);
         }
 
         static RtMidiMIDIDeviceProvider& instance() noexcept

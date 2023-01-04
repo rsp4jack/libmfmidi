@@ -253,7 +253,7 @@ namespace libmfmidi {
                 }
 
                 buffer.clear();
-                buffer.reserve(8); // default to reserve 8 bytes
+                buffer.reserve(4); // default to reserve 4 bytes
                 buffer.setDeltaTime(deltatime);
 
                 buffer.push_back(status);

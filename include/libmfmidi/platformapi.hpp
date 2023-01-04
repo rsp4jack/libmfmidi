@@ -11,10 +11,10 @@ namespace libmfmidi {
     ///
     /// \param nsec time in nanoseconds
     /// \return int 0 if succeeded
-    int nanosleep(std::chrono::duration<unsigned long long, std::nano> nsec);
+    int nanosleep(std::chrono::nanoseconds nsec);
 
     /// \brief Get high resolution time stamp in nanoseconds
     /// 
     /// \return unsigned long long time stamp in nanoseconds
-    std::chrono::duration<unsigned long long, std::nano> hiresticktime();
+    std::chrono::nanoseconds hiresticktime();
 }

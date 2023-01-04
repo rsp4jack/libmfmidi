@@ -31,10 +31,8 @@ namespace libmfmidi {
     public:
         AbstractMIDIDevice() noexcept = default;
 
-        AbstractMIDIDevice(const AbstractMIDIDevice&)            = default;
-        AbstractMIDIDevice(AbstractMIDIDevice&&)                 = default;
-        AbstractMIDIDevice& operator=(const AbstractMIDIDevice&) = default;
-        AbstractMIDIDevice& operator=(AbstractMIDIDevice&&)      = default;
+        MF_DEFAULT_MOVE(AbstractMIDIDevice);
+        MF_DEFAULT_COPY(AbstractMIDIDevice);
         using callback_type                                      = std::function<void(const MIDIMessage& msg)>;
 
         virtual ~AbstractMIDIDevice() noexcept = default;

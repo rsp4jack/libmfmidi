@@ -43,7 +43,7 @@ namespace libmfmidi {
         T_Mode, // play, stop...
         T_Measure,
         T_Beat,
-        T_EndOfSong, ///< End of playback, when player stop at end, \a T_EndOfSong will notify without T_Mode.
+        //T_EndOfSong, ///< End of playback, when player stop at end, \a T_EndOfSong will notify without T_Mode.
         TR_All,
         TR_Name,
         TR_Note,
@@ -67,7 +67,7 @@ namespace libmfmidi {
         case T_Mode:
         case T_Measure:
         case T_Beat:
-        case T_EndOfSong:
+        //case T_EndOfSong:
             return NotifyCategory::Transport;
         case TR_All:
         case TR_Name:
@@ -124,6 +124,6 @@ namespace libmfmidi {
         std::vector<MIDINotifierFunctionType> mnotifiers;
 
     private:
-        void doAddNotifier(const MIDINotifierFunctionType& func){} // default implemention
+        void doAddNotifier(const MIDINotifierFunctionType& /*func*/){} // default implemention
     };
 }

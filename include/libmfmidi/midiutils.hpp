@@ -517,22 +517,22 @@ namespace libmfmidi {
     /// \param val Division
     /// \param bpm BPM
     /// \return double Tick time in second
-    inline constexpr auto divisionToSec(MIDIDivision val, MIDITempo bpm) noexcept
+    inline constexpr std::chrono::nanoseconds divisionToDuration(MIDIDivision val, MIDITempo bpm) noexcept
     {
-        using ResultType = std::chrono::duration<double>;
+        using ResultType = std::chrono::nanoseconds;
         if (!val || !bpm) {
             return ResultType{};
         }
         if (val.isPPQ()) {
             // MIDI always 4/4
-            return ResultType{60.0 / (val.ppq() * bpm.bpmFP())};
+            return ResultType{static_cast<ResultType::rep>(60.0 / (val.ppq() * bpm.bpmFP())*1'000'000'000)};
         }
         // 24 25 29(.97) 30
         double realfps = val.fps();
         if (val.fps() == 29) {
             realfps = 29.97;
         }
-        return ResultType{1 / (realfps * val.tpf())};
+        return ResultType{static_cast<ResultType::rep>(1 / (realfps * val.tpf())*1'000'000'000)};
     }
 
     inline constexpr std::string divisionToText(MIDIDivision val) noexcept

@@ -1,4 +1,5 @@
 #include "libmfmidi/platformapi.hpp"
+#include <iostream>
 
 #if defined(__linux__)
 #include <unistd.h>
@@ -28,7 +29,7 @@ namespace libmfmidi {
         return ::nanosleep(nsec);
     }
 #elif defined(_WIN32)
-    int nanosleep(std::chrono::duration<unsigned long long, std::nano> nsec)
+    int nanosleep(std::chrono::nanoseconds nsec)
     {
         using namespace std;
         using namespace std::chrono;
@@ -46,17 +47,21 @@ namespace libmfmidi {
             inited = true;
         }
 
-        timeBeginPeriod(caps.wPeriodMin); /*
+        timeBeginPeriod(caps.wPeriodMin); 
         // const hclock::time_point target_time{hclock::duration{hclock::now().time_since_epoch().count() + usec * (freq / 1'000'000)}};
         uint64_t current_time;
         uint64_t target_time;
         QueryPerformanceCounter(reinterpret_cast<LARGE_INTEGER*>(&target_time));
-        target_time += freq / 1'000'000'000.0 * nsec;
+        target_time += freq / 1'000'000'000.0 * nsec.count();
 
         while (true) {
             QueryPerformanceCounter(reinterpret_cast<LARGE_INTEGER*>(&current_time));
             if (current_time < target_time) {
                 if ((target_time - current_time) > freq / 1000 * MIN_RES) {
+                    std::cout << max(
+                            static_cast<DWORD>((target_time - current_time) / static_cast<double>(freq) * 1000), MIN_RES
+                        ) // avoid underflow
+                        - MIN_RES << std::endl;
                     Sleep(
                         max(
                             static_cast<DWORD>((target_time - current_time) / static_cast<double>(freq) * 1000), MIN_RES
@@ -72,12 +77,12 @@ namespace libmfmidi {
                 break;
             }
         }
-        */
+        /*
         uint64_t st = 0, ct = 0;
         QueryPerformanceCounter((LARGE_INTEGER*)&st);
         do {
             if (nsec.count() / 1000 > 10000 + (ct - st) * 1000000 / freq)
-                Sleep((nsec.count() / 1000 - (ct - st) * 1000000 / freq) / 2000);
+                Sleep((nsec.count() / 1000 - (ct - st) * 1'000'000 / freq) / 2000);
             else if (nsec.count() / 1000 > 5000 + (ct - st) * 1000000 / freq)
                 Sleep(1);
             else
@@ -86,9 +91,10 @@ namespace libmfmidi {
         } while ((ct - st) * 1000000 < nsec.count() / 1000 * freq);
         timeEndPeriod(caps.wPeriodMin);
         return 0;
+        */
     }
 
-    std::chrono::duration<unsigned long long, std::nano> hiresticktime()
+    std::chrono::nanoseconds hiresticktime()
     {
         static uint64_t freq = 0;
         if (freq == 0) {
@@ -96,7 +102,7 @@ namespace libmfmidi {
         }
         uint64_t tick;
         QueryPerformanceCounter(reinterpret_cast<LARGE_INTEGER*>(&tick));
-        return std::chrono::duration<unsigned long long, std::nano>{static_cast<unsigned long long>(tick / (freq / 1000.0 / 1000))};
+        return std::chrono::nanoseconds{static_cast<unsigned long long>(tick / (freq / 1000.0 / 1000))};
     }
 
 #else

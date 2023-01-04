@@ -42,10 +42,9 @@ namespace libmfmidi::platform {
         {
             stop();
         }
-        KDMAPIDevice(const KDMAPIDevice& rhs) noexcept        = delete;
-        KDMAPIDevice(KDMAPIDevice&&) noexcept                 = default;
-        KDMAPIDevice& operator=(const KDMAPIDevice&) noexcept = delete;
-        KDMAPIDevice& operator=(KDMAPIDevice&&) noexcept      = delete;
+
+        MF_DISABLE_COPY(KDMAPIDevice);
+        MF_DEFAULT_MOVE(KDMAPIDevice);
 
         bool open() override
         {
@@ -91,7 +90,7 @@ namespace libmfmidi::platform {
                 std::copy(msg.cbegin(), msg.cend(), buffer.get()); // copy because it need not const
                 MIDIHDR sysex{}; // initiazle to avoid exception
                 sysex.lpData = reinterpret_cast<LPSTR>(buffer.get());
-                sysex.dwBufferLength = msg.size();
+                sysex.dwBufferLength = static_cast<DWORD>(msg.size());
                 sysex.dwFlags        = 0;
                 result               = PrepareLongData(&sysex, sizeof(MIDIHDR));
                 if (result != MMSYSERR_NOERROR) {

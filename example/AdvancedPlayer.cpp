@@ -1,14 +1,13 @@
 #include <iostream>
 #include <fstream>
-#include "libmfmidi/miditrackplayer.hpp"
+#include "libmfmidi/midiadvancedtrackplayer.hpp"
 #include "libmfmidi/smfreader.hpp"
 #include "libmfmidi/samhandlers.hpp"
 #include "libmfmidi/rtmididevice.hpp"
 #include "libmfmidi/kdmapidevice.hpp"
 #include "libmfmidi/midimessagefdc.hpp"
-#include "libmfmidi/midiprocessor.hpp"
 #include <processthreadsapi.h>
-#include <timeapi.h>
+#include <timeapi.h> 
 #include <ranges>
 #include <filesystem>
 #include <spanstream>
@@ -33,19 +32,12 @@ int main(int argc, char** argv)
     cout << "Opening file " << argv[1] << endl;
     std::fstream stm;
     stm.open(argv[1], std::ios::in | std::ios::binary);
-    std::vector<char> memory; // just for own memory, like unique_ptr
-    auto              filesize = std::filesystem::file_size(argv[1]);
-    memory.resize(filesize);
-    stm.read(memory.data(), filesize);
-    std::span<char>                                     preread{memory.begin(), memory.end()};
-    std::basic_spanstream<char, std::char_traits<char>> ss{preread, std::ios::in | std::ios::binary};
-    stm.close();
     cout << "Opened" << endl;
 
     MIDIMultiTrack    file;
     SMFFileInfo       info;
     SMFFileSAMHandler hsam(&file, &info);
-    SMFReader         rd(&ss, 0, &hsam);
+    SMFReader         rd(&stm, 0, &hsam);
 
     cout << "Parsing SMF" << endl;
     rd.parse();
@@ -58,7 +50,7 @@ int main(int argc, char** argv)
     mergeMultiTrack(std::move(file), trk);
     cout << "Merged" << endl;
 
-    details::RtMidiMIDIDeviceProvider& prov = details::RtMidiMIDIDeviceProvider::instance();
+    auto& prov = platform::RtMidiMIDIDeviceProvider::instance();
     cout << "Dev cnt: " << prov.outputCount() << endl;
     for (unsigned int i = 0; i < prov.outputCount(); ++i) {
         cout << prov.outputName(i) << endl;
@@ -68,13 +60,13 @@ int main(int argc, char** argv)
     std::cin >> inp;
 
     AbstractMIDIDevice*                                  dev;
-    std::unique_ptr<libmfmidi::details::KDMAPIDevice>    kdev;
-    std::shared_ptr<libmfmidi::details::RtMidiOutDevice> sdev;
+    std::unique_ptr<platform::KDMAPIDevice>    kdev;
+    std::unique_ptr<platform::RtMidiOutDevice> sdev;
     if (inp == prov.outputCount() + 1) {
-        kdev = std::make_unique<libmfmidi::details::KDMAPIDevice>(true);
+        kdev = std::make_unique<platform::KDMAPIDevice>(true);
         dev  = kdev.get();
     } else {
-        sdev = libmfmidi::details::RtMidiMIDIDeviceProvider::buildupOutputDevice(inp);
+        sdev = platform::RtMidiMIDIDeviceProvider::buildupOutputDevice(inp);
         dev  = sdev.get();
     }
 
@@ -82,7 +74,9 @@ int main(int argc, char** argv)
         std::cerr << "Failed to open device" << endl;
     }
 
-    MIDITrackPlayer player; // init player after everything
+    MIDIAdvancedTrackPlayer<MIDITrack> player; // init player after everything
+    player.setData(&trk); // before cursors
+    auto                               cursor = player.addCursor(dev, 0ns);
 
     bool useCache;
     cout << "Use cache? 1/0: ";
@@ -90,24 +84,21 @@ int main(int argc, char** argv)
     player.setUseCache(useCache);
 
     auto compfdc = [&](MIDITimedMessage& msg) {
-        fdc::MFMarkTempo::process(msg);
         return MIDIMessageF2D::process(msg);
     };
-    player.setMsgProcessor(compfdc);
+    player.setCursorProcessor(cursor, compfdc);
     player.setDivision(info.division);
-    player.setDriver(dev);
-    player.setTrack(trk);
 
-    player.setNotifier([&](NotifyType type) {
-        if (type == NotifyType::T_Mode || type == NotifyType::T_EndOfSong) {
+    player.addCursorNotifier(cursor, [&](NotifyType type) {
+        if (type == NotifyType::T_Mode) {
             sendAllSoundsOff(dev);
         }
     });
 
     // manual init player thread to set priority
     player.initThread();
-    SetThreadPriority(player.nativeHandle(), THREAD_PRIORITY_TIME_CRITICAL);
-
+    SetThreadPriority(player.threadNativeHandle(), THREAD_PRIORITY_TIME_CRITICAL);
+    
     std::vector<std::string> splitedcmd;
     std::getchar();
     while (true) {
@@ -127,13 +118,13 @@ int main(int argc, char** argv)
             player.pause();
         } else if (splitedcmd[0] == "seek") {
             if (splitedcmd.size() < 2) {
-                cout << "Current tick time: " << player.tickTime() << endl;
+                cout << "Current time: " << std::chrono::hh_mm_ss<decltype(player)::Time>(player.baseTime()) << endl;
                 continue;
             }
-            const MIDIClockTime clk = std::stoul(splitedcmd[1]);
-            cout << "Seeking to " << clk << endl;
+            cout << "Seeking to " << splitedcmd[1] << endl;
             sendAllSoundsOff(dev);
-            player.goTo(clk);
+            std::chrono::nanoseconds target{std::stoll(splitedcmd[1])};
+            player.goTo(target);
         } else if (splitedcmd[0] == "exit") {
             break;
         } else if (splitedcmd[0] == "status") {

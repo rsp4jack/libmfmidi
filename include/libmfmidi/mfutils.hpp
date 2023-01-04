@@ -56,10 +56,33 @@ namespace libmfmidi {
 }
 
 template <class T>
-inline constexpr void UNUSED(const T& arg) noexcept
+inline constexpr void MF_UNUSED(const T& arg) noexcept
 {
     static_cast<void>(arg);
 }
+
+#define MF_DISABLE_COPY_CTOR(T) T(const T&) noexcept = delete
+#define MF_DISABLE_MOVE_CTOR(T) T(T&&) noexcept = delete
+#define MF_DISABLE_COPY_ASGN(T) T& operator=(const T&) noexcept = delete
+#define MF_DISABLE_MOVE_ASGN(T) T& operator=(T&&) noexcept = delete
+
+#define MF_DEFAULT_COPY_CTOR(T) T(const T&) noexcept = default
+#define MF_DEFAULT_MOVE_CTOR(T) T(T&&) noexcept = default
+#define MF_DEFAULT_COPY_ASGN(T) T& operator=(const T&) noexcept = default
+#define MF_DEFAULT_MOVE_ASGN(T) T& operator=(T&&) noexcept = default
+
+#define MF_DISABLE_COPY(T)   \
+    MF_DISABLE_COPY_CTOR(T); \
+    MF_DISABLE_COPY_ASGN(T)
+#define MF_DISABLE_MOVE(T)   \
+    MF_DISABLE_MOVE_CTOR(T); \
+    MF_DISABLE_MOVE_ASGN(T)
+#define MF_DEFAULT_COPY(T)   \
+    MF_DEFAULT_COPY_CTOR(T); \
+    MF_DEFAULT_COPY_ASGN(T)
+#define MF_DEFAULT_MOVE(T)   \
+    MF_DEFAULT_MOVE_CTOR(T); \
+    MF_DEFAULT_MOVE_ASGN(T)
 
 namespace libmfmidi {
     template <std::integral T>
