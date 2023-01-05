@@ -58,6 +58,7 @@ namespace libmfmidi {
         uint16_t balance    = 0x4000;
         uint8_t  aftertouch = 0;
         int16_t  pitchbend  = 0;
+        // TODO: Control Change map for every CC
     };
 
     /// \brief A struct to hold MIDI Status

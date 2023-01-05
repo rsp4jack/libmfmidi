@@ -33,8 +33,8 @@ namespace libmfmidi {
     {
         using namespace std;
         using namespace std::chrono;
-        constexpr DWORD MIN_RES = 2; // in ms
-        constexpr DWORD MAX_RES = 1; // in ms
+        constexpr DWORD MIN_RES = 15; // in ms
+        constexpr DWORD MAX_RES = 5; // in ms
 
         static bool     inited = false;
         static uint64_t freq;
@@ -58,10 +58,6 @@ namespace libmfmidi {
             QueryPerformanceCounter(reinterpret_cast<LARGE_INTEGER*>(&current_time));
             if (current_time < target_time) {
                 if ((target_time - current_time) > freq / 1000 * MIN_RES) {
-                    std::cout << max(
-                            static_cast<DWORD>((target_time - current_time) / static_cast<double>(freq) * 1000), MIN_RES
-                        ) // avoid underflow
-                        - MIN_RES << std::endl;
                     Sleep(
                         max(
                             static_cast<DWORD>((target_time - current_time) / static_cast<double>(freq) * 1000), MIN_RES

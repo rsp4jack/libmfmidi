@@ -163,7 +163,7 @@ add_library(libmfmidi STATIC
     include/libmfmidi/miditrackplayer.hpp
     include/libmfmidi/miditrackplayerlooply.hpp
     include/libmfmidi/midiutils.hpp
-    include/libmfmidi/platformapi.cpp
+    
     include/libmfmidi/platformapi.hpp
     include/libmfmidi/posixtimer.hpp
     include/libmfmidi/rtmididevice.hpp
@@ -173,6 +173,7 @@ add_library(libmfmidi STATIC
     include/libmfmidi/smfreader.hpp
     include/libmfmidi/smfreaderpolicy.hpp
     include/libmfmidi/win32mmtimer.hpp
+    src/libmfmidi/platformapi.cpp
 )
 
 target_precompile_headers(libmfmidi PUBLIC <Windows.h>)

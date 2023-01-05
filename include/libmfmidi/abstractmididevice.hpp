@@ -59,6 +59,8 @@ namespace libmfmidi {
 
     inline void sendAllSoundsOff(AbstractMIDIDevice* dev)
     {
-        dev->sendMsg({MIDIMsgStatus::CONTROL_CHANGE, MIDICCNumber::ALL_SOUND_OFF, 0});
+        for(uint8_t channel : std::views::iota(0, 16)){
+            dev->sendMsg({static_cast<unsigned char>(MIDIMsgStatus::CONTROL_CHANGE | channel), MIDICCNumber::ALL_SOUND_OFF, 0});
+        }
     }
 }

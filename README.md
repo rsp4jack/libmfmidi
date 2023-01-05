@@ -11,3 +11,4 @@ A powerful full-featured C++20 MIDI library
 - [ ] Sequencer
 - [ ] Performance
 - [ ] Notifier support
+- [ ] MIDIStatus and MIDIMatrix

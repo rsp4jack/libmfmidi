@@ -23,7 +23,6 @@
 
 #include "libmfmidi/abstractmididevice.hpp"
 #include "libmfmidi/mfconcepts.hpp"
-#include "libmfmidi/miditrack.hpp"
 #include "libmfmidi/midiutils.hpp"
 #include <span>
 #include <thread>
@@ -96,6 +95,11 @@ namespace libmfmidi {
                     return msleeptime;
                 }
 
+                if (mnextevent == mseq.get().mdata->cend()) {
+                    mactive = false;
+                    return {};
+                }
+
                 MIDITimedMessage message;
                 message.resize(mnextevent->size());
                 // std::ranges::copy(*mnextevent, message.begin());
@@ -158,8 +162,15 @@ namespace libmfmidi {
             static constexpr Time                 MAX_SLEEP      = 500ms;
             static constexpr std::chrono::minutes CACHE_INTERVAL = 1min; // seconds
 
-            MIDIAdvancedTrackPlayer() noexcept  = default;
-            ~MIDIAdvancedTrackPlayer() noexcept = default;
+            MIDIAdvancedTrackPlayer() noexcept = default;
+
+            ~MIDIAdvancedTrackPlayer() noexcept
+            {
+                pause();
+                mthread.request_stop();
+                mwakeup = true;
+                mcondvar.notify_all();
+            }
 
             MF_DISABLE_COPY(MIDIAdvancedTrackPlayer);
             MF_DEFAULT_MOVE(MIDIAdvancedTrackPlayer);
@@ -207,7 +218,7 @@ namespace libmfmidi {
             {
                 mdivision = division;
                 for (auto& [id, info] : mcursors) {
-                    info.cursor.recalcuateDivns();
+                    info.cursor->recalcuateDivns();
                 }
             }
 
@@ -222,18 +233,18 @@ namespace libmfmidi {
                     return {};
                 }
                 auto activeCursors = mcursors | std::views::filter([](const auto& arg) {
-                                         return arg.second.cursor.mactive;
+                                         return arg.second.cursor->mactive;
                                      })
                                    | std::views::take(1);
                 if (std::ranges::empty(activeCursors)) {
                     if (mcursors.size() == 1) {
                         const CursorInfo& info = mcursors.begin()->second;
-                        return info.cursor.mplaytick - info.offest;
+                        return info.cursor->mplaytick - info.offest;
                     }
                     return {};
                 }
                 const CursorInfo& info = (*activeCursors.begin()).second;
-                return info.cursor.mplaytick - info.offest;
+                return info.cursor->mplaytick - info.offest;
             }
 
             bool play()
@@ -312,11 +323,11 @@ namespace libmfmidi {
                 }
                 Pauser pauser{*this};
 
-                Cursor cursor{*this, musableID};
-                cursor.mdev       = device;
-                cursor.mnextevent = mdata->cbegin();
+                // Cursor cursor{*this, musableID};
+                auto cursor = std::make_unique<Cursor>(*this, musableID);
+                cursor->mdev       = device;
+                cursor->mnextevent = mdata->cbegin();
                 mcursors.insert_or_assign(musableID, CursorInfo{std::move(cursor), offest, revertStatus});
-                // mcursors[musableID] = CursorInfo{std::move(cursor), offest, revertStatus}; // No operator= because CursorInfo is not default-constructable
                 cursorGoTo(musableID, baseTime() + offest);
                 return musableID++;
             }
@@ -324,7 +335,7 @@ namespace libmfmidi {
             void removeCursor(CursorID cursorid)
             {
                 if (!checkCursorID(cursorid)) {
-                    throw std::invalid_argument("index out of range");
+                    throw std::out_of_range("index out of range");
                 }
                 Pauser pauser{*this};
                 mcursors.erase(cursorid);
@@ -333,25 +344,25 @@ namespace libmfmidi {
             void activeCursor(CursorID cursorid, bool active = true)
             {
                 if (!checkCursorID(cursorid)) {
-                    throw std::invalid_argument("index out of range");
+                    throw std::out_of_range("index out of range");
                 }
                 Pauser pauser{*this};
                 updateCursors();
-                mcursors.at(cursorid).cursor.mactive = active;
+                mcursors.at(cursorid).cursor->mactive = active;
             }
 
             bool isCursorActive(CursorID cursorid) const
             {
-                return mcursors.at(cursorid).cursor.mactive;
+                return mcursors.at(cursorid).cursor->mactive;
             }
 
             void setCursorProcessor(CursorID cursorid, const MIDIProcessorFunction& func)
             {
                 if (!checkCursorID(cursorid)) {
-                    throw std::invalid_argument("index out of range");
+                    throw std::out_of_range("index out of range");
                 }
                 Pauser pauser{*this};
-                mcursors.at(cursorid).cursor.mprocessor = func;
+                mcursors.at(cursorid).cursor->mprocessor = func;
             }
 
             [[nodiscard]] bool checkCursorID(CursorID cursorid) const noexcept
@@ -362,21 +373,21 @@ namespace libmfmidi {
             void syncDeviceStatus(CursorID cursorid) const
             {
                 if (!checkCursorID(cursorid)) {
-                    throw std::invalid_argument("index out of range");
+                    throw std::out_of_range("index out of range");
                 }
                 Pauser pauser{*this};
-                for (const auto& msg : reportMIDIStatus(mcursors.at(cursorid).cursor.mstatus, false)) {
-                    mcursors.at(cursorid).cursor.mdev.sendMsg(msg);
+                for (const auto& msg : reportMIDIStatus(mcursors.at(cursorid).cursor->mstatus, false)) {
+                    mcursors.at(cursorid).cursor->mdev.sendMsg(msg);
                 }
             }
 
             void setCursorDevice(CursorID cursorid, AbstractMIDIDevice* device) const
             {
                 if (!checkCursorID(cursorid)) {
-                    throw std::invalid_argument("index out of range");
+                    throw std::out_of_range("index out of range");
                 }
                 Pauser pauser{*this};
-                mcursors.at(cursorid).cursor.mdev = device;
+                mcursors.at(cursorid).cursor->mdev = device;
                 if (mcursors.at(cursorid).revertStatus) {
                     syncDeviceStatus(cursorid);
                 }
@@ -385,17 +396,19 @@ namespace libmfmidi {
             void addCursorNotifier(CursorID cursorid, const MIDINotifierFunctionType& func)
             {
                 if (!checkCursorID(cursorid)) {
-                    throw std::invalid_argument("index out of range");
+                    throw std::out_of_range("index out of range");
                 }
                 Pauser pauser{*this};
-                mcursors.at(cursorid).cursor.addNotifier(func);
+                mcursors.at(cursorid).cursor->addNotifier(func);
             }
 
             void goTo(Time targetTime)
             {
                 Pauser pauser{*this};
                 for (auto& [cursorid, cursorinfo] : mcursors) {
-                    cursorGoTo(cursorid, targetTime + cursorinfo.offest);
+                    if(!cursorGoTo(cursorid, targetTime + cursorinfo.offest)){
+                        throw std::out_of_range("targetTime out of range");
+                    }
                 }
             }
 
@@ -427,7 +440,7 @@ namespace libmfmidi {
             };
 
             struct CursorInfo {
-                Cursor cursor;
+                std::unique_ptr<Cursor> cursor;
                 Time   offest;
                 bool   revertStatus;
             };
@@ -444,23 +457,23 @@ namespace libmfmidi {
                 while (!token.stop_requested()) {
                     if (!mplay) {
                         for (auto& [cid, cursor] : mcursors) {
-                            cursor.cursor.notify(NotifyType::T_Mode);
+                            cursor.cursor->notify(NotifyType::T_Mode);
                         }
                         std::unique_lock<std::mutex> lck(mmutex);
                         mcondvar.wait(lck, [&] { return mwakeup; });
                         mwakeup = false;
                         if (mplay) {
                             for (auto& [cid, cursor] : mcursors) {
-                                cursor.cursor.notify(NotifyType::T_Mode);
+                                cursor.cursor->notify(NotifyType::T_Mode);
                             }
                         }
                     } else {
                         nanosleep(mlastSleptTime); // because mlastSleptTime may be changed (such as when revert snapshot)
                         std::chrono::nanoseconds minTime = std::chrono::nanoseconds::max();
                         for (auto& [cursorid, cursorinfo] : mcursors | std::views::filter([](const auto& element) {
-                                                                return element.second.cursor.mactive;
+                                                                return element.second.cursor->mactive;
                                                             })) {
-                            minTime = min(minTime, cursorinfo.cursor.tick(mlastSleptTime));
+                            minTime = min(minTime, cursorinfo.cursor->tick(mlastSleptTime));
                         }
                         if (minTime == Time::max()) {
                             mplay = false;
@@ -476,39 +489,50 @@ namespace libmfmidi {
             std::pair<Snapshot, Time> captureSnapshot(CursorID cursorid)
             {
                 if (!checkCursorID(cursorid)) {
-                    throw std::invalid_argument("index out of range");
+                    throw std::out_of_range("index out of range");
                 }
                 Snapshot snap;
-                snap.sleeptime = mcursors.at(cursorid).cursor.msleeptime;
-                snap.nextevent = mcursors.at(cursorid).cursor.mnextevent;
-                snap.status    = mcursors.at(cursorid).cursor.mstatus;
-                return {std::move(snap), mcursors.at(cursorid).cursor.mplaytick};
+                snap.sleeptime = mcursors.at(cursorid).cursor->msleeptime;
+                snap.nextevent = mcursors.at(cursorid).cursor->mnextevent;
+                snap.status    = mcursors.at(cursorid).cursor->mstatus;
+                return {std::move(snap), mcursors.at(cursorid).cursor->mplaytick};
             }
 
             void revertSnapshot(CursorID cursorid, const Snapshot& snapshot, Time playtick)
             {
                 if (!checkCursorID(cursorid)) {
-                    throw std::invalid_argument("index out of range");
+                    throw std::out_of_range("index out of range");
                 }
                 mlastSleptTime                          = {}; // = 0
-                mcursors.at(cursorid).cursor.msleeptime = snapshot.sleeptime;
-                mcursors.at(cursorid).cursor.mplaytick  = playtick;
-                mcursors.at(cursorid).cursor.mstatus    = snapshot.status;
-                mcursors.at(cursorid).cursor.mnextevent = snapshot.nextevent;
+                mcursors.at(cursorid).cursor->msleeptime = snapshot.sleeptime;
+                mcursors.at(cursorid).cursor->mplaytick  = playtick;
+                mcursors.at(cursorid).cursor->mstatus    = snapshot.status;
+                mcursors.at(cursorid).cursor->mnextevent = snapshot.nextevent;
+            }
+
+            Snapshot defaultSnapshot() const
+            {
+                return {0ns, mdata->cbegin(), {}};
             }
 
             bool cursorGoTo(CursorID cursorid, Time targetTime)
             {
                 if (!checkCursorID(cursorid)) {
-                    throw std::invalid_argument("index out of range");
+                    throw std::out_of_range("index out of range");
                 }
-                mcursors.at(cursorid).cursor.recalcuateDivns();
-                if (targetTime == mcursors.at(cursorid).cursor.mplaytick) {
+                if (targetTime < 0ns) {
+                    throw std::out_of_range("targetTime < 0");
+                }
+                if (mcursors.at(cursorid).cursor->mnextevent == mdata->cend()) {
+                    revertSnapshot(cursorid, defaultSnapshot(), {}); // reset
+                }
+                mcursors.at(cursorid).cursor->recalcuateDivns();
+                if (targetTime == mcursors.at(cursorid).cursor->mplaytick) {
                     return true;
                 }
                 mlastSleptTime = 0ns;
-                if (targetTime < mcursors.at(cursorid).cursor.mplaytick) {
-                    revertSnapshot(cursorid, {0ns, mdata->cbegin(), {}}, {}); // reset
+                if (targetTime < mcursors.at(cursorid).cursor->mplaytick) {
+                    revertSnapshot(cursorid, defaultSnapshot(), {}); // reset
                 }
                 if (museCache) {
                     for (auto& [playtick, snap] : mcaches | std::views::reverse) {
@@ -518,21 +542,21 @@ namespace libmfmidi {
                     }
                 }
                 bool result = directGoTo(targetTime, cursorid); // for the rest
-                if (mcursors.at(cursorid).revertStatus && mcursors.at(cursorid).cursor.mdev != nullptr) {
-                    for (const auto& msg : reportMIDIStatus(mcursors.at(cursorid).cursor.mstatus, false)) {
-                        mcursors.at(cursorid).cursor.mdev->sendMsg(msg);
+                if (mcursors.at(cursorid).revertStatus && mcursors.at(cursorid).cursor->mdev != nullptr) {
+                    for (const auto& msg : reportMIDIStatus(mcursors.at(cursorid).cursor->mstatus, false)) {
+                        mcursors.at(cursorid).cursor->mdev->sendMsg(msg);
                     }
                 }
-                mcursors.at(cursorid).cursor.recalcuateDivns();
+                mcursors.at(cursorid).cursor->recalcuateDivns();
                 return result;
             }
 
             bool directGoTo(Time targetTime, CursorID cursorid)
             {
                 if (!checkCursorID(cursorid)) {
-                    throw std::invalid_argument("index out of range");
+                    throw std::out_of_range("index out of range");
                 }
-                Cursor& cur = mcursors.at(cursorid).cursor;
+                Cursor& cur = *(mcursors.at(cursorid).cursor);
                 assert(cur.mplaytick <= targetTime);
                 std::ranges::iterator_t<const Container> currentevent = cur.mnextevent;
                 while (cur.mplaytick + cur.mnextevent->deltaTime() * cur.mdivns < targetTime) { // use <, see cur.msleeptime under
@@ -552,17 +576,11 @@ namespace libmfmidi {
             // set position
             void updateCursors()
             {
-                for (auto& [cursorr, cursorinfo] : mcursors) {
-                    cursorinfo.cursor.goTo(baseTime() + cursorinfo.offest);
+                auto base = baseTime();
+                for (auto& [cursor, cursorinfo] : mcursors) {
+                    cursorGoTo(cursor, base + cursorinfo.offest);
                 }
             }
-
-            // Thread
-            std::jthread            mthread;
-            bool                    mwakeup = false;
-            std::mutex              mmutex;
-            std::condition_variable mcondvar;
-            bool                    mplay = false;
 
             // Playback
             MIDIDivision                             mdivision{};
@@ -575,6 +593,13 @@ namespace libmfmidi {
             // Caching
             bool                                     museCache = true;
             std::map<std::chrono::minutes, Snapshot> mcaches;
+
+            // Thread
+            std::jthread            mthread;
+            bool                    mwakeup = false;
+            std::mutex              mmutex;
+            std::condition_variable mcondvar;
+            bool                    mplay = false;
         };
 
     }

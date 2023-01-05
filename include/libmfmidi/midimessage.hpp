@@ -25,7 +25,7 @@
 namespace libmfmidi {
     /// \brief Container for MIDI Message
     ///
-    /// A container to store MIDI Messages. Contains a std::vector.
+    /// A container to store MIDI Messages. Contains a Container.
     ///
     /// All setters and getters will auto match message types.
     /// For example, setVelcoity will set byte2 in note event and poly pressure(aftertouch).
@@ -56,12 +56,12 @@ namespace libmfmidi {
         MF_DEFAULT_MOVE(MIDIBasicMessage);
         MF_DEFAULT_COPY(MIDIBasicMessage);
 
-        using value_type             = uint8_t;
-        using iterator               = std::vector<value_type>::iterator;
-        using const_iterator         = std::vector<value_type>::const_iterator;
-        using reverse_iterator       = std::vector<value_type>::reverse_iterator;
-        using const_reverse_iterator = std::vector<value_type>::const_reverse_iterator;
-        using size_type              = std::vector<value_type>::size_type;
+        using value_type             = Storage::value_type;
+        using iterator               = Storage::iterator;
+        using const_iterator         = Storage::const_iterator;
+        using reverse_iterator       = Storage::reverse_iterator;
+        using const_reverse_iterator = Storage::const_reverse_iterator;
+        using size_type              = Storage::size_type;
 
         /// \brief Clear this message
         constexpr void clear() noexcept
@@ -810,6 +810,7 @@ namespace libmfmidi {
         /// \}
 
         /// \name is-er
+        /// \{
 
         [[nodiscard]] constexpr bool strictVaild() const
         {
@@ -1079,17 +1080,13 @@ namespace libmfmidi {
             }
             return true;
         }
+
+        /// \}
     };
 
     using MIDIMessage = MIDIBasicMessage<std::vector<uint8_t>>;
 
     namespace details {
-        /// \brief MIDIMessage SysEx Extension
-        template <class... Base>
-        class MIDIMessageSysExExt : public Base... {
-            // TODO: I do not know what should be here.
-        };
-
         template <class Base>
         class MIDIMessageTimedExt : public Base {
         public:

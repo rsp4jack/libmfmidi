@@ -113,6 +113,9 @@ int main(int argc, char** argv)
         if (splitedcmd.empty()) {
 
         } else if (splitedcmd[0] == "play") {
+            if (!player.isCursorActive(cursor)) {
+                player.activeCursor(cursor);
+            }
             player.play();
         } else if (splitedcmd[0] == "pause") {
             player.pause();

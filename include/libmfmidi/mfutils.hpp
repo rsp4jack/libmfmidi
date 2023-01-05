@@ -103,23 +103,6 @@ namespace libmfmidi {
         User
     };
 
-    // https://stackoverflow.com/a/72161270/
-    // Removed. See https://github.com/clangd/clangd/issues/1179 and https://github.com/llvm/llvm-project/issues/55890
-    /* template <std::size_t N>
-    using typeof = decltype([] {
-        if constexpr (N <= 1) {
-            return std::uint8_t{};
-        } else if constexpr (N <= 2) {
-            return std::uint16_t{};
-        } else if constexpr (N <= 4) {
-            return std::uint32_t{};
-        } else {
-            static_assert(N <= 8);
-            return std::uint64_t{};
-        }
-    }());
-    */
-
     /// Return a type that can storage T byte(s).
     template <size_t T>
     using typeof = decltype([]<size_t N>() {

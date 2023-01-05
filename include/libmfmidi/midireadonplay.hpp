@@ -17,10 +17,13 @@
 
 /// \file midireadonplay.hpp
 /// \author Creepercdn (creepercdn@outlook.com)
-/// \brief Read on Play for MIDISequencer
+/// \brief Read on Play
 
 #pragma once
 
-namespace libmfmidi::sequencer {
+namespace libmfmidi {
     // TODO： Read on Play
+    class MIDIReadOnPlayTrack {
+        
+    };
 }
