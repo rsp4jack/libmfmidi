@@ -163,7 +163,7 @@ add_library(libmfmidi STATIC
     include/libmfmidi/miditrackplayer.hpp
     include/libmfmidi/miditrackplayerlooply.hpp
     include/libmfmidi/midiutils.hpp
-    
+    include/libmfmidi/dummy.cpp
     include/libmfmidi/platformapi.hpp
     include/libmfmidi/posixtimer.hpp
     include/libmfmidi/rtmididevice.hpp
