@@ -265,7 +265,7 @@ namespace libmfmidi {
 
         void reCalcDivus() noexcept
         {
-            mdivns = static_cast<unsigned long long>(divisionToSec(mdiv, mstate.tempo) * 1000 * 1000 * 1000);
+            mdivns = divisionToDuration(mdiv, mstate.tempo);
         }
 
         void revertState() noexcept
@@ -330,7 +330,7 @@ namespace libmfmidi {
                 }
                 if (mcurit == mtrk->cend()) {
                     mplaying = false;
-                    notify(NotifyType::T_EndOfSong);
+                    notify(NotifyType::T_Mode);
                     break;
                 }
 
@@ -370,7 +370,7 @@ namespace libmfmidi {
 
         // Playing info
         MIDIDivision       mdiv{};
-        unsigned long long mdivns = 0; // division to microsec
+        std::chrono::nanoseconds mdivns = 0ns; // division to microsec
         bool               mplaying{false};
 
         // Snapshot-able

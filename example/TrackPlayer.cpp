@@ -67,7 +67,7 @@ int main(int argc, char** argv)
     mergeMultiTrack(std::move(file), trk);
     cout << "Merged" << endl;
 
-    details::RtMidiMIDIDeviceProvider& prov = details::RtMidiMIDIDeviceProvider::instance();
+    platform::RtMidiMIDIDeviceProvider& prov = platform::RtMidiMIDIDeviceProvider::instance();
     cout << "Dev cnt: " << prov.outputCount() << endl;
     for (unsigned int i = 0; i < prov.outputCount(); ++i) {
         cout << prov.outputName(i) << endl;
@@ -77,13 +77,13 @@ int main(int argc, char** argv)
     std::cin >> inp;
 
     AbstractMIDIDevice*                                  dev;
-    std::unique_ptr<libmfmidi::details::KDMAPIDevice>    kdev;
-    std::shared_ptr<libmfmidi::details::RtMidiOutDevice> sdev;
+    std::unique_ptr<platform::KDMAPIDevice>    kdev;
+    std::shared_ptr<platform::RtMidiOutDevice> sdev;
     if (inp == prov.outputCount() + 1) {
-        kdev = std::make_unique<libmfmidi::details::KDMAPIDevice>(true);
+        kdev = std::make_unique<platform::KDMAPIDevice>(true);
         dev  = kdev.get();
     } else {
-        sdev = libmfmidi::details::RtMidiMIDIDeviceProvider::buildupOutputDevice(inp);
+        sdev = platform::RtMidiMIDIDeviceProvider::buildupOutputDevice(inp);
         dev  = sdev.get();
     }
 
@@ -108,7 +108,7 @@ int main(int argc, char** argv)
     player.setTrack(trk);
 
     player.setNotifier([&](NotifyType type) {
-        if (type == NotifyType::T_Mode || type == NotifyType::T_EndOfSong) {
+        if (type == NotifyType::T_Mode) {
             sendAllSoundsOff(dev);
         }
     });

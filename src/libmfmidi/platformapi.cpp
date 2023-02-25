@@ -73,6 +73,7 @@ namespace libmfmidi {
                 break;
             }
         }
+        return 0;
         /*
         uint64_t st = 0, ct = 0;
         QueryPerformanceCounter((LARGE_INTEGER*)&st);

@@ -168,7 +168,6 @@ add_library(libmfmidi STATIC
     include/libmfmidi/posixtimer.hpp
     include/libmfmidi/rtmididevice.hpp
     include/libmfmidi/samhandlers.hpp
-    include/libmfmidi/simpletrackplayer.hpp
     include/libmfmidi/smffile.hpp
     include/libmfmidi/smfreader.hpp
     include/libmfmidi/smfreaderpolicy.hpp
