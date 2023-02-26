@@ -35,7 +35,10 @@
 #include <utility>
 #include <functional>
 
+
 namespace libmfmidi {
+    using namespace std::literals;
+
     namespace advtrkplayer {
         template <std::ranges::forward_range Container>
             requires is_simple_type<Container>
@@ -157,8 +160,8 @@ namespace libmfmidi {
 
         public:
             using Cursor                                         = MIDIAdvTrkPlayerCursor<Container>;
-            using CursorID                                       = Cursor::id;
-            using Time                                           = Cursor::Time;
+            using CursorID                                       = typename Cursor::id;
+            using Time                                           = typename Cursor::Time;
             static constexpr Time                 MAX_SLEEP      = 500ms;
             static constexpr std::chrono::minutes CACHE_INTERVAL = 1min; // seconds
 

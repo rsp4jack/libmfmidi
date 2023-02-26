@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.2.0)
+cmake_minimum_required(VERSION 3.15.0)
 project(libmfmidi VERSION 0.1.0)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -8,7 +8,7 @@ include(CTest)
 enable_testing()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -fdiagnostics-color=always")
 endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
@@ -139,6 +139,15 @@ add_library(KDMAPI STATIC include/omnimidi/omnimidiapi.cpp)
 target_link_libraries(KDMAPI PUBLIC winmm)
 target_precompile_headers(KDMAPI PUBLIC <Windows.h>)
 
+# --- fmt
+include(FetchContent)
+FetchContent_Declare(
+    fmt
+    GIT_REPOSITORY    "https://github.com/fmtlib/fmt.git"
+    GIT_TAG           "master"
+)
+FetchContent_MakeAvailable(fmt)
+
 # --- libmfmidi
 
 add_library(libmfmidi STATIC
@@ -175,10 +184,12 @@ add_library(libmfmidi STATIC
     src/libmfmidi/platformapi.cpp
 )
 
-target_precompile_headers(libmfmidi PUBLIC <Windows.h>)
+if(WIN32)
+    target_precompile_headers(libmfmidi PUBLIC <Windows.h>)
+endif()
 target_include_directories(libmfmidi PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-target_link_libraries(libmfmidi PRIVATE rtmidi KDMAPI)
+target_link_libraries(libmfmidi PRIVATE rtmidi KDMAPI PUBLIC fmt)
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})

@@ -13,6 +13,8 @@
 #include <type_traits>
 #include <cctype>
 #include <chrono>
+#include <version>
+#include <utility>
 
 namespace std {
 #if !defined(__cpp_lib_byteswap)
@@ -105,7 +107,7 @@ namespace libmfmidi {
 
     /// Return a type that can storage T byte(s).
     template <size_t T>
-    using typeof = decltype([]<size_t N>() {
+    using typein = decltype([]<size_t N>() {
         if constexpr (N <= 1) {
             return uint8_t{};
         } else if constexpr (N <= 2) {
@@ -126,7 +128,7 @@ namespace libmfmidi {
     constexpr auto rawCat(uint8_t fbyte, T... bytes)
     {
         // clang-format off
-        typeof<sizeof...(bytes) + 1> result =
+        typein<sizeof...(bytes) + 1> result =
             static_cast<decltype(result)>( // mute warning
                 static_cast<decltype(result)>(fbyte) << (sizeof...(bytes) * 8) // integral promotion
             );

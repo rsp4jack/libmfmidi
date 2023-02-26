@@ -5,8 +5,8 @@
 #pragma once
 
 #include "libmfmidi/midimessage.hpp"
-#include <format>
 #include <stdexcept>
+#include <fmt/core.h>
 
 namespace libmfmidi {
     class AbstractSAMHandler {
@@ -17,7 +17,7 @@ namespace libmfmidi {
 
         virtual void on_error(std::streampos where, const std::string& what, bool warn)
         {
-            throw std::runtime_error(std::format("Where: {} What: {} Warn: []", static_cast<std::streamoff>(where), what, warn));
+            throw std::runtime_error(fmt::format("Where: {} What: {} Warn: []", static_cast<std::streamoff>(where), what, warn));
         }
 
         // Struct

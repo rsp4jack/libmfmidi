@@ -24,7 +24,7 @@
 #include "libmfmidi/abstractmididevice.hpp"
 #include "libmfmidi/miditrack.hpp"
 #include "libmfmidi/midistatus.hpp"
-#include <format>
+#include <fmt/core.h>
 #include <memory>
 #include <map>
 #include <thread>
@@ -35,6 +35,7 @@
 #include <atomic>
 
 namespace libmfmidi {
+    using namespace std::literals;
     /// \brief MIDITrack player powerful
     /// Support navigation, MIDIStatus calc and recovery
     class MIDITrackPlayer {
@@ -158,7 +159,7 @@ namespace libmfmidi {
         void goTo(MIDIClockTime clktime)
         {
             if (!goTo(clktime, std::nothrow)) {
-                throw std::out_of_range(std::format("clktime {} is out of range", clktime));
+                throw std::out_of_range(fmt::format("clktime {} is out of range", clktime));
             }
         }
 

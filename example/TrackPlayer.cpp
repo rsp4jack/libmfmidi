@@ -8,7 +8,11 @@
 #include "libmfmidi/win32mmtimer.hpp"
 #include "libmfmidi/midimessagefdc.hpp"
 #include "libmfmidi/midiprocessor.hpp"
+#if defined(_POSIX_THREADS)
+#include <sched.h>
+#else
 #include <processthreadsapi.h>
+#endif
 #include <timeapi.h>
 #include <ranges>
 #include <filesystem>
@@ -42,19 +46,12 @@ int main(int argc, char** argv)
     cout << "Opening file " << argv[1] << endl;
     std::fstream stm;
     stm.open(argv[1], std::ios::in | std::ios::binary);
-    std::vector<char> memory; // just for own memory, like unique_ptr
-    auto              filesize = std::filesystem::file_size(argv[1]);
-    memory.resize(filesize);
-    stm.read(memory.data(), filesize);
-    std::span<char>                                     preread{memory.begin(), memory.end()};
-    std::basic_spanstream<char, std::char_traits<char>> ss{preread, std::ios::in | std::ios::binary};
-    stm.close();
     cout << "Opened" << endl;
 
     MIDIMultiTrack    file;
     SMFFileInfo       info;
     SMFFileSAMHandler hsam(&file, &info);
-    SMFReader         rd(&ss, 0, &hsam);
+    SMFReader         rd(&stm, 0, &hsam);
 
     cout << "Parsing SMF" << endl;
     rd.parse();
@@ -115,7 +112,13 @@ int main(int argc, char** argv)
 
     // manual init player thread to set priority
     player.initThread();
+#if defined(_POSIX_THREADS)
+    sched_param para{};
+    para.sched_priority = (sched_get_priority_max(SCHED_FIFO) + sched_get_priority_min(SCHED_FIFO)) / 2;
+    pthread_setschedparam(player.nativeHandle(), SCHED_FIFO, &para);
+#else
     SetThreadPriority(player.nativeHandle(), THREAD_PRIORITY_TIME_CRITICAL);
+#endif
 
     std::vector<std::string> splitedcmd;
     std::getchar();
@@ -124,7 +127,7 @@ int main(int argc, char** argv)
         std::string cmd;
         std::getline(cin, cmd);
         splitedcmd.clear();
-        for (const auto& i : std::ranges::views::split(cmd, std::string_view(" "))) {
+        for (const auto& i : cmd | std::ranges::views::split(std::string_view(" "))) {
             splitedcmd.emplace_back(i.begin(), i.end());
         }
 

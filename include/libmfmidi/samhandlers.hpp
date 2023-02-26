@@ -18,7 +18,7 @@ namespace libmfmidi {
         void on_midievent(MIDITimedMessage&& msg) override
         {
             ticktime += msg.deltaTime();
-            *stm << std::format("{}\t{}\t{}", ticktime, statusToText(msg.status(), 1), msg.msgHex()) << std::endl;
+            *stm << fmt::format("{}\t{}\t{}", ticktime, statusToText(msg.status(), 1), msg.msgHex()) << std::endl;
         }
 
         void on_header(SMFType format, uint16_t ntrk, MIDIDivision division) override

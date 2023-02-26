@@ -56,12 +56,12 @@ namespace libmfmidi {
         MF_DEFAULT_MOVE(MIDIBasicMessage);
         MF_DEFAULT_COPY(MIDIBasicMessage);
 
-        using value_type             = Storage::value_type;
-        using iterator               = Storage::iterator;
-        using const_iterator         = Storage::const_iterator;
-        using reverse_iterator       = Storage::reverse_iterator;
-        using const_reverse_iterator = Storage::const_reverse_iterator;
-        using size_type              = Storage::size_type;
+        using value_type             = typename Storage::value_type;
+        using iterator               = typename Storage::iterator;
+        using const_iterator         = typename Storage::const_iterator;
+        using reverse_iterator       = typename Storage::reverse_iterator;
+        using const_reverse_iterator = typename Storage::const_reverse_iterator;
+        using size_type              = typename Storage::size_type;
 
         /// \brief Clear this message
         constexpr void clear() noexcept

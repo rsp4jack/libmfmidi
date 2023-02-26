@@ -10,7 +10,7 @@
 #include "libmfmidi/mididatatypes.hpp"
 #include <array>
 #include <cstdint>
-#include <format>
+#include <fmt/core.h>
 #include <istream>
 #include <limits>
 #include <iterator>
@@ -541,13 +541,13 @@ namespace libmfmidi {
             return "Empty Division";
         }
         if (val.isPPQ()) {
-            return std::format("{} PPQ", val.ppq());
+            return fmt::format("{} PPQ", val.ppq());
         }
         double realfps = val.fps();
         if (val.fps() == 29) {
             realfps = 29.97;
         }
-        return std::format("[{} FPS, {} TPF ({} Ticks per second)]", realfps, val.tpf(), realfps * val.tpf());
+        return fmt::format("[{} FPS, {} TPF ({} Ticks per second)]", realfps, val.tpf(), realfps * val.tpf());
     }
 
     /// If you not sure the message is meta or reset, set \a isMeta to 0; If is meta, set to 1; If is reset, set to -1

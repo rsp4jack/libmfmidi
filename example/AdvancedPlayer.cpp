@@ -6,17 +6,23 @@
 #include "libmfmidi/rtmididevice.hpp"
 #include "libmfmidi/kdmapidevice.hpp"
 #include "libmfmidi/midimessagefdc.hpp"
+#if defined(_POSIX_THREADS)
+#include <sched.h>
+#else
 #include <processthreadsapi.h>
+#endif
 #include <timeapi.h> 
 #include <ranges>
 #include <filesystem>
 #include <spanstream>
 #include <exception>
+#include <fmt/chrono.h>
 
 using namespace libmfmidi;
 using std::cin;
 using std::cout;
 using std::endl;
+using namespace std::literals;
 
 int main(int argc, char** argv)
 {
@@ -97,7 +103,13 @@ int main(int argc, char** argv)
 
     // manual init player thread to set priority
     player.initThread();
+#if defined(_POSIX_THREADS)
+    sched_param para{};
+    para.sched_priority = (sched_get_priority_max(SCHED_FIFO) + sched_get_priority_min(SCHED_FIFO)) / 2;
+    pthread_setschedparam(player.threadNativeHandle(), SCHED_FIFO, &para);
+#else
     SetThreadPriority(player.threadNativeHandle(), THREAD_PRIORITY_TIME_CRITICAL);
+#endif
     
     std::vector<std::string> splitedcmd;
     std::getchar();
@@ -121,7 +133,8 @@ int main(int argc, char** argv)
             player.pause();
         } else if (splitedcmd[0] == "seek") {
             if (splitedcmd.size() < 2) {
-                cout << "Current time: " << std::chrono::hh_mm_ss<decltype(player)::Time>(player.baseTime()) << endl;
+                auto hms = std::chrono::hh_mm_ss<decltype(player)::Time>(player.baseTime());
+                fmt::println("Current time: {}:{}:{}", hms.hours(), hms.minutes(), hms.seconds());
                 continue;
             }
             cout << "Seeking to " << splitedcmd[1] << endl;
