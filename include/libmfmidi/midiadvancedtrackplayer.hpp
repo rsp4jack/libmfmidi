@@ -373,6 +373,16 @@ namespace libmfmidi {
                 return mcursors.contains(cursorid);
             }
 
+            [[nodiscard]] auto& cursors() noexcept
+            {
+            	return mcursors;
+            }
+
+            [[nodiscard]] const auto& cursors() const noexcept
+            {
+            	return mcursors;
+            }
+
             void syncDeviceStatus(CursorID cursorid) const
             {
                 if (!checkCursorID(cursorid)) {
