@@ -121,6 +121,11 @@ namespace libmfmidi {
                 return msleeptime;
             }
 
+            [[nodiscard]] const MIDIStatus& status() const &
+            {
+                return mstatus;
+            }
+
         protected:
             using NotifyUtils<MIDIAdvTrkPlayerCursor<Container>>::notify;
 
