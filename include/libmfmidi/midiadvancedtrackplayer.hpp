@@ -126,6 +126,10 @@ namespace libmfmidi {
                 return mstatus;
             }
 
+            [[nodiscard]] bool isActive() const{
+                return mactive;
+            }
+
         protected:
             using NotifyUtils<MIDIAdvTrkPlayerCursor<Container>>::notify;
 
@@ -241,7 +245,7 @@ namespace libmfmidi {
                     return {};
                 }
                 auto activeCursors = mcursors | std::views::filter([](const auto& arg) {
-                                         return arg.second.cursor->mactive;
+                                         return arg.second.cursor->active();
                                      })
                                    | std::views::take(1);
                 if (std::ranges::empty(activeCursors)) {
@@ -361,7 +365,7 @@ namespace libmfmidi {
 
             bool isCursorActive(CursorID cursorid) const
             {
-                return mcursors.at(cursorid).cursor->mactive;
+                return mcursors.at(cursorid).cursor->active();
             }
 
             void setCursorProcessor(CursorID cursorid, const MIDIProcessorFunction& func)
@@ -489,7 +493,7 @@ namespace libmfmidi {
                         nanosleep(mlastSleptTime); // because mlastSleptTime may be changed (such as when revert snapshot)
                         std::chrono::nanoseconds minTime = std::chrono::nanoseconds::max();
                         for (auto& [cursorid, cursorinfo] : mcursors | std::views::filter([](const auto& element) {
-                                                                return element.second.cursor->mactive;
+                                                                return element.second.cursor->active();
                                                             })) {
                             minTime = min(minTime, cursorinfo.cursor->tick(mlastSleptTime));
                         }
