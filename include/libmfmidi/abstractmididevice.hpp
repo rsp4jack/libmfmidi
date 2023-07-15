@@ -24,6 +24,7 @@
 #include "libmfmidi/midimessage.hpp"
 #include <functional>
 #include <utility>
+#include <tl/expected.hpp>
 
 namespace libmfmidi {
     /// \brief A class that abstracted MIDI device.
@@ -43,9 +44,9 @@ namespace libmfmidi {
         [[nodiscard]] virtual constexpr bool outputAvailable() const noexcept = 0;
 
         virtual bool open() = 0;
-        virtual bool stop() = 0;
+        virtual bool close() = 0;
 
-        virtual void sendMsg(const MIDIMessage& msg) = 0;
+        virtual tl::expected<void, const char*> sendMsg(const MIDIMessage& msg) noexcept = 0;
 
         virtual void setCallback(callback_type usercb) noexcept
         {
@@ -54,13 +55,12 @@ namespace libmfmidi {
 
     protected:
         callback_type mcb;
-
     };
 
     inline void sendAllSoundsOff(AbstractMIDIDevice* dev)
     {
-        for(uint8_t channel : std::views::iota(0, 16)){
-            dev->sendMsg({static_cast<unsigned char>(MIDIMsgStatus::CONTROL_CHANGE | channel), MIDICCNumber::ALL_SOUND_OFF, 0});
+        for(uint8_t channel : std::views::iota(0U, 16U)){
+            dev->sendMsg({static_cast<uint8_t>(MIDIMsgStatus::CONTROL_CHANGE | channel), MIDICCNumber::ALL_SOUND_OFF, 0});
         }
     }
 }

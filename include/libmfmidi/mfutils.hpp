@@ -139,17 +139,17 @@ namespace libmfmidi {
         return result;
     }
 
-    constexpr std::string memoryDump(const char* memory, std::size_t size)
+    constexpr std::string memoryDump(const void* memory, std::size_t size)
     {
         std::string result;
         result.reserve(size * 2 - 1);
         char buffer[2]{};
         bool ins = false;
-        for (const auto& dat : std::span<const char>(memory, size)) {
+        for (const auto& dat : std::span<const uint8_t>(static_cast<const uint8_t*>(memory), size)) {
             buffer[0] = 0;
             buffer[1] = 0;
 
-            auto fmt  = std::to_chars(buffer, buffer + 2, static_cast<unsigned char>(dat), 16);
+            auto fmt  = std::to_chars(buffer, buffer + 2, static_cast<uint8_t>(dat), 16);
             buffer[0] = std::toupper(buffer[0]);
             buffer[1] = std::toupper(buffer[1]);
 

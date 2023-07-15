@@ -15,13 +15,10 @@
 * along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
-/// \file dllhelper.hpp
-/// \author Creepercdn (creepercdn@outlook.com)
-/// \brief DLLHelper
-
 #include <stdexcept>
 #include <type_traits>
 #include <Windows.h>
+#include <unordered_map>
 
 // https://github.com/bblanchon/dllhelper/blob/master/dllhelper.hpp
 // Edited
@@ -64,16 +61,21 @@ public:
     {
         if(tfree){
             FreeLibrary(_module);
+            procmap.clear();
         }
     }
 
-    ProcPtr operator[](LPCSTR proc_name) const
+    ProcPtr operator[](LPCSTR proc_name)
     {
-        return ProcPtr(GetProcAddress(_module, proc_name));
+        if (procmap.contains(proc_name)) {
+            return ProcPtr{procmap.at(proc_name)};
+        }
+        return ProcPtr{procmap[proc_name] = GetProcAddress(_module, proc_name)};
     }
 
 private:
     HMODULE _module;
-    bool tfree = false;
+    bool    tfree = false;
+    std::unordered_map<LPCSTR, FARPROC> procmap;
 };
 

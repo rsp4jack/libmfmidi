@@ -57,10 +57,10 @@ namespace libmfmidi {
         MF_DEFAULT_COPY(MIDIBasicMessage);
 
         using value_type             = typename Storage::value_type;
-        using iterator               = typename Storage::iterator;
-        using const_iterator         = typename Storage::const_iterator;
-        using reverse_iterator       = typename Storage::reverse_iterator;
-        using const_reverse_iterator = typename Storage::const_reverse_iterator;
+        using iterator               = typename std::ranges::iterator_t<Storage>;
+        using const_iterator         = typename std::ranges::iterator_t<const Storage>;
+        using reverse_iterator       = typename std::reverse_iterator<iterator>;
+        using const_reverse_iterator = typename std::reverse_iterator<const_iterator>;
         using size_type              = typename Storage::size_type;
 
         /// \brief Clear this message
@@ -107,6 +107,17 @@ namespace libmfmidi {
         {
             return _data.end();
         }
+
+        [[nodiscard]] constexpr const_iterator begin() const noexcept
+        {
+            return _data.begin();
+        }
+
+        [[nodiscard]] constexpr const_iterator end() const noexcept
+        {
+            return _data.end();
+        }
+
 
         [[nodiscard]] constexpr const_iterator cbegin() const noexcept
         {
@@ -200,7 +211,7 @@ namespace libmfmidi {
 
         [[nodiscard]] std::string msgHex() const
         {
-            return memoryDump(reinterpret_cast<const char*>(data().data()), size());
+            return memoryDump(reinterpret_cast<const uint8_t*>(base().data()), size());
         }
 
         [[nodiscard]] constexpr size_t length() const
@@ -208,12 +219,12 @@ namespace libmfmidi {
             return size();
         }
 
-        [[nodiscard]] constexpr const std::vector<uint8_t>& data() const
+        [[nodiscard]] constexpr const std::vector<uint8_t>& base() const
         {
             return _data;
         }
 
-        [[nodiscard]] constexpr std::vector<uint8_t>& data()
+        [[nodiscard]] constexpr std::vector<uint8_t>& base()
         {
             return _data;
         }
@@ -797,7 +808,7 @@ namespace libmfmidi {
 
         constexpr void setupKeySignature(int8_t sharp_flats, uint8_t major_minor)
         {
-            setupMetaEvent(MIDIMetaNumber::KEYSIG, {static_cast<unsigned char>(sharp_flats), major_minor});
+            setupMetaEvent(MIDIMetaNumber::KEYSIG, {static_cast<uint8_t>(sharp_flats), major_minor});
         }
 
         template <std::convertible_to<uint8_t>... T>
@@ -814,7 +825,6 @@ namespace libmfmidi {
 
         [[nodiscard]] constexpr bool strictVaild() const
         {
-            // s**t code but fun
             // clang-format off
             return isMFMarker() || (!_data.empty() && (
                 (isVoiceMessage() && getExpectedMessageLength(status()) == _data.size()) // voice message: expected length
@@ -1018,7 +1028,7 @@ namespace libmfmidi {
         }
 
     protected:
-        std::vector<uint8_t> _data; // i lov qt mplicit iharing
+        Storage _data; // i lov qt mplicit iharing
         MFMessageMark        marker = MFMessageMark::None;
 
         // not mf mark
@@ -1093,8 +1103,10 @@ namespace libmfmidi {
             constexpr MIDIMessageTimedExt() noexcept  = default;
             constexpr ~MIDIMessageTimedExt() noexcept = default;
 
-            constexpr MIDIMessageTimedExt(std::initializer_list<uint8_t> args) noexcept
-                : Base(args)
+            template <class... T>
+            constexpr explicit MIDIMessageTimedExt(MIDIClockTime delta, T&&... args) noexcept
+                : Base(std::forward<T>(args)...)
+                , dtime(delta)
             {
             }
 

@@ -1,5 +1,6 @@
 #include <iostream>
 #include <fstream>
+#include "libmfmidi/midireadonplay.hpp"
 #include "libmfmidi/midiadvancedtrackplayer.hpp"
 #include "libmfmidi/smfreader.hpp"
 #include "libmfmidi/samhandlers.hpp"
@@ -11,51 +12,86 @@
 #else
 #include <processthreadsapi.h>
 #endif
-#include <timeapi.h> 
+#include <timeapi.h>
 #include <ranges>
 #include <filesystem>
-#include <spanstream>
 #include <exception>
 #include <fmt/chrono.h>
-#include "libmfmidi/midireadonplay.hpp"
+#include <version>
+#include <source_location>
+
+#include <fileapi.h>
 
 using namespace libmfmidi;
+using std::cerr;
 using std::cin;
 using std::cout;
 using std::endl;
 using namespace std::literals;
 
+void reportError(const std::source_location location = std::source_location::current())
+{
+    LPVOID lpMsgBuf = nullptr;
+    DWORD  dw       = GetLastError();
+
+    FormatMessage(
+        FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+        nullptr,
+        dw,
+        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+        (LPTSTR)&lpMsgBuf,
+        0, nullptr
+    );
+
+    cerr << "Win32 API Error " << dw << ": \"" << lpMsgBuf << "\" on " << location.file_name() << ':' << location.line() << ':' << location.column() << ' ' << location.function_name() << endl;
+    LocalFree(lpMsgBuf);
+    exit(-1);
+}
+
 int main(int argc, char** argv)
 {
     SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS);
 
-    cout << "TrackPlayer: Example of libmfmidi" << endl;
+    cout << "ROP: Example of libmfmidi" << endl;
     if (argc == 1) {
         std::cerr << "Error: No input file" << std::endl;
         return -1;
     }
 
-    // spanstream for speed
     cout << "Opening file " << argv[1] << endl;
-    std::fstream stm;
-    stm.open(argv[1], std::ios::in | std::ios::binary);
-    cout << "Opened" << endl;
 
-    MIDIMultiTrack    file;
-    SMFFileInfo       info;
-    SMFFileSAMHandler hsam(&file, &info);
-    SMFReader         rd(&stm, 0, &hsam);
+    HANDLE file = CreateFile(argv[1], GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == nullptr) {
+        reportError();
+    }
 
-    cout << "Parsing SMF" << endl;
-    rd.parse();
-    cout << "Parsed" << endl;
-    cout << "SMF File: Format " << info.type << "; Division: " << static_cast<uint16_t>(info.division) << ";" << endl;
-    cout << "NTrks: " << file.size() << ';' << endl;
+    size_t filesize;
+    if (GetFileSizeEx(file, reinterpret_cast<LARGE_INTEGER*>(&filesize)) == 0) {
+        reportError();
+    }
 
-    cout << "Merging" << endl;
-    MIDITrack trk;
-    mergeMultiTrack(std::move(file), trk);
-    cout << "Merged" << endl;
+    HANDLE mmap = CreateFileMapping(file, nullptr, PAGE_READONLY, 0, 0, nullptr);
+    if (mmap == nullptr) {
+        reportError();
+    }
+
+    void* mmap_data = MapViewOfFile(mmap, FILE_MAP_READ, 0, 0, 0);
+    if (mmap_data == nullptr) {
+        reportError();
+    }
+
+    MEMORY_BASIC_INFORMATION mmap_info{};
+    if (VirtualQuery(mmap_data, &mmap_info, sizeof(MEMORY_BASIC_INFORMATION)) == 0) {
+        reportError();
+    }
+
+    size_t mmap_len = filesize;
+
+    cout << "Opened, mapped " << mmap_len << " bytes, file " << filesize << " bytes\n";
+
+    MIDIReadOnPlayTrack trk{
+        MIDIReadOnPlayTrack::base_type{reinterpret_cast<const uint8_t*>(mmap_data), mmap_len}
+    };
 
     auto& prov = platform::RtMidiMIDIDeviceProvider::instance();
     cout << "Dev cnt: " << prov.outputCount() << endl;
@@ -66,7 +102,7 @@ int main(int argc, char** argv)
     unsigned inp;
     std::cin >> inp;
 
-    AbstractMIDIDevice*                                  dev;
+    AbstractMIDIDevice*                        dev;
     std::unique_ptr<platform::KDMAPIDevice>    kdev;
     std::unique_ptr<platform::RtMidiOutDevice> sdev;
     if (inp == prov.outputCount() + 1) {
@@ -81,9 +117,9 @@ int main(int argc, char** argv)
         std::cerr << "Failed to open device" << endl;
     }
 
-    MIDIAdvancedTrackPlayer<MIDITrack> player; // init player after everything
+    MIDIAdvancedTrackPlayer<MIDIReadOnPlayTrack> player; // init player after everything
     player.setData(&trk); // before cursors
-    auto                               cursor = player.addCursor(dev, 0ns);
+    auto cursor = player.addCursor(dev, 0ns);
 
     bool useCache;
     cout << "Use cache? 1/0: ";
@@ -94,7 +130,11 @@ int main(int argc, char** argv)
         return MIDIMessageF2D::process(msg);
     };
     player.setCursorProcessor(cursor, compfdc);
-    player.setDivision(info.division);
+
+    cout << "Division: ";
+    uint16_t div;
+    cin >> div;
+    player.setDivision(MIDIDivision{div});
 
     player.addCursorNotifier(cursor, [&](NotifyType type) {
         if (type == NotifyType::T_Mode) {
@@ -111,7 +151,7 @@ int main(int argc, char** argv)
 #else
     SetThreadPriority(player.threadNativeHandle(), THREAD_PRIORITY_TIME_CRITICAL);
 #endif
-    
+
     std::vector<std::string> splitedcmd;
     std::getchar();
     while (true) {
@@ -140,7 +180,7 @@ int main(int argc, char** argv)
             }
             cout << "Seeking to " << splitedcmd[1] << endl;
             sendAllSoundsOff(dev);
-            std::chrono::nanoseconds target{std::stoll(splitedcmd[1])};
+            std::chrono::nanoseconds target{std::chrono::seconds{std::stoll(splitedcmd[1])}};
             player.goTo(target);
         } else if (splitedcmd[0] == "exit") {
             break;
@@ -150,5 +190,9 @@ int main(int argc, char** argv)
             cout << "Unknown Command: " << cmd << endl;
         }
     }
+
+    UnmapViewOfFile(mmap_data);
+    CloseHandle(mmap);
+    CloseHandle(file);
     return 0;
 }

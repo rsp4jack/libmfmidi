@@ -41,7 +41,7 @@ namespace libmfmidi::platform {
             stop();
         }
 
-        bool start(unsigned int delay) override
+        bool start(unsigned long delay) override
         {
             if (ison) {
                 return true;
@@ -51,7 +51,7 @@ namespace libmfmidi::platform {
             if (val != MMSYSERR_NOERROR) {
                 return false;
             }
-            mdelay = std::clamp(delay, caps.wPeriodMin, caps.wPeriodMax);
+            mdelay = std::clamp(static_cast<UINT>(delay), caps.wPeriodMin, caps.wPeriodMax);
             if (timeBeginPeriod(mdelay) != TIMERR_NOERROR) {
                 return false;
             }

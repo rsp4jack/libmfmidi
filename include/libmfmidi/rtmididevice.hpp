@@ -35,14 +35,14 @@ namespace libmfmidi::platform {
             : mid(id)
             , mnm(std::move(name))
         {
-            initiazle();
+            initialize();
         }
 
         explicit RtMidiInDevice(std::string virtualPortName) noexcept
             : mnm(std::move(virtualPortName))
             , mvirtual(true)
         {
-            initiazle();
+            initialize();
         }
 
         ~RtMidiInDevice() noexcept override = default;
@@ -61,7 +61,7 @@ namespace libmfmidi::platform {
             return min.isPortOpen();
         }
 
-        bool stop() override
+        bool close() override
         {
             min.closePort();
             return !min.isPortOpen();
@@ -82,7 +82,7 @@ namespace libmfmidi::platform {
             return false;
         }
 
-        void sendMsg(const MIDIMessage& /*msg*/) override {}
+        tl::expected<void, const char*> sendMsg(const MIDIMessage& /*msg*/) noexcept override {}
 
     private:
         static void rtcallback(double /*timeStamp*/, std::vector<unsigned char>* message, void* userData)
@@ -90,7 +90,7 @@ namespace libmfmidi::platform {
             reinterpret_cast<RtMidiInDevice*>(userData)->mcb(MIDIMessage(*message));
         }
 
-        void initiazle() noexcept
+        void initialize() noexcept
         {
             min.setCallback(rtcallback, this);
         }
@@ -130,7 +130,7 @@ namespace libmfmidi::platform {
             return min.isPortOpen();
         }
 
-        bool stop() override
+        bool close() override
         {
             min.closePort();
             return !min.isPortOpen();
@@ -151,9 +151,10 @@ namespace libmfmidi::platform {
             return true;
         }
 
-        void sendMsg(const MIDIMessage& msg) override
+        tl::expected<void, const char*> sendMsg(const MIDIMessage& msg) noexcept override
         {
-            min.sendMessage(&msg.data());
+            min.sendMessage(&msg.base());
+            return {};
         }
 
     private:

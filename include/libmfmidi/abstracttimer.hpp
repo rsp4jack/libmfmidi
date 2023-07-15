@@ -23,6 +23,7 @@
 
 #include <functional>
 #include <utility>
+#include <cstdint>
 
 namespace libmfmidi::details {
     class Win32MMTimer;
@@ -36,7 +37,7 @@ namespace libmfmidi {
         virtual ~AbstractTimer() noexcept = default;
         using callback_type               = std::function<void()>;
         /// in ms
-        virtual bool start(unsigned int delay) = 0;
+        virtual bool start(unsigned long delay) = 0;
 
         virtual bool stop() = 0;
 

@@ -1,0 +1,8 @@
+{
+    "dependencies": [
+        "fmt",
+        "range-v3",
+        "tl-expected",
+        "rtmidi"
+    ]
+}

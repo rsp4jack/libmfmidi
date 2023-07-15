@@ -105,7 +105,8 @@ namespace libmfmidi {
         using NotifyUtils::addNotifier;
         friend class NotifyUtils;
 
-        bool process(const MIDITimedMessage& msg, uint8_t port = 1)
+        template<class T>
+        bool process(const MIDIBasicMessage<T>& msg, uint8_t port = 1)
         {
             //! Notify after change data
             switch (msg.type()) {
@@ -175,6 +176,12 @@ namespace libmfmidi {
                 }
             }
             return true;
+        }
+
+        template <class T>
+        bool process(const MIDIBasicTimedMessage<T>& msg, uint8_t port = 1)
+        {
+            return process<T>(MIDIBasicMessage<T>{msg}, port);
         }
 
     private:

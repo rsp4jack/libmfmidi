@@ -32,7 +32,8 @@ namespace libmfmidi {
         using NotifyUtils::addNotifier;
         friend class NotifyUtils;
 
-        bool process(const MIDITimedMessage& msg, uint8_t port = 1)
+        template<class T>
+        bool process(const MIDIBasicMessage<T>& msg, uint8_t port = 1)
         {
             if (msg.isChannelMsg()) {
                 auto chn  = msg.channel();

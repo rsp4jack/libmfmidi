@@ -32,7 +32,6 @@ namespace libmfmidi::platform {
         {
             if (IsKDMAPIAvailable() == 0) {
                 std::cerr << "Warning: IsKDMAPIAvailable returns false" << std::endl;
-                available |= false;
             } else {
                 available = true;
             }
@@ -40,7 +39,7 @@ namespace libmfmidi::platform {
 
         ~KDMAPIDevice() noexcept override
         {
-            stop();
+            close();
         }
 
         MF_DISABLE_COPY(KDMAPIDevice);
@@ -53,7 +52,7 @@ namespace libmfmidi::platform {
             return result;
         }
 
-        bool stop() override
+        bool close() override
         {
             bool result = TerminateKDMAPIStream() != 0;
             ison &= !result; // if on, fail on success off; if off, fail off success off
@@ -75,18 +74,18 @@ namespace libmfmidi::platform {
             return available;
         }
 
-        void sendMsg(const MIDIMessage& msg) override
+        tl::expected<void, const char*> sendMsg(const MIDIMessage& msg) noexcept override 
         {
             if (!ison) {
-                return;
+                return tl::unexpected{"Device is not open"};
             }
             if (msg.empty()) {
-                return;
+                return {};
             }
             UINT result;
             if (msg.isSysEx()) {
                 // prepare sysex header
-                std::unique_ptr<unsigned char[]> buffer = std::make_unique<unsigned char[]>(msg.size());
+                std::unique_ptr<uint8_t[]> buffer = std::make_unique<uint8_t[]>(msg.size());
                 std::copy(msg.cbegin(), msg.cend(), buffer.get()); // copy because it need not const
                 MIDIHDR sysex{}; // initiazle to avoid exception
                 sysex.lpData = reinterpret_cast<LPSTR>(buffer.get());
@@ -94,27 +93,33 @@ namespace libmfmidi::platform {
                 sysex.dwFlags        = 0;
                 result               = PrepareLongData(&sysex, sizeof(MIDIHDR));
                 if (result != MMSYSERR_NOERROR) {
-                    throw std::runtime_error("KDMAPIDevice: error preparing sysex header");
+                    std::cout << "Error: KDMAPIDevice: error preparing sysex header" << '\n';
                 }
 
                 result = SendDirectLongData(&sysex, sizeof(MIDIHDR));
                 if (result != MMSYSERR_NOERROR) {
-                    throw std::runtime_error("KDMAPIDevice: error sending sysex messsage");
+                    return tl::unexpected{"KDMAPIDevice: error sending sysex messsage"};
                 }
 
                 while (UnprepareLongData(&sysex, sizeof(MIDIHDR)) == MIDIERR_STILLPLAYING) {
                     Sleep(1);
                 }
             } else {
+                if (msg.size() == sizeof(DWORD)) {
+                    SendDirectData(*reinterpret_cast<const DWORD*>(msg.base().data()));
+                    return {};
+                }
+
                 if (msg.size() > 3) {
-                    throw std::runtime_error("KDMAPIDevice: message size > 3 bytes");
+                    return tl::unexpected("KDMAPIDevice: message size > 3 bytes");
                 }
 
                 DWORD packet{};
-                std::copy(msg.cbegin(), msg.cend(), reinterpret_cast<unsigned char*>(&packet));
+                std::copy(msg.cbegin(), msg.cend(), reinterpret_cast<uint8_t*>(&packet));
 
                 SendDirectData(packet); // no result
             }
+            return {};
         }
 
     private:
