@@ -2,17 +2,18 @@
 /// \author Creepercdn (creepercdn@outlook.com)
 /// \deprecated Deprecated because \c SimpleMIDIPlayer
 
-#include <iostream>
-#include <fstream>
-#include <ranges>
 #include "libmfmidi/simpletrackplayer.hpp"
-#include "libmfmidi/smfreader.hpp"
-#include "libmfmidi/samhandlers.hpp"
-#include "libmfmidi/rtmididevice.hpp"
 #include "libmfmidi/kdmapidevice.hpp"
-#include "libmfmidi/win32mmtimer.hpp"
 #include "libmfmidi/midimessagefdc.hpp"
 #include "libmfmidi/midiprocessor.hpp"
+#include "libmfmidi/rtmididevice.hpp"
+#include "libmfmidi/samhandlers.hpp"
+#include "libmfmidi/smfreader.hpp"
+#include "libmfmidi/win32mmtimer.hpp"
+#include <fstream>
+#include <iostream>
+#include <ranges>
+
 
 using namespace libmfmidi;
 using std::cout;
@@ -38,7 +39,7 @@ using std::endl;
     MIDIMultiTrack    file;
     SMFFileInfo       info;
     SMFFileSAMHandler hsam(&file, &info);
-    SMFReader         rd(&stm, 0, &hsam);
+    SMFReader         rd(&hsam, &stm);
 
     cout << "Parsing SMF" << endl;
     rd.parse();

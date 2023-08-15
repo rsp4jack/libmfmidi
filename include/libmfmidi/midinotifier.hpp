@@ -16,13 +16,13 @@
  */
 
 /// \file midinotifier.hpp
-/// \author Creepercdn (creepercdn@outlook.com)
 /// \brief High-level notifier
 
 #pragma once
 
 #include "libmfmidi/mfconcepts.hpp"
 #include <functional>
+#include <algorithm>
 
 namespace libmfmidi {
     enum class NotifyCategory {
@@ -124,6 +124,7 @@ namespace libmfmidi {
         std::vector<MIDINotifierFunctionType> mnotifiers;
 
     private:
-        void doAddNotifier(const MIDINotifierFunctionType& /*func*/){} // default implemention
+        void doAddNotifier(const MIDINotifierFunctionType& /*func*/) {} // default implemention
+        void doRemoveNotifier(const MIDINotifierFunctionType& /*func*/){};
     };
 }

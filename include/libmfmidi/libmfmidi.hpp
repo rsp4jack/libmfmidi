@@ -1,7 +1,3 @@
-/// \file libmfmidi.hpp
-/// \author Creepercdn (creepercdn@outlook.com)
-/// \brief Main file of libmfmidi
-
 #pragma once
 #include <climits>
 

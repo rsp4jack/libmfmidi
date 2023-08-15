@@ -16,7 +16,6 @@
  */
 
 /// \file mfexceptions.hpp
-/// \author Creepercdn (creepercdn@outlook.com)
 /// \brief libmfmidi exceptions
 
 #include <ios>
@@ -26,20 +25,6 @@
 #include "libmfmidi/smfreaderpolicy.hpp"
 
 namespace libmfmidi {
-    class smf_reader_error : public std::exception {
-    public:
-        explicit smf_reader_error(std::streampos pos, const char* msg, SMFReaderPolicy policy = SMFReaderPolicy::None)
-            : m_what{fmt::format("Error on byte {}: {}, Cause by policy: P{}", static_cast<std::streamoff>(pos), msg, static_cast<unsigned int>(policy))}
-        {
-        }
-
-        [[nodiscard]] const char* what() const noexcept override
-        {
-            return m_what.c_str();
-        }
-
-    private:
-        std::string m_what;
-    };
+    // see smf_error of smfreader
 
 }

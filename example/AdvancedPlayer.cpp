@@ -44,7 +44,7 @@ int main(int argc, char** argv)
     MIDIMultiTrack    file;
     SMFFileInfo       info;
     SMFFileSAMHandler hsam(&file, &info);
-    SMFReader         rd(&stm, 0, &hsam);
+    SMFReader         rd(&hsam, &stm);
 
     cout << "Parsing SMF" << endl;
     rd.parse();
@@ -81,22 +81,28 @@ int main(int argc, char** argv)
         std::cerr << "Failed to open device" << endl;
     }
 
-    MIDIAdvancedTrackPlayer<MIDITrack> player; // init player after everything
-    player.setData(&trk); // before cursors
-    auto                               cursor = player.addCursor(dev, 0ns);
+    advtrkplayer::MIDIAdvTrkCache<std::chrono::nanoseconds, MIDITrack> cache;
+    MIDIAdvancedTrackPlayer<MIDITrack>                                 player; // init player after everything
+    player.setCacheAll(&cache, false);
+    player.setTrack(&trk); // before cursors
+    auto cursor = player.addCursor("Playback");
+    cursor->setDevice(dev);
+    player.setCacheAll(&cache, false);
+    
 
     bool useCache;
     cout << "Use cache? 1/0: ";
     cin >> useCache;
-    player.setUseCache(useCache);
+
+    player.setTrack(&trk, useCache);
 
     auto compfdc = [&](MIDITimedMessage& msg) {
         return MIDIMessageF2D::process(msg);
     };
-    player.setCursorProcessor(cursor, compfdc);
-    player.setDivision(info.division);
+    cursor->setProcessor(compfdc);
+    player.setDivisionAll(info.division);
 
-    player.addCursorNotifier(cursor, [&](NotifyType type) {
+    cursor->addNotifier([&](NotifyType type) {
         if (type == NotifyType::T_Mode) {
             sendAllSoundsOff(dev);
         }
@@ -126,8 +132,11 @@ int main(int argc, char** argv)
         if (splitedcmd.empty()) {
 
         } else if (splitedcmd[0] == "play") {
-            if (!player.isCursorActive(cursor)) {
-                player.activeCursor(cursor);
+            if (cursor->eof()) {
+                fmt::println("EOF");
+            }
+            if (!cursor->isActive()) {
+                cursor->setActive(true);
             }
             player.play();
         } else if (splitedcmd[0] == "pause") {

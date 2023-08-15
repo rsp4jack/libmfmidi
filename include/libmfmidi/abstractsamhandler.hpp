@@ -1,5 +1,4 @@
 /// \file abstractsamhandler.hpp
-/// \author Creepercdn (creepercdn@outlook.com)
 /// \brief Abstract SAM (Simple API for SMF MIDI Files) Handler
 
 #pragma once
@@ -21,8 +20,8 @@ namespace libmfmidi {
         }
 
         // Struct
-        virtual void on_starttrack(uint32_t trk) = 0;
-        virtual void on_endtrack(uint32_t trk) = 0;
+        virtual void on_starttrack(uint16_t trk) = 0;
+        virtual void on_endtrack(uint16_t trk) = 0;
         virtual void on_header(SMFType format, uint16_t ntrk, MIDIDivision division) = 0;
     };
 }

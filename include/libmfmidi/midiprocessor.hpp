@@ -1,5 +1,4 @@
 /// \file MIDIProcessor.hpp
-/// \author Creepercdn (creepercdn@outlook.com)
 /// \brief MIDIProcessor utils
 
 #pragma once

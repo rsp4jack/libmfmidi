@@ -15,10 +15,6 @@
 * along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
-/// \file smfreaderpolicy.hpp
-/// \author Creepercdn (creepercdn@outlook.com)
-/// \brief SMFReader Policies
-
 #pragma once
 
 #include <functional>

@@ -26,7 +26,7 @@ int main(int argc, char** argv)
     MIDIMultiTrack    file;
     SMFFileInfo       info;
     SMFFileSAMHandler hsam(&file, &info);
-    SMFReader         rd(&stm, 0, &hsam);
+    SMFReader         rd(&hsam, &stm);;
 
     cout << "Parsing SMF" << endl;
     rd.parse();

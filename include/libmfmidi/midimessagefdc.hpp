@@ -16,7 +16,6 @@
  */
 
 /// \file midimessagefdc.hpp
-/// \author Creepercdn (creepercdn@outlook.com)
 /// \brief MIDI message F2D and D2F (FDC)
 
 #include "libmfmidi/midimessage.hpp"

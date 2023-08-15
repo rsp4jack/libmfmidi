@@ -1,5 +1,4 @@
 /// \file midimultitrackcursor.hpp
-/// \author Creepercdn (creepercdn@outlook.com)
 /// \brief A class to iterate \a MIDIMultiTrack.
 
 #pragma once

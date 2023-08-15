@@ -15,10 +15,6 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-/// \file win32mmtimer.hpp
-/// \author Creepercdn (creepercdn@outlook.com)
-/// \brief Win32 Multimedia Timer
-
 #pragma once
 
 #if defined(_WIN32)

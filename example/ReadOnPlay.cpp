@@ -1,24 +1,24 @@
-#include <iostream>
-#include <fstream>
-#include "libmfmidi/midireadonplay.hpp"
-#include "libmfmidi/midiadvancedtrackplayer.hpp"
-#include "libmfmidi/smfreader.hpp"
-#include "libmfmidi/samhandlers.hpp"
-#include "libmfmidi/rtmididevice.hpp"
 #include "libmfmidi/kdmapidevice.hpp"
+#include "libmfmidi/midiadvancedtrackplayer.hpp"
 #include "libmfmidi/midimessagefdc.hpp"
+#include "libmfmidi/midireadonplay.hpp"
+#include "libmfmidi/rtmididevice.hpp"
+#include "libmfmidi/samhandlers.hpp"
+#include "libmfmidi/smfreader.hpp"
+#include <fstream>
+#include <iostream>
 #if defined(_POSIX_THREADS)
 #include <sched.h>
 #else
 #include <processthreadsapi.h>
 #endif
-#include <timeapi.h>
-#include <ranges>
-#include <filesystem>
 #include <exception>
+#include <filesystem>
 #include <fmt/chrono.h>
-#include <version>
+#include <ranges>
 #include <source_location>
+#include <timeapi.h>
+#include <version>
 
 #include <fileapi.h>
 
@@ -117,26 +117,30 @@ int main(int argc, char** argv)
         std::cerr << "Failed to open device" << endl;
     }
 
-    MIDIAdvancedTrackPlayer<MIDIReadOnPlayTrack> player; // init player after everything
-    player.setData(&trk); // before cursors
-    auto cursor = player.addCursor(dev, 0ns);
+    advtrkplayer::MIDIAdvTrkCache<std::chrono::nanoseconds, MIDIReadOnPlayTrack> cache;
+    MIDIAdvancedTrackPlayer<MIDIReadOnPlayTrack>                                 player; // init player after everything
+    auto*                                                                        cursor = player.addCursor("Playback_Main");
+    cursor->setDevice(dev);
+    player.setCacheAll(&cache, false);
+    
 
     bool useCache;
     cout << "Use cache? 1/0: ";
     cin >> useCache;
-    player.setUseCache(useCache);
+
+    player.setTrack(&trk, useCache);
 
     auto compfdc = [&](MIDITimedMessage& msg) {
         return MIDIMessageF2D::process(msg);
     };
-    player.setCursorProcessor(cursor, compfdc);
+    cursor->setProcessor(compfdc);
 
     cout << "Division: ";
     uint16_t div;
     cin >> div;
-    player.setDivision(MIDIDivision{div});
+    player.setDivisionAll(MIDIDivision{div});
 
-    player.addCursorNotifier(cursor, [&](NotifyType type) {
+    cursor->addNotifier([&](NotifyType type) {
         if (type == NotifyType::T_Mode) {
             sendAllSoundsOff(dev);
         }
@@ -166,8 +170,11 @@ int main(int argc, char** argv)
         if (splitedcmd.empty()) {
 
         } else if (splitedcmd[0] == "play") {
-            if (!player.isCursorActive(cursor)) {
-                player.activeCursor(cursor);
+            if (cursor->eof()) {
+                fmt::println("EOF");
+            }
+            if (!cursor->isActive()) {
+                cursor->setActive(true);
             }
             player.play();
         } else if (splitedcmd[0] == "pause") {

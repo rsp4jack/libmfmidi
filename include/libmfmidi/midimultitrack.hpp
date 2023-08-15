@@ -1,7 +1,3 @@
-/// \file midimultitrack.cpp
-/// \author Creepercdn (creepercdn@outlook.com)
-/// \brief MIDIMultiTrack
-
 #pragma once
 
 #include "libmfmidi/miditrack.hpp"

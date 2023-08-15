@@ -14,11 +14,6 @@
 * You should have received a copy of the GNU General Public License
 * along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
-
-/// \file posixtimer.hpp
-/// \author Creepercdn (creepercdn@outlook.com)
-/// \brief POSIX Timer
-
 #pragma once
 
 #if defined(_POSIX_)

@@ -1,5 +1,4 @@
 /// \file mfutils.hpp
-/// \author Creepercdn (creepercdn@outlook.com)
 /// \brief libmfmidi utils
 
 #pragma once
@@ -8,6 +7,7 @@
 #include <algorithm>
 #include <charconv>
 #include <concepts>
+#include <functional>
 #include <span>
 #include <string>
 #include <type_traits>

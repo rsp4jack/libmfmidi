@@ -16,7 +16,6 @@
  */
 
 /// \file kdmapidevice.hpp
-/// \author Creepercdn (creepercdn@outlook.com)
 /// \brief KDMAPI MIDIDevice
 
 #ifdef _WIN32

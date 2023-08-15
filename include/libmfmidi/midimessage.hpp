@@ -1,6 +1,19 @@
-/// \file midimessage.hpp
-/// \author Creepercdn (creepercdn@outlook.com)
-/// \brief MIDIMessage class
+/*
+* This file is a part of libmfmidi.
+* 
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* (at your option) any later version.
+* 
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See the GNU General Public License for more details.
+* 
+* You should have received a copy of the GNU General Public License
+* along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
 
 // NOLINTBEGIN(readability-identifier-length, bugprone-easily-swappable-parameters)
 
@@ -64,9 +77,14 @@ namespace libmfmidi {
         using size_type              = typename Storage::size_type;
 
         /// \brief Clear this message
-        constexpr void clear() noexcept
+        virtual constexpr void clear()
         {
-            _data.clear();
+            if constexpr (requires { _data.clear(); }) {
+                _data.clear();
+            } else {
+                throw std::logic_error("The base container does not have clear()");
+            }
+
             marker = MFMessageMark::None;
         }
 
@@ -1138,7 +1156,7 @@ namespace libmfmidi {
                 dtime        = 0;
             }
 
-            constexpr void clear()
+            virtual constexpr void clear()
             {
                 Base::clear();
                 dtime = 0;

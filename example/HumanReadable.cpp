@@ -12,7 +12,7 @@ int main(int argc, char** argv)
     std::fstream stm;
     stm.open(argv[1], std::ios::in | std::ios::binary);
     HumanReadableSAMHandler hsam(&std::cout);
-    SMFReader rd (&stm, 0, &hsam);
+    SMFReader rd(&hsam, &stm);;
     rd.parse();
     return 0;
 }

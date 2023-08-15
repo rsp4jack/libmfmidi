@@ -1,5 +1,4 @@
 /// \file midiutils.hpp
-/// \author Creepercdn (creepercdn@outlook.com)
 /// \brief MIDI utils
 
 // TODO: Rewrite it.
@@ -229,7 +228,7 @@ namespace libmfmidi {
     /// \endcode
     constexpr std::array<int, 16> LUT_SMSGLEN = {
         // System Common Messages
-        -1, // 0xF0=Normal SysEx Events start. may vary
+        -1, // 0xF0=Normal SysEx Events start.
         2,  // 0xF1=MIDI Time Code. 2 bytes
         3,  // 0xF2=MIDI Song position. 3 bytes
         2,  // 0xF3=MIDI Song Select. 2 bytes.
@@ -237,7 +236,7 @@ namespace libmfmidi {
         0,  // 0xF5=undefined. (Reserved)
         1,  // 0xF6=TUNE Request. 1 byte
         0,  // 0xF7=Normal or Divided SysEx Events end.
-        // -1, // 0xF7=Divided or Authorization SysEx Events. may vary
+        // -1, // 0xF7=Divided or Authorization SysEx Events.
 
         // System Real-Time Messages
         1, // 0xF8=timing clock. 1 byte
@@ -249,10 +248,6 @@ namespace libmfmidi {
         1, // 0xFE=active sensing. 1 byte
         /// \warning META is not System Message.
         1, // 0xFF=reset. 1 byte
-
-        /// \warning RESET message will NOT be in file, META event will NOT be when device.
-        // 3 // 0xFF=not reset, but a META-EVENT, which is always 3 bytes
-        //-1 // 0xFF=reset or meta, 1 or ??? byte.
     };
 
     /// \brief LUT to white keys in MIDI pitch number
@@ -354,26 +349,19 @@ namespace libmfmidi {
     inline std::pair<MIDIVarNum, size_t> readVarNum(std::istream* ise)
     {
         auto readU8 = [&]() {
-            uint8_t d;
-            try {
-                ise->read(reinterpret_cast<char*>(&d), 1);
-            } catch (const std::ios_base::failure& fail) {
-                std::cerr << fail.what() << std::endl;
-                throw fail;
-            }
-            return d;
+            return ise->get();
         };
         uint32_t value;
-        uint8_t  c   = readU8();
+        uint8_t  dat   = readU8();
         size_t   cnt = 1;
-        value        = c;
+        value        = dat;
         if ((value & 0x80) != 0U) {
             value &= 0x7F;
             do {
-                c = readU8();
+                dat = readU8();
                 ++cnt;
-                value = (value << 7) + (c & 0x7F);
-            } while ((c & 0x80) != 0);
+                value = (value << 7) + (dat & 0x7F);
+            } while ((dat & 0x80) != 0);
         }
         return {value, cnt};
     }
@@ -385,25 +373,25 @@ namespace libmfmidi {
     inline constexpr std::pair<MIDIVarNum, size_t> readVarNumIt(FwdIt iter, FwdIt end)
     {
         auto readU8 = [&]() {
-            uint8_t d = *iter;
+            uint8_t dat = *iter;
             ++iter;
-            return d;
+            return dat;
         };
         uint32_t value;
-        uint8_t  c   = readU8();
+        uint8_t  dat   = readU8();
         size_t   cnt = 1;
 
-        value = c;
+        value = dat;
         if ((value & 0x80) != 0U) {
             value &= 0x7F;
             do {
                 if (iter >= end) {
                     return {-1, -1};
                 }
-                c = readU8();
+                dat = readU8();
                 ++cnt;
-                value = (value << 7) + (c & 0x7F);
-            } while ((c & 0x80) != 0);
+                value = (value << 7) + (dat & 0x7F);
+            } while ((dat & 0x80) != 0);
         }
         return {value, cnt};
     }
@@ -424,7 +412,7 @@ namespace libmfmidi {
             buf += data & 0x7F;
         }
         while (true) {
-            ose->put(buf & 0xFF);
+            ose->put(static_cast<char>(buf & 0xFF));
             ++cnt;
             if ((buf & 0x80) != 0U) {
                 buf >>= 8;

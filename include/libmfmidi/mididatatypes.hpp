@@ -16,14 +16,12 @@
  */
 
 /// \file mididatatypes.hpp
-/// \author Creepercdn (creepercdn@outlook.com)
 /// \brief Standard MIDI Data Types
 
 #pragma once
 
 #include "libmfmidi/mfutils.hpp"
 #include <type_traits>
-#include "preshing/bitfields.hpp"
 
 namespace libmfmidi {
     class MIDITempo final {
@@ -141,12 +139,12 @@ namespace libmfmidi {
             *this = MIDIDivision(fps(), tpf);
         }
 
-        constexpr operator uint16_t() const noexcept
+        constexpr explicit operator uint16_t() const noexcept
         {
             return mval;
         }
 
-        constexpr operator bool() const noexcept
+        constexpr explicit operator bool() const noexcept
         {
             if (isPPQ()) {
                 return mval != 0;

@@ -16,7 +16,6 @@
  */
 
 /// \file miditrackplayer.hpp
-/// \author Creepercdn (creepercdn@outlook.com)
 /// \brief MIDITrack lightweight player
 
 #pragma once

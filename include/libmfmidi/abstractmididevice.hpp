@@ -15,10 +15,6 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-/// \file abstractmididevice.hpp
-/// \author Creepercdn (creepercdn@outlook.com)
-/// \brief MIDIDriver
-
 #pragma once
 
 #include "libmfmidi/midimessage.hpp"

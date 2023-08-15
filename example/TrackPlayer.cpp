@@ -1,23 +1,27 @@
-#include <iostream>
-#include <fstream>
-#include "libmfmidi/miditrackplayer.hpp"
-#include "libmfmidi/smfreader.hpp"
-#include "libmfmidi/samhandlers.hpp"
-#include "libmfmidi/rtmididevice.hpp"
 #include "libmfmidi/kdmapidevice.hpp"
-#include "libmfmidi/win32mmtimer.hpp"
 #include "libmfmidi/midimessagefdc.hpp"
 #include "libmfmidi/midiprocessor.hpp"
+#include "libmfmidi/miditrackplayer.hpp"
+#include "libmfmidi/rtmididevice.hpp"
+#include "libmfmidi/samhandlers.hpp"
+#include "libmfmidi/smfreader.hpp"
+#include "libmfmidi/win32mmtimer.hpp"
+
+#include <fstream>
+#include <iostream>
+#include <exception>
+#include <filesystem>
+#include <ranges>
+#include <spanstream>
+
 #if defined(_POSIX_THREADS)
 #include <sched.h>
 #else
 #include <processthreadsapi.h>
 #endif
+
 #include <timeapi.h>
-#include <ranges>
-#include <filesystem>
-#include <spanstream>
-#include <exception>
+
 
 using namespace libmfmidi;
 using std::cin;
@@ -51,7 +55,8 @@ int main(int argc, char** argv)
     MIDIMultiTrack    file;
     SMFFileInfo       info;
     SMFFileSAMHandler hsam(&file, &info);
-    SMFReader         rd(&stm, 0, &hsam);
+    SMFReader         rd(&hsam, &stm);
+    ;
 
     cout << "Parsing SMF" << endl;
     rd.parse();
@@ -73,7 +78,7 @@ int main(int argc, char** argv)
     unsigned inp;
     std::cin >> inp;
 
-    AbstractMIDIDevice*                                  dev;
+    AbstractMIDIDevice*                        dev;
     std::unique_ptr<platform::KDMAPIDevice>    kdev;
     std::shared_ptr<platform::RtMidiOutDevice> sdev;
     if (inp == prov.outputCount() + 1) {

@@ -16,7 +16,6 @@
  */
 
 /// \file midireadonplay.hpp
-/// \author Creepercdn (creepercdn@outlook.com)
 /// \brief Read on Play
 
 #pragma once

@@ -19,8 +19,8 @@ PointerAlignment: Left
 
 SpaceBeforeParens: ControlStatementsExceptControlMacros
 SortUsingDeclarations: true
-# SortIncludes: CaseInsensitive
-SortIncludes: Never # <windows.h>
+SortIncludes: CaseInsensitive
+# SortIncludes: Never # <windows.h>
 ReflowComments: true
 #RequiresClausePosition: OwnLine
 

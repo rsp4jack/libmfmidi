@@ -15,10 +15,6 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-/// \file rtmididevice.hpp
-/// \author Creepercdn (creepercdn@outlook.com)
-/// \brief RtMidi MIDIDevice support
-
 #pragma once
 
 #include "rtmidi/RtMidi.h"
@@ -82,7 +78,10 @@ namespace libmfmidi::platform {
             return false;
         }
 
-        tl::expected<void, const char*> sendMsg(const MIDIMessage& /*msg*/) noexcept override {}
+        tl::expected<void, const char*> sendMsg(const MIDIMessage& /*msg*/) noexcept override
+        {
+            return tl::unexpected("Output unavailable");
+        }
 
     private:
         static void rtcallback(double /*timeStamp*/, std::vector<unsigned char>* message, void* userData)
@@ -153,7 +152,12 @@ namespace libmfmidi::platform {
 
         tl::expected<void, const char*> sendMsg(const MIDIMessage& msg) noexcept override
         {
-            min.sendMessage(&msg.base());
+            try {
+                min.sendMessage(&msg.base());
+            } catch (std::exception& err) {
+                return tl::unexpected{err.what()};
+            }
+            
             return {};
         }
 

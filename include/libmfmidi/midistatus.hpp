@@ -16,7 +16,6 @@
  */
 
 /// \file midistatus.hpp
-/// \author Creepercdn (creepercdn@outlook.com)
 /// \brief MIDIStatus
 
 #pragma once
