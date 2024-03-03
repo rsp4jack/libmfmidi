@@ -126,41 +126,48 @@ namespace libmfmidi {
             MIDIDivision                             mdivision{};
             std::ranges::iterator_t<const Track> mnextevent{};
             AbstractMIDIDevice*                      mdev{};
-            MIDIStatus                               mstatus;
+            MIDIStatus*                               mstatus;
             Cache*                                   mcache{};
             Time                                     mcacheinterval = 1min;
 
             // Misc
-            MIDIStatusProcessor   mstproc{mstatus};
+            std::unique_ptr<MIDIStatusProcessor>   mstproc;
             MIDIProcessorFunction mprocessor;
 
         public:
             static constexpr bool randomAccessible = std::ranges::random_access_range<Track>;
             using NotifyUtils<MIDIAdvTrkPlayerCursor>::addNotifier;
 
-            explicit MIDIAdvTrkPlayerCursor(std::string_view name) noexcept
-                : mname(name)
+            explicit MIDIAdvTrkPlayerCursor(std::string name) noexcept
+                : mname(std::move(name))
             {
-                /*
-                 * A bug with move semantics and lambda capture
-                 * Lambda capture "this" pointer, but when *this moves to another memory location, "this" in capture will NOT be changed!
-                 * So move and copy is disabled in this class.
-                 * See https://stackoverflow.com/q/44745255/16016815
-                 */
-                mstproc.addNotifier([this](NotifyType type) {
+            }
+
+            ~MIDIAdvTrkPlayerCursor() noexcept = default;
+            MF_DISABLE_COPY(MIDIAdvTrkPlayerCursor);
+            MF_DISABLE_MOVE(MIDIAdvTrkPlayerCursor); // TODO: implement move
+            // setMIDIStatus should be called for moving
+
+            void setMIDIStatus(MIDIStatus* mst)
+            {
+                mstatus = mst;
+                mstproc = std::make_unique<MIDIStatusProcessor>(*mst);
+                mstproc->addNotifier([this](NotifyType type) {
                     if (type == NotifyType::C_Tempo) {
                         recalcuateDivisionTiming();
                     }
                 });
             }
 
-            ~MIDIAdvTrkPlayerCursor() noexcept = default;
-            MF_DISABLE_COPY(MIDIAdvTrkPlayerCursor);
-            MF_DISABLE_MOVE(MIDIAdvTrkPlayerCursor); //! Disable move semantics, see above
-
             void recalcuateDivisionTiming() noexcept
             {
-                mdivns = divisionToDuration(mdivision, mstatus.tempo);
+                // TODO: how will msleeptime change
+                auto newdivns = divisionToDuration(mdivision, mstatus->tempo);
+                if ((msleeptime.count() != 0) || (mdivns.count() != 0)) {
+                    msleeptime    = Time{msleeptime.count() * newdivns.count() / mdivns.count()};
+                }
+                
+                mdivns = newdivns;
             }
 
             void syncDeviceStatus(bool force = false) const
@@ -168,7 +175,7 @@ namespace libmfmidi {
                 if (!force && !mautorevertStatus) {
                     return;
                 }
-                for (const auto& msg : reportMIDIStatus(mstatus, false)) {
+                for (const auto& msg : reportMIDIStatus(*mstatus, false)) {
                     mdev->sendMsg(msg);
                 }
             }
@@ -219,7 +226,9 @@ namespace libmfmidi {
                 // std::ranges::copy(*mnextevent, message.begin());
                 std::copy((*mnextevent).begin(), (*mnextevent).end(), message.begin());
 
-                mstproc.process(message);
+                if (mstproc) {
+                    mstproc->process(message);
+                }
                 if (process(message) && mdev != nullptr) {
                     mdev->sendMsg(message);
                 }
@@ -257,7 +266,7 @@ namespace libmfmidi {
 
             [[nodiscard]] const MIDIStatus& status() const&
             {
-                return mstatus;
+                return *mstatus;
             }
 
             [[nodiscard]] bool isActive() const
@@ -277,9 +286,6 @@ namespace libmfmidi {
 
             bool goTo(Time targetTime)
             {
-                if (targetTime == mplaytime) {
-                    return true;
-                }
                 if (mnextevent == mtrack->end()) {
                     revertSnapshot(defaultSnapshot(), {}); // reset
                 }
@@ -309,7 +315,9 @@ namespace libmfmidi {
                 while (mplaytime + (*mnextevent).deltaTime() * mdivns < targetTime) { // use <, see cur.msleeptime under
                     currentevent = mnextevent;
                     mplaytime += (*currentevent).deltaTime() * mdivns;
-                    mstproc.process(*currentevent);
+                    if (mstproc) {
+                        mstproc->process(*currentevent);
+                    }
                     ++mnextevent;
                     if (mnextevent == mtrack->end()) { // should not happen if targetTime is not out of range, because uses < above (so nextevent never point to the end iterator (sentinal))
                         return false;
@@ -326,7 +334,7 @@ namespace libmfmidi {
             std::pair<Snapshot, Time> captureSnapshot()
             {
                 return {
-                    Snapshot{.sleeptime = msleeptime, .nextevent = mnextevent, .status = mstatus},
+                    Snapshot{.sleeptime = msleeptime, .nextevent = mnextevent, .status = *mstatus},
                     mplaytime
                 };
             }
@@ -335,7 +343,7 @@ namespace libmfmidi {
             {
                 msleeptime = snapshot.sleeptime;
                 mplaytime  = playtime;
-                mstatus    = snapshot.status;
+                *mstatus    = snapshot.status;
                 mnextevent = snapshot.nextevent;
             }
 
@@ -443,11 +451,11 @@ namespace libmfmidi {
                                      })
                                    | std::views::take(1);
                 if (std::ranges::empty(activeCursors)) {
-                    if (mcursors.size() == 1) {
-                        const CursorInfo& info = mcursors.front();
-                        return info.cursor->mplaytime - info.offest;
+                    Time mxtime{};
+                    for (const auto& cinfo : mcursors) {
+                        mxtime = std::max(mxtime, cinfo.cursor->mplaytime - cinfo.offest);
                     }
-                    return {};
+                    return mxtime;
                 }
                 const CursorInfo& info = (*activeCursors.begin());
                 return info.cursor->mplaytime - info.offest;
@@ -475,6 +483,19 @@ namespace libmfmidi {
                 return play;
             }
 
+            [[nodiscard]] bool eof()
+            {
+                for (const auto& cinfo : mcursors) {
+                    if (!cinfo.cursor->isActive()){
+                        continue;
+                    }
+                    if (cinfo.cursor->eof()) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
             void setTrack(const Track* data, bool updateCache = true)
             {
                 Pauser pauser{*this};
@@ -491,9 +512,9 @@ namespace libmfmidi {
                 return result;
             }
 
-            Cursor* addCursor(std::string_view name, Time setoffest = {})
+            Cursor* addCursor(std::string name, Time setoffest = {})
             {
-                return addCursor(std::make_unique<MIDIAdvTrkPlayerCursor<Track>>(name), setoffest);
+                return addCursor(std::make_unique<MIDIAdvTrkPlayerCursor<Track>>(std::move(name)), setoffest);
             }
 
             [[nodiscard]] auto& cursors() noexcept
@@ -525,6 +546,7 @@ namespace libmfmidi {
             void goTo(Time targetTime)
             {
                 Pauser pauser{*this};
+                mlastSleptTime = {};
                 for (auto& cursorinfo : mcursors) {
                     if (!cursorinfo.cursor->goTo(targetTime + cursorinfo.offest)) {
                         throw std::out_of_range("targetTime out of range");

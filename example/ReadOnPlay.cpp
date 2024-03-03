@@ -11,6 +11,7 @@
 #include <sched.h>
 #else
 #include <processthreadsapi.h>
+#include <debugapi.h>
 #endif
 #include <exception>
 #include <filesystem>
@@ -58,7 +59,7 @@ int main(int argc, char** argv)
         return -1;
     }
 
-    cout << "Opening file " << argv[1] << endl;
+    fmt::println("Opening file {}", argv[1]);
 
     HANDLE file = CreateFile(argv[1], GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (file == nullptr) {
@@ -87,18 +88,19 @@ int main(int argc, char** argv)
 
     size_t mmap_len = filesize;
 
-    cout << "Opened, mapped " << mmap_len << " bytes, file " << filesize << " bytes\n";
+    fmt::println("Opened, mapped {} bytes, file {} bytes", mmap_info.RegionSize, filesize);
 
-    MIDIReadOnPlayTrack trk{
-        MIDIReadOnPlayTrack::base_type{reinterpret_cast<const uint8_t*>(mmap_data), mmap_len}
-    };
+    MIDIReadOnPlayTrack::base_type mmap_span{reinterpret_cast<const uint8_t*>(mmap_data), mmap_len};
+    auto                           rop = parseSMFReadOnPlay(mmap_span);
+
+    fmt::println("Parsed as SMF Type {} with {} tracks in division {}", rop.info.type, rop.info.ntrk, static_cast<int16_t>(static_cast<uint16_t>(rop.info.division)));
 
     auto& prov = platform::RtMidiMIDIDeviceProvider::instance();
-    cout << "Dev cnt: " << prov.outputCount() << endl;
+    fmt::println("Dev cnt: {}", prov.outputCount());
     for (unsigned int i = 0; i < prov.outputCount(); ++i) {
         cout << prov.outputName(i) << endl;
     }
-    cout << "Choose, " << prov.outputCount() + 1 << " to KDMAPI: ";
+    fmt::print("Choose, {} to KDMAPI: ", prov.outputCount() + 1);
     unsigned inp;
     std::cin >> inp;
 
@@ -117,30 +119,29 @@ int main(int argc, char** argv)
         std::cerr << "Failed to open device" << endl;
     }
 
-    advtrkplayer::MIDIAdvTrkCache<std::chrono::nanoseconds, MIDIReadOnPlayTrack> cache;
-    MIDIAdvancedTrackPlayer<MIDIReadOnPlayTrack>                                 player; // init player after everything
-    auto*                                                                        cursor = player.addCursor("Playback_Main");
-    cursor->setDevice(dev);
-    player.setCacheAll(&cache, false);
-    
-
     bool useCache;
     cout << "Use cache? 1/0: ";
     cin >> useCache;
 
-    player.setTrack(&trk, useCache);
+    advtrkplayer::MIDIAdvTrkCache<std::chrono::nanoseconds, MIDIReadOnPlayTrack> cache;
+    MIDIStatus status;
+    MIDIAdvancedTrackPlayer<MIDIReadOnPlayTrack>                                 player; // init player after everything
 
-    auto compfdc = [&](MIDITimedMessage& msg) {
-        return MIDIMessageF2D::process(msg);
-    };
-    cursor->setProcessor(compfdc);
+    for(const auto& [idx, trk] : std::views::zip(std::views::iota(0U), rop.tracks)) {
+        auto* cursor = player.addCursor(fmt::format("Playback_{}", idx));
+        cursor->setMIDIStatus(&status);
+        cursor->setDevice(dev);
+        // TODO: forgive me
+        if (useCache) {
+            cursor->setCache(new decltype(player)::Cache);
+        }
+        cursor->setTrack(new MIDIReadOnPlayTrack(trk.subspan(8)), useCache);
+        cursor->setProcessor(MIDIMessageF2D::process);
+    }
 
-    cout << "Division: ";
-    uint16_t div;
-    cin >> div;
-    player.setDivisionAll(MIDIDivision{div});
+    player.setDivisionAll(rop.info.division);
 
-    cursor->addNotifier([&](NotifyType type) {
+    player.cursors().front().cursor->addNotifier([&](NotifyType type) {
         if (type == NotifyType::T_Mode) {
             sendAllSoundsOff(dev);
         }
@@ -170,11 +171,11 @@ int main(int argc, char** argv)
         if (splitedcmd.empty()) {
 
         } else if (splitedcmd[0] == "play") {
-            if (cursor->eof()) {
+            if (player.eof()) {
                 fmt::println("EOF");
             }
-            if (!cursor->isActive()) {
-                cursor->setActive(true);
+            for (const auto& cinfo : player.cursors()) {
+                cinfo.cursor->setActive(true);
             }
             player.play();
         } else if (splitedcmd[0] == "pause") {
@@ -188,6 +189,9 @@ int main(int argc, char** argv)
             cout << "Seeking to " << splitedcmd[1] << endl;
             sendAllSoundsOff(dev);
             std::chrono::nanoseconds target{std::chrono::seconds{std::stoll(splitedcmd[1])}};
+            for (const auto& cinfo : player.cursors()) {
+                cinfo.cursor->setActive(true);
+            }
             player.goTo(target);
         } else if (splitedcmd[0] == "exit") {
             break;

@@ -21,10 +21,13 @@
 #pragma once
 
 #include "libmfmidi/midimessage.hpp"
+#include "libmfmidi/smffile.hpp"
 #include "libmfmidi/smfreaderpolicy.hpp"
-#include <span>
+#include "libmfmidi/smfreader.hpp"
 #include <ranges>
+#include <span>
 #include <tuple>
+
 
 namespace libmfmidi {
     // TODO: Read on Play
@@ -89,7 +92,7 @@ namespace libmfmidi {
 
                 if ((status >= NOTE_OFF) && (status < SYSEX_START)) { // also test if status is vaild
                     m_len = getExpectedMessageLength(status);
-                    m_current += m_len-1;
+                    m_current += m_len - 1;
                 } else {
                     switch (status) {
                     case META_EVENT: {
@@ -98,7 +101,7 @@ namespace libmfmidi {
 
                         const auto [msglength, varsize] = readVarNum();
 
-                        if (m_current + msglength > &m_base->base().back()) {
+                        if (m_current - varsize + msglength > &m_base->base().back()) {
                             throw std::runtime_error("invalid Meta Event length: bigger than track length");
                         }
                         m_len = 2 + varsize + msglength;
@@ -135,7 +138,7 @@ namespace libmfmidi {
                         if ((status & 0xF0) == 0xF0) {
                             warnpol(IncompatibleEvent, "Incompatible SMF event: System Message [0xF1,0xFE] in SMF file");
                             m_len = getExpectedSMessageLength(status);
-                            m_current += m_len-1;
+                            m_current += m_len - 1;
                         } else {
                             throw std::runtime_error("Unknown or Unexpected status: not a Channel Message, Meta Event or SysEx");
                         }
@@ -242,4 +245,106 @@ namespace libmfmidi {
     static_assert(std::forward_iterator<MIDIReadOnPlayTrack::iterator>);
     static_assert(std::ranges::forward_range<MIDIReadOnPlayTrack>);
     static_assert(std::same_as<MIDIReadOnPlayTrack::iterator, std::ranges::iterator_t<MIDIReadOnPlayTrack>>);
+
+    struct MIDIReadOnPlayFile {
+        SMFFileInfo                           info;
+        std::vector<std::span<const uint8_t>> tracks;
+    };
+
+    [[nodiscard]] MIDIReadOnPlayFile parseSMFReadOnPlay(const std::span<const uint8_t>& data)
+    {
+        using enum SMFReaderPolicy;
+        const uint8_t* current = data.data();
+        ptrdiff_t etc{};
+
+        auto readU8 = [&]() {
+            if (current > &data.back()) {
+                throw std::invalid_argument("Cannot read past end");
+            }
+            return *current++;
+        };
+        auto readU16 = [&]() {
+            if (current+1 > &data.back()) {
+                throw std::invalid_argument("Cannot read past end");
+            }
+            auto res = rawCat(*current, *(current + 1));
+            current += 2;
+            return res;
+        };
+        auto readU16E = [&]() {
+            etc -= 2;
+            return readU16();
+        };
+        auto readU32 = [&]() {
+            if (current+3 > &data.back()) {
+                throw std::invalid_argument("Cannot read past end");
+            }
+            auto res = rawCat(*current, *(current + 1), *(current + 2), *(current + 3));
+            current += 4;
+            return res;
+        };
+        auto pol = [](SMFReaderPolicy pol, std::string_view why) {
+            std::cerr << "[parseROP/WARN] P" << static_cast<unsigned int>(pol) << ": " << why << "\n";
+        };
+
+        auto hdr = readU32();
+        if (hdr != MThd) {
+            pol(InvaildHeaderType, "Invalid header, expected MThd");
+        }
+
+        etc = readU32(); // for header chunk size != 6
+        if (etc != 6) {
+            pol(InvaildHeaderSize, "invalid header chunk size, expected 6");
+        }
+
+        uint16_t ftype = readU16E();
+        if (ftype > 2) {
+            pol(InvaildSMFType, "invalid SMF type, expected <= 2");
+        }
+
+        uint16_t ftrks = readU16E();
+
+        // fix invaild smf type
+        if (ftype == 0 && ftrks > 1) {
+            pol(InvaildSMFType, "Multiple tracks in SMF Type 0, fixing to SMF Type 1");
+            ftype = 1;
+        }
+        if (ftype > 2) {
+            pol(InvaildSMFType, "SMF Type > 2, auto fixing to type 0 or 1");
+            if (ftrks > 1) {
+                ftype = 1;
+            } else {
+                ftype = 0;
+            }
+        }
+
+        if (ftrks == 0) {
+            // warn("No track");
+        }
+
+        auto fdiv = static_cast<MIDIDivision>(readU16());
+        if (!fdiv) {
+            REPORT("MIDI Division is 0");
+        }
+        if (fdiv.isSMPTE()) {
+            std::cerr << "Experimental: Negative MIDI Division (SMPTE)" << '\n';
+        }
+
+        SMFFileInfo info{.type = ftype, .division = fdiv, .ntrk = ftrks};
+        std::vector<std::span<const uint8_t>> trks;
+        trks.reserve(ftrks);
+
+        for (uint16_t i = 0; i < info.ntrk; ++i) {
+            auto trkbegin = current;
+            if (readU32() != MTrk) {
+                pol(InvaildHeaderType, "invalid header, expected MTrk");
+            }
+            const uint32_t length = readU32();
+            size_t chunklen = length+4+4;
+            trks.emplace_back(trkbegin, chunklen);
+            current += length;
+        }
+
+        return {info, std::move(trks)};
+    }
 }

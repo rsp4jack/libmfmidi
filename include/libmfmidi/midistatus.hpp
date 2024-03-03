@@ -62,6 +62,7 @@ namespace libmfmidi {
 
     /// \brief A struct to hold MIDI Status
     struct MIDIStatus {
+
         MIDIStatus() noexcept
         {
             reset();
@@ -95,10 +96,23 @@ namespace libmfmidi {
     /// \brief Emulate MIDIStatus
     class MIDIStatusProcessor : protected NotifyUtils<MIDIStatusProcessor> {
     public:
+        static std::unordered_multimap<MIDIStatus*, MIDIStatusProcessor*> mstmap;
         explicit MIDIStatusProcessor(MIDIStatus& st, bool processNote = false) noexcept
             : mst(st)
             , mprocessNote(processNote)
         {
+            mstmap.emplace(&st, this);
+        }
+
+        ~MIDIStatusProcessor() noexcept
+        {
+            auto eqr = mstmap.equal_range(&mst.get());
+            for (auto it = eqr.first; it != eqr.second; ++it) {
+                if (it->second == this) {
+                    mstmap.erase(it);
+                    break;
+                }
+            }
         }
 
         using NotifyUtils::addNotifier;
@@ -181,6 +195,15 @@ namespace libmfmidi {
         bool process(const MIDIBasicTimedMessage<T>& msg, uint8_t port = 1)
         {
             return process<T>(MIDIBasicMessage<T>{msg}, port);
+        }
+
+    protected:
+        void notify(NotifyType type) const noexcept
+        {
+            auto eqr = mstmap.equal_range(&mst.get());
+            for (auto it = eqr.first; it != eqr.second; ++it) {
+                it->second->NotifyUtils::notify(type);
+            }
         }
 
     private:
