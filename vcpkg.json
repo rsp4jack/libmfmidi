@@ -1,8 +1,23 @@
 {
-    "dependencies": [
-        "fmt",
-        "range-v3",
-        "tl-expected",
-        "rtmidi"
-    ]
+  "dependencies": [
+    {
+      "name": "fmt",
+      "version>=": "10.0.0"
+    },
+    {
+      "name": "range-v3",
+      "version>=": "0.12.0#1"
+    },
+    {
+      "name": "tl-expected",
+      "version>=": "1.1.0"
+    },
+    {
+      "name": "rtmidi",
+      "version>=": "5.0.0#2"
+    }
+  ],
+  "name": "libmfmidi",
+  "version": "0.0.1",
+  "builtin-baseline": "768619a21ef7fb6c5d029a7b141bb7fcef579336"
 }

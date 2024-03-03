@@ -39,4 +39,9 @@ build
 out
 *.diagsession
 .cache
+
 vcpkg_installed
+cmake-build-*
+.idea
+
+test.cpp
