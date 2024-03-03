@@ -39,3 +39,4 @@ build
 out
 *.diagsession
 .cache
+vcpkg_installed
