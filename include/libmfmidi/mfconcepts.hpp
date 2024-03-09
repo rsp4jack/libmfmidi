@@ -47,7 +47,7 @@ namespace libmfmidi {
         } -> std::same_as<bool>;
     };
 
-    using MIDIProcessorFunction = std::function<bool(MIDITimedMessage&)>;
+    using MIDIProcessorFunction = std::function<bool(MIDIMessage&)>;
 
     // int -> true
     // MIDIMessage -> true

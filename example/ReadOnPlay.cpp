@@ -44,7 +44,7 @@ void reportError(const std::source_location location = std::source_location::cur
         0, nullptr
     );
 
-    cerr << "Win32 API Error " << dw << ": \"" << lpMsgBuf << "\" on " << location.file_name() << ':' << location.line() << ':' << location.column() << ' ' << location.function_name() << endl;
+    cerr << "Win32 API Error " << dw << ": \"" << (LPTSTR)lpMsgBuf << "\" on " << location.file_name() << ':' << location.line() << ':' << location.column() << ' ' << location.function_name() << endl;
     LocalFree(lpMsgBuf);
     exit(-1);
 }
@@ -127,6 +127,13 @@ int main(int argc, char** argv)
     MIDIStatus status;
     MIDIAdvancedTrackPlayer<MIDIReadOnPlayTrack>                                 player; // init player after everything
 
+    auto msgproc = [](MIDIMessage& msg) {
+        if(msg.isNoteOn() && (msg.velocity() < 3)){
+            return false;
+        }
+        return MIDIMessageF2D::process(msg);
+    };
+
     for(const auto& [idx, trk] : std::views::zip(std::views::iota(0U), rop.tracks)) {
         auto* cursor = player.addCursor(fmt::format("Playback_{}", idx));
         cursor->setMIDIStatus(&status);
@@ -136,7 +143,7 @@ int main(int argc, char** argv)
             cursor->setCache(new decltype(player)::Cache);
         }
         cursor->setTrack(new MIDIReadOnPlayTrack(trk.subspan(8)), useCache);
-        cursor->setProcessor(MIDIMessageF2D::process);
+        cursor->setProcessor(msgproc);
     }
 
     player.setDivisionAll(rop.info.division);

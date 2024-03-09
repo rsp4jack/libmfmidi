@@ -237,12 +237,12 @@ namespace libmfmidi {
             return size();
         }
 
-        [[nodiscard]] constexpr const std::vector<uint8_t>& base() const
+        [[nodiscard]] constexpr const Storage& base() const
         {
             return _data;
         }
 
-        [[nodiscard]] constexpr std::vector<uint8_t>& base()
+        [[nodiscard]] constexpr Storage& base()
         {
             return _data;
         }
@@ -1132,14 +1132,12 @@ namespace libmfmidi {
             MF_DEFAULT_MOVE(MIDIMessageTimedExt);
 
             constexpr explicit MIDIMessageTimedExt(const Base& rhs) noexcept
-                : Base::_data(rhs._data)
-                , Base::marker(rhs.marker)
+                : Base(rhs)
             {
             }
 
             constexpr explicit MIDIMessageTimedExt(Base&& rhs) noexcept
-                : Base::_data(std::exchange(rhs._data, {}))
-                , Base::marker(rhs.marker) // trivially-copyable
+                : Base(std::move(rhs))
             {
             }
 

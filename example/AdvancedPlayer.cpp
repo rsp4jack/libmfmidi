@@ -6,12 +6,17 @@
 #include "libmfmidi/rtmididevice.hpp"
 #include "libmfmidi/kdmapidevice.hpp"
 #include "libmfmidi/midimessagefdc.hpp"
+#ifdef _POSIX_VERSION
+#include <unistd.h>
+#endif
+
 #if defined(_POSIX_THREADS)
 #include <sched.h>
 #else
 #include <processthreadsapi.h>
-#endif
 #include <timeapi.h> 
+#endif
+
 #include <ranges>
 #include <filesystem>
 #include <spanstream>
@@ -27,7 +32,11 @@ using namespace std::literals;
 
 int main(int argc, char** argv)
 {
+#ifdef WIN32
     SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS);
+#elif defined(_POSIX_VERSION)
+    nice(-11);
+#endif
 
     cout << "TrackPlayer: Example of libmfmidi" << endl;
     if (argc == 1) {

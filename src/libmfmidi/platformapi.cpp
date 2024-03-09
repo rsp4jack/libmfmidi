@@ -33,8 +33,8 @@ namespace libmfmidi {
     {
         using namespace std;
         using namespace std::chrono;
-        constexpr DWORD MIN_RES = 15; // in ms
-        constexpr DWORD MAX_RES = 5; // in ms
+        constexpr DWORD MIN_RES = 10; // in ms
+        constexpr DWORD MAX_RES = 3; // in ms
 
         static bool     inited = false;
         static uint64_t freq;
@@ -45,6 +45,10 @@ namespace libmfmidi {
                 return -1;
             }
             inited = true;
+        }
+
+        if (nsec == 0ns) {
+            return 0;
         }
 
         timeBeginPeriod(caps.wPeriodMin); 

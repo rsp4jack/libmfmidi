@@ -57,15 +57,16 @@ namespace libmfmidi {
             MF_DEFAULT_MOVE(iterator);
             ~iterator() noexcept = default;
 
-            MIDIReadOnPlayTimedMessage operator*() const
+            const value_type& operator*() const
             {
                 if (m_start == nullptr) {
                     throw std::logic_error{"Unable to dereference a empty iterator"};
                 }
-                return MIDIReadOnPlayTimedMessage{
-                    m_delta,
-                    base_type{m_start, m_len}
-                };
+                return m_msgobj;
+            }
+
+            const value_type* operator->() const {
+                return &m_msgobj;
             }
 
             auto& operator++() &
@@ -144,6 +145,8 @@ namespace libmfmidi {
                         }
                     }
                 }
+                m_msgobj.setDeltaTime(m_delta);
+                m_msgobj.base() = base_type{m_start, m_len};
                 return *this;
             }
 
@@ -201,6 +204,7 @@ namespace libmfmidi {
             const uint8_t* m_start = nullptr;
             size_t         m_len   = 0;
             MIDIClockTime  m_delta = 0;
+            value_type m_msgobj;
 
             // SMF reader
             uint8_t status = 0; // midi status, for running status

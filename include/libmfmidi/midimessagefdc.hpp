@@ -25,7 +25,7 @@ namespace libmfmidi {
     /// F2D: SMF message to MIDI Device message
     class MIDIMessageF2D {
     public:
-        static bool process(MIDITimedMessage& msg)
+        static bool process(MIDIMessage& msg)
         {
             // TODO: fine this
             return !msg.isMetaEvent();
@@ -36,7 +36,7 @@ namespace libmfmidi {
     /// D2F: Device message to SMF message
     class MIDIMessageD2F {
     public:
-        static bool process(MIDITimedMessage& msg)
+        static bool process(MIDIMessage& msg)
         {
             return !msg.isSystemMessage();
         }

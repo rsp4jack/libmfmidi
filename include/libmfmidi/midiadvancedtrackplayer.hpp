@@ -79,8 +79,8 @@ namespace libmfmidi {
                 }
             });
             while (true) {
-                while (playtime + (*nextevent).deltaTime() * divns < nextCacheTime) { // use < because ignore the event on nextCacheTime (the event will play when tick, but have not played yet when cache)
-                    playtime += (*nextevent).deltaTime() * divns;
+                while (playtime + nextevent->deltaTime() * divns < nextCacheTime) { // use < because ignore the event on nextCacheTime (the event will play when tick, but have not played yet when cache)
+                    playtime += nextevent->deltaTime() * divns;
                     proc.process(*nextevent);
                     ++nextevent;
                     if (nextevent == trk.end()) {
@@ -88,7 +88,7 @@ namespace libmfmidi {
                     }
                 }
                 snap.nextevent             = nextevent;
-                snap.sleeptime             = playtime + (*nextevent).deltaTime() * divns - nextCacheTime; // see directGoTo
+                snap.sleeptime             = playtime + nextevent->deltaTime() * divns - nextCacheTime; // see directGoTo
                 snap.status                = status;
                 caches.data[nextCacheTime] = std::move(snap);
                 nextCacheTime += cacheinterval;
@@ -213,7 +213,7 @@ namespace libmfmidi {
                 }
                 mplaytime += slept;                                  // not move it to playthread because of lastSleptTime = 0 in revertSnapshot
                 if (msleeptime == 0ns) {                             // check if first tick
-                    msleeptime = (*mnextevent).deltaTime() * mdivns; // usually first tick
+                    msleeptime = mnextevent->deltaTime() * mdivns; // usually first tick
                 }
                 assert(slept <= msleeptime);
                 msleeptime -= slept;
@@ -221,10 +221,10 @@ namespace libmfmidi {
                     return msleeptime;
                 }
 
-                MIDITimedMessage message;
-                message.resize(std::max((*mnextevent).size(), (size_t)4)); // better performance
+                static MIDIMessage message{0, 0, 0, 0};
+                message.resize(mnextevent->size());
                 // std::ranges::copy(*mnextevent, message.begin());
-                std::copy((*mnextevent).begin(), (*mnextevent).end(), message.begin());
+                std::copy(mnextevent->begin(), mnextevent->end(), message.begin());
 
                 if (mstproc) {
                     mstproc->process(message);
@@ -237,7 +237,7 @@ namespace libmfmidi {
                     mactive = false;
                     return {};
                 }
-                msleeptime = (*mnextevent).deltaTime() * mdivns;
+                msleeptime = mnextevent->deltaTime() * mdivns;
                 return msleeptime;
             }
 
@@ -312,9 +312,9 @@ namespace libmfmidi {
             {
                 assert(mplaytime <= targetTime);
                 auto currentevent = mnextevent;
-                while (mplaytime + (*mnextevent).deltaTime() * mdivns < targetTime) { // use <, see cur.msleeptime under
+                while (mplaytime + mnextevent->deltaTime() * mdivns < targetTime) { // use <, see cur.msleeptime under
                     currentevent = mnextevent;
-                    mplaytime += (*currentevent).deltaTime() * mdivns;
+                    mplaytime += currentevent->deltaTime() * mdivns;
                     if (mstproc) {
                         mstproc->process(*currentevent);
                     }
@@ -323,7 +323,7 @@ namespace libmfmidi {
                         return false;
                     }
                 }
-                msleeptime = mplaytime + (*mnextevent).deltaTime() * mdivns - targetTime; // if there is a event on targetTime, msleeptime will be 0 and mnextevent will play immediately when tick
+                msleeptime = mplaytime + mnextevent->deltaTime() * mdivns - targetTime; // if there is a event on targetTime, msleeptime will be 0 and mnextevent will play immediately when tick
                 mplaytime  = targetTime;                                                  // this must be after cur.msleeptime, see above
                 return true;
             }
@@ -353,7 +353,7 @@ namespace libmfmidi {
             }
 
         private:
-            inline bool process(MIDITimedMessage& msg) const noexcept
+            inline bool process(MIDIMessage& msg) const noexcept
             {
                 return !mprocessor || mprocessor(msg);
             }
