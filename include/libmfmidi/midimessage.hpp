@@ -77,7 +77,7 @@ namespace libmfmidi {
         using size_type              = typename Storage::size_type;
 
         /// \brief Clear this message
-        virtual constexpr void clear()
+        constexpr void clear()
         {
             if constexpr (requires { _data.clear(); }) {
                 _data.clear();
@@ -1154,7 +1154,7 @@ namespace libmfmidi {
                 dtime        = 0;
             }
 
-            virtual constexpr void clear()
+            constexpr void clear()
             {
                 Base::clear();
                 dtime = 0;

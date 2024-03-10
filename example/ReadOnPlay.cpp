@@ -176,7 +176,6 @@ int main(int argc, char** argv)
     cout << "Use cache? 1/0: ";
     cin >> useCache;
 
-    advtrkplayer::MIDIAdvTrkCache<std::chrono::nanoseconds, MIDIReadOnPlayTrack> cache;
     MIDIStatus                                                                   status;
     MIDIAdvancedTrackPlayer<MIDIReadOnPlayTrack>                                 player; // init player after everything
 

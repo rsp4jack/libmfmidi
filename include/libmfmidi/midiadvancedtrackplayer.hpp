@@ -49,12 +49,8 @@ namespace libmfmidi {
             MIDIStatus                           status{};    // status of played events
         };
 
-
         template <class Time, class Track>
-        struct MIDIAdvTrkCache {
-            using Snapshot = BasicSnapshot<Time, Track>;
-            std::map<Time, Snapshot> data;
-        };
+        using MIDIAdvTrkCache = std::map<Time, BasicSnapshot<Time, Track>>;
 
         template <class Time, class Track>
         inline Time buildPlaybackCache(const Track& trk, MIDIAdvTrkCache<Time, Track>& caches, Time cacheinterval, MIDIDivision division)
@@ -65,7 +61,7 @@ namespace libmfmidi {
                 return {};
             }
 
-            caches.data.clear();
+            caches.clear();
             Time                playtime{};
             auto                nextevent = trk.begin();
             MIDIStatus          status;
@@ -87,10 +83,10 @@ namespace libmfmidi {
                         return playtime; // see directGoTo
                     }
                 }
-                snap.nextevent             = nextevent;
-                snap.sleeptime             = playtime + nextevent->deltaTime() * divns - nextCacheTime; // see directGoTo
-                snap.status                = status;
-                caches.data[nextCacheTime] = std::move(snap);
+                snap.nextevent        = nextevent;
+                snap.sleeptime        = playtime + nextevent->deltaTime() * divns - nextCacheTime; // see directGoTo
+                snap.status           = status;
+                caches[nextCacheTime] = std::move(snap);
                 nextCacheTime += cacheinterval;
             }
         }
@@ -113,7 +109,7 @@ namespace libmfmidi {
         private:
             // Information
             std::string mname{};
-            bool        mactive       = true; // tick-able
+            bool        mactive           = true; // tick-able
             bool        mautorevertStatus = true;
 
             // Playing status
@@ -123,16 +119,16 @@ namespace libmfmidi {
 
             // Data
             const Track*                         mtrack{};
-            MIDIDivision                             mdivision{};
+            MIDIDivision                         mdivision{};
             std::ranges::iterator_t<const Track> mnextevent{};
-            AbstractMIDIDevice*                      mdev{};
-            MIDIStatus*                               mstatus;
-            Cache*                                   mcache{};
-            Time                                     mcacheinterval = 1min;
+            AbstractMIDIDevice*                  mdev{};
+            MIDIStatus*                          mstatus;
+            Cache*                               mcache{};
+            Time                                 mcacheinterval = 1min;
 
             // Misc
-            std::unique_ptr<MIDIStatusProcessor>   mstproc;
-            MIDIProcessorFunction mprocessor;
+            std::unique_ptr<MIDIStatusProcessor> mstproc;
+            MIDIProcessorFunction                mprocessor;
 
         public:
             static constexpr bool randomAccessible = std::ranges::random_access_range<Track>;
@@ -146,6 +142,7 @@ namespace libmfmidi {
             ~MIDIAdvTrkPlayerCursor() noexcept = default;
             MF_DISABLE_COPY(MIDIAdvTrkPlayerCursor);
             MF_DISABLE_MOVE(MIDIAdvTrkPlayerCursor); // TODO: implement move
+
             // setMIDIStatus should be called for moving
 
             void setMIDIStatus(MIDIStatus* mst)
@@ -161,34 +158,23 @@ namespace libmfmidi {
 
             void recalcuateDivisionTiming() noexcept
             {
-                // TODO: how will msleeptime change
                 auto newdivns = divisionToDuration(mdivision, mstatus->tempo);
                 if ((msleeptime.count() != 0) || (mdivns.count() != 0)) {
-                    msleeptime    = Time{msleeptime.count() * newdivns.count() / mdivns.count()};
+                    msleeptime = Time{msleeptime.count() * newdivns.count() / mdivns.count()};
                 }
-                
                 mdivns = newdivns;
             }
 
             void syncDeviceStatus(bool force = false) const
             {
-                if (!force && !mautorevertStatus) {
-                    return;
-                }
+                if (!force && !mautorevertStatus) { return; }
                 for (const auto& msg : reportMIDIStatus(*mstatus, false)) {
                     mdev->sendMsg(msg);
                 }
             }
 
-            void setCache(Cache* cache)
-            {
-                mcache = cache;
-            }
-
-            void setProcessor(MIDIProcessorFunction func)
-            {
-                mprocessor = std::move(func);
-            }
+            void setCache(Cache* cache) { mcache = cache; }
+            void setProcessor(MIDIProcessorFunction func) { mprocessor = std::move(func); }
 
             void buildPlaybackCache()
             {
@@ -211,8 +197,8 @@ namespace libmfmidi {
                     mactive = false;
                     return {};
                 }
-                mplaytime += slept;                                  // not move it to playthread because of lastSleptTime = 0 in revertSnapshot
-                if (msleeptime == 0ns) {                             // check if first tick
+                mplaytime += slept;                                // not move it to playthread because of lastSleptTime = 0 in revertSnapshot
+                if (msleeptime == 0ns) {                           // check if first tick
                     msleeptime = mnextevent->deltaTime() * mdivns; // usually first tick
                 }
                 assert(slept <= msleeptime);
@@ -240,7 +226,7 @@ namespace libmfmidi {
                     return {};
                 }
                 auto sendtimedur = hiresticktime() - sbegintime;
-                msleeptime = mnextevent->deltaTime() * mdivns - sendtimedur;
+                msleeptime       = mnextevent->deltaTime() * mdivns - sendtimedur;
                 return msleeptime;
             }
 
@@ -250,16 +236,13 @@ namespace libmfmidi {
                 recalcuateDivisionTiming();
             }
 
-            void setCacheInterval(Time interval) noexcept
-            {
-                mcacheinterval = interval;
-            }
+            void setCacheInterval(Time interval) noexcept { mcacheinterval = interval; }
 
             void setTrack(const Track* track, bool updatecache = true)
             {
                 mtrack = track;
                 if (mcache != nullptr && updatecache) {
-                    mcache->data.clear();
+                    mcache->clear();
                     buildPlaybackCache();
                 }
                 Time ptime = mplaytime;
@@ -267,25 +250,10 @@ namespace libmfmidi {
                 goTo(ptime);
             }
 
-            [[nodiscard]] const MIDIStatus& status() const&
-            {
-                return *mstatus;
-            }
-
-            [[nodiscard]] bool isActive() const
-            {
-                return mactive;
-            }
-
-            [[nodiscard]] bool eof() const
-            {
-                return mnextevent == mtrack->end();
-            }
-
-            void setActive(bool active)
-            {
-                mactive = active;
-            }
+            [[nodiscard]] const MIDIStatus& status() const& { return *mstatus; }
+            [[nodiscard]] bool              isActive() const { return mactive; }
+            [[nodiscard]] bool              eof() const { return mnextevent == mtrack->end(); }
+            void                            setActive(bool active) { mactive = active; }
 
             bool goTo(Time targetTime)
             {
@@ -297,7 +265,7 @@ namespace libmfmidi {
                     revertSnapshot(defaultSnapshot(), {}); // reset
                 }
                 if (mcache != nullptr) {
-                    for (auto& [playtime, snap] : mcache->data | std::views::reverse) {
+                    for (auto& [playtime, snap] : *mcache | std::views::reverse) {
                         if (playtime <= targetTime) {
                             revertSnapshot(snap, playtime);
                         }
@@ -327,7 +295,7 @@ namespace libmfmidi {
                     }
                 }
                 msleeptime = mplaytime + mnextevent->deltaTime() * mdivns - targetTime; // if there is a event on targetTime, msleeptime will be 0 and mnextevent will play immediately when tick
-                mplaytime  = targetTime;                                                  // this must be after cur.msleeptime, see above
+                mplaytime  = targetTime;                                                // this must be after cur.msleeptime, see above
                 return true;
             }
 
@@ -346,7 +314,7 @@ namespace libmfmidi {
             {
                 msleeptime = snapshot.sleeptime;
                 mplaytime  = playtime;
-                *mstatus    = snapshot.status;
+                *mstatus   = snapshot.status;
                 mnextevent = snapshot.nextevent;
             }
 
@@ -489,7 +457,7 @@ namespace libmfmidi {
             [[nodiscard]] bool eof()
             {
                 for (const auto& cinfo : mcursors) {
-                    if (!cinfo.cursor->isActive()){
+                    if (!cinfo.cursor->isActive()) {
                         continue;
                     }
                     if (cinfo.cursor->eof()) {
@@ -608,8 +576,8 @@ namespace libmfmidi {
                         nanosleep(mlastSleptTime); // because mlastSleptTime may be changed (such as when revert snapshot)
                         std::chrono::nanoseconds minTime = std::chrono::nanoseconds::max();
                         for (auto& cursorinfo : mcursors | std::views::filter([](const auto& element) {
-                                                                return element.cursor->isActive();
-                                                            })) {
+                                                    return element.cursor->isActive();
+                                                })) {
                             minTime = min(minTime, cursorinfo.cursor->tick(mlastSleptTime));
                         }
                         if (minTime == Time::max()) {
@@ -628,7 +596,7 @@ namespace libmfmidi {
             void updateCursors()
             {
                 auto base = baseTime();
-                for (auto&  cursorinfo : mcursors) {
+                for (auto& cursorinfo : mcursors) {
                     cursorinfo.cursor->goTo(base + cursorinfo.offest);
                 }
             }
@@ -639,7 +607,7 @@ namespace libmfmidi {
             Time mlastSleptTime{}; // if you changed playback data, set this to 0 and it will be recalcuated
 
             // Caching
-            bool mcachemanaged = false;
+            bool   mcachemanaged = false;
             Cache* mmanagedcache{};
 
             // Thread
