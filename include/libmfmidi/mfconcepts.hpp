@@ -25,6 +25,7 @@
 #include <functional>
 #include <vector>
 #include <tl/expected.hpp>
+#include <libmfmidi/mfutils.hpp>
 
 namespace libmfmidi {
     template <std::ranges::range T>

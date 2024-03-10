@@ -23,10 +23,21 @@
 #endif
 
 namespace libmfmidi {
-#if defined(__linux__)
-    int nanosleep(unsigned long long nsec)
+#if defined(_POSIX_VERSION)
+    int nanosleep(std::chrono::nanoseconds nsec)
     {
-        return ::nanosleep(nsec);
+        static timespec ts{};
+        /* ts.tv_sec = nsec.count() / 1'000'000'000;
+        ts.tv_nsec = nsec.count() % 1'000'000'000; */
+        ts.tv_nsec = nsec.count();
+        return ::nanosleep(&ts, nullptr);
+    }
+
+    std::chrono::nanoseconds hiresticktime()
+    {
+        static timespec ts;
+        clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts);
+        return std::chrono::nanoseconds{ts.tv_sec * 1'000'000'000 + ts.tv_nsec};
     }
 #elif defined(_WIN32)
     int nanosleep(std::chrono::nanoseconds nsec)

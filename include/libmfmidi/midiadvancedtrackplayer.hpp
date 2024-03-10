@@ -221,6 +221,8 @@ namespace libmfmidi {
                     return msleeptime;
                 }
 
+                auto sbegintime = hiresticktime();
+
                 static MIDIMessage message{0, 0, 0, 0};
                 message.resize(mnextevent->size());
                 // std::ranges::copy(*mnextevent, message.begin());
@@ -237,7 +239,8 @@ namespace libmfmidi {
                     mactive = false;
                     return {};
                 }
-                msleeptime = mnextevent->deltaTime() * mdivns;
+                auto sendtimedur = hiresticktime() - sbegintime;
+                msleeptime = mnextevent->deltaTime() * mdivns - sendtimedur;
                 return msleeptime;
             }
 

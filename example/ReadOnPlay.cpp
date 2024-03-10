@@ -11,17 +11,25 @@
 #include <sched.h>
 #else
 #include <processthreadsapi.h>
-#include <debugapi.h>
 #endif
 #include <exception>
 #include <filesystem>
 #include <fmt/chrono.h>
 #include <ranges>
 #include <source_location>
-#include <timeapi.h>
 #include <version>
 
+#if defined(_WIN32)
+#include <debugapi.h>
 #include <fileapi.h>
+#include <timeapi.h>
+#include <Windows.h>
+#elif defined(_POSIX_VERSION)
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <unistd.h>
+#endif
 
 using namespace libmfmidi;
 using std::cerr;
@@ -30,6 +38,7 @@ using std::cout;
 using std::endl;
 using namespace std::literals;
 
+#if defined(_WIN32)
 void reportError(const std::source_location location = std::source_location::current())
 {
     LPVOID lpMsgBuf = nullptr;
@@ -48,10 +57,15 @@ void reportError(const std::source_location location = std::source_location::cur
     LocalFree(lpMsgBuf);
     exit(-1);
 }
+#endif
 
 int main(int argc, char** argv)
 {
+#ifdef _WIN32
     SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS);
+#elif defined(_POSIX_VERSION)
+    nice(-11);
+#endif
 
     cout << "ROP: Example of libmfmidi" << endl;
     if (argc == 1) {
@@ -61,36 +75,72 @@ int main(int argc, char** argv)
 
     fmt::println("Opening file {}", argv[1]);
 
-    HANDLE file = CreateFile(argv[1], GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (file == nullptr) {
-        reportError();
+    const uint8_t* mmap_data;
+    size_t         mmap_len;
+
+#if defined(_WIN32)
+    {
+        HANDLE file = CreateFile(argv[1], GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+        if (file == nullptr) {
+            reportError();
+        }
+
+        size_t filesize;
+        if (GetFileSizeEx(file, reinterpret_cast<LARGE_INTEGER*>(&filesize)) == 0) {
+            reportError();
+        }
+
+        HANDLE mmap = CreateFileMapping(file, nullptr, PAGE_READONLY, 0, 0, nullptr);
+        if (mmap == nullptr) {
+            reportError();
+        }
+
+        void* mmapp = MapViewOfFile(mmap, FILE_MAP_READ, 0, 0, 0);
+        if (mmap_data == nullptr) {
+            reportError();
+        }
+
+        MEMORY_BASIC_INFORMATION mmap_info{};
+        if (VirtualQuery(mmapp, &mmap_info, sizeof(MEMORY_BASIC_INFORMATION)) == 0) {
+            reportError();
+        }
+
+        mmap_data = reinterpret_cast<const uint8_t*>{mmapp};
+        mmap_len  = filesize;
+    }
+#elif defined(_POSIX_VERSION)
+    {
+        namespace fs = std::filesystem;
+        auto fd      = open(argv[1], O_RDONLY);
+        if (fd < 0) {
+            throw fs::filesystem_error("open()", std::error_code{errno, std::system_category()});
+        }
+
+        struct stat statbuf {};
+
+        if (fstat(fd, &statbuf) != 0) {
+            close(fd);
+            throw fs::filesystem_error("fstat()", std::error_code{errno, std::system_category()});
+        }
+        if (statbuf.st_size == 0) {
+            fmt::println("Empty file!");
+            close(fd);
+            return 0;
+        }
+        auto ptr = static_cast<const uint8_t*>(mmap(nullptr, statbuf.st_size, PROT_READ, MAP_PRIVATE, fd, 0));
+        if (ptr == MAP_FAILED) {
+            throw fs::filesystem_error("mmap()", std::error_code{errno, std::system_category()});
+        }
+
+        mmap_data = ptr;
+        mmap_len  = statbuf.st_size;
     }
 
-    size_t filesize;
-    if (GetFileSizeEx(file, reinterpret_cast<LARGE_INTEGER*>(&filesize)) == 0) {
-        reportError();
-    }
+#endif
 
-    HANDLE mmap = CreateFileMapping(file, nullptr, PAGE_READONLY, 0, 0, nullptr);
-    if (mmap == nullptr) {
-        reportError();
-    }
+    fmt::println("Opened, file {} bytes", mmap_len);
 
-    void* mmap_data = MapViewOfFile(mmap, FILE_MAP_READ, 0, 0, 0);
-    if (mmap_data == nullptr) {
-        reportError();
-    }
-
-    MEMORY_BASIC_INFORMATION mmap_info{};
-    if (VirtualQuery(mmap_data, &mmap_info, sizeof(MEMORY_BASIC_INFORMATION)) == 0) {
-        reportError();
-    }
-
-    size_t mmap_len = filesize;
-
-    fmt::println("Opened, mapped {} bytes, file {} bytes", mmap_info.RegionSize, filesize);
-
-    MIDIReadOnPlayTrack::base_type mmap_span{reinterpret_cast<const uint8_t*>(mmap_data), mmap_len};
+    MIDIReadOnPlayTrack::base_type mmap_span{mmap_data, mmap_len};
     auto                           rop = parseSMFReadOnPlay(mmap_span);
 
     fmt::println("Parsed as SMF Type {} with {} tracks in division {}", rop.info.type, rop.info.ntrk, static_cast<int16_t>(static_cast<uint16_t>(rop.info.division)));
@@ -105,12 +155,15 @@ int main(int argc, char** argv)
     std::cin >> inp;
 
     AbstractMIDIDevice*                        dev;
-    std::unique_ptr<platform::KDMAPIDevice>    kdev;
     std::unique_ptr<platform::RtMidiOutDevice> sdev;
+#if defined(_WIN32)
+    std::unique_ptr<platform::KDMAPIDevice> kdev;
     if (inp == prov.outputCount() + 1) {
         kdev = std::make_unique<platform::KDMAPIDevice>(true);
         dev  = kdev.get();
-    } else {
+    } else
+#endif
+    {
         sdev = platform::RtMidiMIDIDeviceProvider::buildupOutputDevice(inp);
         dev  = sdev.get();
     }
@@ -124,17 +177,17 @@ int main(int argc, char** argv)
     cin >> useCache;
 
     advtrkplayer::MIDIAdvTrkCache<std::chrono::nanoseconds, MIDIReadOnPlayTrack> cache;
-    MIDIStatus status;
+    MIDIStatus                                                                   status;
     MIDIAdvancedTrackPlayer<MIDIReadOnPlayTrack>                                 player; // init player after everything
 
     auto msgproc = [](MIDIMessage& msg) {
-        if(msg.isNoteOn() && (msg.velocity() < 3)){
+        if (msg.isNoteOn() && (msg.velocity() < 3)) {
             return false;
         }
         return MIDIMessageF2D::process(msg);
     };
 
-    for(const auto& [idx, trk] : std::views::zip(std::views::iota(0U), rop.tracks)) {
+    for (const auto& [idx, trk] : std::views::zip(std::views::iota(0U), rop.tracks)) {
         auto* cursor = player.addCursor(fmt::format("Playback_{}", idx));
         cursor->setMIDIStatus(&status);
         cursor->setDevice(dev);
@@ -208,9 +261,5 @@ int main(int argc, char** argv)
             cout << "Unknown Command: " << cmd << endl;
         }
     }
-
-    UnmapViewOfFile(mmap_data);
-    CloseHandle(mmap);
-    CloseHandle(file);
     return 0;
 }

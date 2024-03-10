@@ -5,7 +5,6 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(CTest)
-enable_testing()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -fdiagnostics-color=always")
@@ -29,13 +28,21 @@ endif()
 
 
 # --- KDMAPI (OmniMIDI)
-add_library(KDMAPI STATIC include/omnimidi/omnimidiapi.cpp)
-target_link_libraries(KDMAPI PUBLIC winmm)
-target_precompile_headers(KDMAPI PUBLIC <Windows.h>)
+if(WIN32)
+    add_library(KDMAPI STATIC include/omnimidi/omnimidiapi.cpp)
+    target_link_libraries(KDMAPI PUBLIC winmm)
+endif()
+
+include(FetchContent)
+FetchContent_Declare(
+    RtMidi
+    GIT_REPOSITORY https://github.com/thestk/rtmidi.git
+    GIT_TAG 6.0.0
+)
+FetchContent_MakeAvailable(RtMidi)
 
 find_package(fmt REQUIRED)
 find_package(tl-expected REQUIRED)
-find_package(rtmidi REQUIRED)
 
 # --- libmfmidi
 
@@ -75,10 +82,13 @@ add_library(libmfmidi STATIC
 
 if(WIN32)
     target_precompile_headers(libmfmidi PUBLIC <Windows.h>)
+    target_precompile_headers(KDMAPI PUBLIC <Windows.h>)
+
+    target_link_libraries(libmfmidi PRIVATE KDMAPI)
 endif()
 target_include_directories(libmfmidi PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-target_link_libraries(libmfmidi PRIVATE RtMidi::rtmidi KDMAPI PUBLIC fmt::fmt tl::expected)
+target_link_libraries(libmfmidi PRIVATE rtmidi PUBLIC fmt::fmt tl::expected)
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
@@ -87,3 +97,5 @@ include(CPack)
 add_subdirectory(example)
 
 # execute_process(COMMAND "python.exe" "-m" "compdb" "-p" "build" "list" WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}  ECHO_ERROR_VARIABLE ECHO_OUTPUT_VARIABLE)
+
+add_subdirectory(test)
