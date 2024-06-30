@@ -28,7 +28,7 @@ namespace libmfmidi {
         static bool process(MIDIMessage& msg)
         {
             // TODO: fine this
-            return !msg.isMetaEvent();
+            return !msg.is_meta_event_like();
         }
     };
 

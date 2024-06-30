@@ -1,19 +1,19 @@
 /*
-* This file is a part of libmfmidi.
-* 
-* This program is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-* 
-* This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-* See the GNU General Public License for more details.
-* 
-* You should have received a copy of the GNU General Public License
-* along with this program. If not, see <https://www.gnu.org/licenses/>.
-*/
+ * This file is a part of libmfmidi.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
 
 // NOLINTBEGIN(readability-identifier-length, bugprone-easily-swappable-parameters)
 
@@ -26,252 +26,98 @@
 
 #include "libmfmidi/mfutils.hpp"
 #include "libmfmidi/midiutils.hpp"
+#include <algorithm>
 #include <cmath>
+#include <concepts>
 #include <cstdint>
+#include <iomanip>
 #include <ranges>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
-#include <iomanip>
-#include <sstream>
 
 namespace libmfmidi {
-    /// \brief Container for MIDI Message
-    ///
-    /// A container to store MIDI Messages. Contains a Container.
-    ///
-    /// All setters and getters will auto match message types.
-    /// For example, setVelcoity will set byte2 in note event and poly pressure(aftertouch).
-    /// and set byte1 in channel pressure.
-    /// All getters and is-ers may assert message types.
-
-    template <std::ranges::range Storage>
-    class MIDIBasicMessage {
-    private:
+    // not even a view
+    template <std::ranges::range R>
+        requires std::movable<R>
+    class midi_message_owning_view : public std::ranges::view_interface<midi_message_owning_view<R>> {
+    protected:
         using enum MIDIMsgStatus;
+        R _data;
 
     public:
-        /// \brief The default constructor
-        constexpr explicit MIDIBasicMessage() noexcept = default;
+        constexpr explicit midi_message_owning_view() = default;
+        constexpr          midi_message_owning_view(const midi_message_owning_view&)
+            requires std::copyable<R>
+        = default;
+        constexpr midi_message_owning_view(midi_message_owning_view&&) = default;
 
-        constexpr MIDIBasicMessage(std::initializer_list<uint8_t> elems) noexcept
-            : _data(elems)
-        {
-        }
-
-        constexpr explicit MIDIBasicMessage(Storage elems) noexcept
+        constexpr explicit midi_message_owning_view(R&& elems)
             : _data(std::move(elems))
+        {}
+
+        template <class... T>
+        constexpr explicit midi_message_owning_view(std::piecewise_construct_t, T&&... args)
+            : _data(std::forward<T>(args)...)
+        {}
+
+        constexpr ~midi_message_owning_view() = default;
+
+        constexpr midi_message_owning_view& operator=(const midi_message_owning_view&)
+            requires std::copyable<R>
+        = default;
+        constexpr midi_message_owning_view& operator=(midi_message_owning_view&&) = default;
+
+        [[nodiscard]] constexpr auto&& base(this auto&& self) noexcept
         {
+            return std::forward<decltype(self)>(_data);
         }
 
-        constexpr ~MIDIBasicMessage() noexcept = default;
-
-        MF_DEFAULT_MOVE(MIDIBasicMessage);
-        MF_DEFAULT_COPY(MIDIBasicMessage);
-
-        using value_type             = typename Storage::value_type;
-        using iterator               = typename std::ranges::iterator_t<Storage>;
-        using const_iterator         = typename std::ranges::iterator_t<const Storage>;
-        using reverse_iterator       = typename std::reverse_iterator<iterator>;
-        using const_reverse_iterator = typename std::reverse_iterator<const_iterator>;
-        using size_type              = typename Storage::size_type;
-
-        /// \brief Clear this message
-        constexpr void clear()
+        [[nodiscard]] constexpr auto begin(this auto&& self)
+            requires std::ranges::range<std::remove_reference_t<decltype(self)>>
         {
-            if constexpr (requires { _data.clear(); }) {
-                _data.clear();
-            } else {
-                throw std::logic_error("The base container does not have clear()");
-            }
-
-            marker = MFMessageMark::None;
+            return std::ranges::begin(_data);
         }
 
-        /// \name Getters
-        /// \{
-
-        [[nodiscard]] constexpr bool empty() const noexcept
+        [[nodiscard]] constexpr auto end(this auto&& self)
+            requires std::ranges::range<std::remove_reference_t<decltype(self)>>
         {
-            return M() && _data.empty();
+            return std::ranges::end(_data);
         }
 
-        [[nodiscard]] constexpr size_t size() const noexcept
+        [[nodiscard]] constexpr bool empty(this auto&& self)
+            requires requires { std::ranges::empty(_data); }
         {
-            return _data.size();
+            return std::ranges::empty(_data);
         }
 
-        constexpr void push_back(uint8_t a) noexcept
+        [[nodiscard]] constexpr auto size(this auto&& self)
+            requires std::ranges::sized_range<std::remove_reference_t<decltype(self)>>
         {
-            _data.push_back(a);
+            return std::ranges::size(_data);
         }
 
-        constexpr void erase(const_iterator it) noexcept
+        [[nodiscard]] constexpr auto data(this auto&& self)
+            requires std::ranges::contiguous_range<std::remove_reference_t<decltype(self)>>
         {
-            _data.erase(std::move(it));
+            return std::ranges::data(_data);
         }
 
-        constexpr void erase(const_iterator beg, const_iterator edn) noexcept
+        [[nodiscard]] constexpr int deduced_expected_length() const
         {
-            _data.erase(std::move(beg), std::move(edn));
-        }
-
-        constexpr iterator begin() noexcept
-        {
-            return _data.begin();
-        }
-
-        constexpr iterator end() noexcept
-        {
-            return _data.end();
-        }
-
-        [[nodiscard]] constexpr const_iterator begin() const noexcept
-        {
-            return _data.begin();
-        }
-
-        [[nodiscard]] constexpr const_iterator end() const noexcept
-        {
-            return _data.end();
-        }
-
-
-        [[nodiscard]] constexpr const_iterator cbegin() const noexcept
-        {
-            return _data.cbegin();
-        }
-
-        [[nodiscard]] constexpr const_iterator cend() const noexcept
-        {
-            return _data.cend();
-        }
-
-        constexpr value_type& at(size_type idx) noexcept
-        {
-            return _data.at(idx);
-        }
-
-        constexpr value_type& operator[](size_type idx) noexcept
-        {
-            return _data[idx];
-        }
-
-        constexpr const value_type& operator[](size_type idx) const noexcept
-        {
-            return _data[idx];
-        }
-
-        [[nodiscard]] constexpr const value_type& at(size_type idx) const noexcept
-        {
-            return _data.at(idx);
-        }
-
-        /// \brief Convert message to human readable message
-        [[nodiscard]] std::string msgText() const
-        {
-            using std::dec;
-            using std::endl;
-            using std::hex;
-
-            if (empty()) {
-                return "Empty message";
-            }
-
-            std::stringstream str;
-            if (isMFMarker()) {
-                str << "MFMarker: " << static_cast<int>(marker) << endl;
-            }
-            if (isSysEx()) {
-                str << "SysEx" << endl;
-            }
-
-            if (isChannelMsg()) {
-                str << "Channel: " << static_cast<int>(channel()) << endl;
-            }
-            if (isTextEvent()) {
-                str << "Text: " << textEventText() << endl;
-            }
-
-            str << "Full message:";
-            for (const auto& a : _data) {
-                str << ' ';
-                str << hex << std::setfill('0') << std::setw(2) << static_cast<int>(a);
-            }
-            str << dec << endl;
-
-            switch (type()) {
-            case NOTE_ON: // We cant print a uint8_t like int, A cast needed.
-                str << "Note On " << static_cast<int>(note()) << ' ' << static_cast<int>(velocity());
-                break;
-            case NOTE_OFF:
-                str << "Note Off " << static_cast<int>(note()) << ' ' << static_cast<int>(velocity());
-                break;
-            case POLY_PRESSURE:
-                str << "Poly Pressure " << static_cast<int>(note()) << ' ' << static_cast<int>(pressure());
-                break;
-            case CONTROL_CHANGE:
-                str << "Control Change " << static_cast<int>(controller()) << ' ' << static_cast<int>(controllerValue());
-                break;
-            case PROGRAM_CHANGE:
-                str << "Program Change " << static_cast<int>(programChangeValue());
-                break;
-            case CHANNEL_PRESSURE:
-                str << "Channel Pressure " << static_cast<int>(pressure());
-                break;
-            case PITCH_BEND:
-                str << "Pitch Bend " << pitchBendValue();
-                break;
-            }
-
-            return str.str();
-        }
-
-        [[nodiscard]] std::string msgHex() const
-        {
-            return memoryDump(reinterpret_cast<const uint8_t*>(base().data()), size());
-        }
-
-        [[nodiscard]] constexpr size_t length() const
-        {
-            return size();
-        }
-
-        [[nodiscard]] constexpr const Storage& base() const
-        {
-            return _data;
-        }
-
-        [[nodiscard]] constexpr Storage& base()
-        {
-            return _data;
-        }
-
-        void resize(size_t size)
-        {
-            _data.resize(size);
-        }
-
-        void reserve(size_t size)
-        {
-            _data.reserve(size);
-        }
-
-        /// \warning May return negative
-        /// \warning If {0xFF} is provided, \a MIDIMessage treats it as Reset. so it returns 1.
-        [[nodiscard]] constexpr int expectedLength() const
-        {
-            if (isMetaEvent()) {
-                return -1;
+            if (is_meta_event_like()) {
+                return expected_meta_event_length(_data[1]);
             }
             if (isSystemMessage()) {
-                return getExpectedSMessageLength(_data[0]);
+                return expected_system_message_length(_data[0]);
             }
-            return getExpectedMessageLength(_data[0]);
+            return expected_channel_message_length(_data[0]);
         }
 
         [[nodiscard]] constexpr uint8_t status() const
         {
+            C(!empty());
             return _data[0];
         }
 
@@ -281,7 +127,6 @@ namespace libmfmidi {
             return (_data[0] & 0x0FU) + 1;
         }
 
-        /// \warning If not channel msg, return status(not &0xF0)
         [[nodiscard]] constexpr uint8_t type() const
         {
             if (isChannelMsg()) {
@@ -320,72 +165,78 @@ namespace libmfmidi {
             return _data[1];
         }
 
-        [[nodiscard]] constexpr uint8_t controllerValue() const
+        [[nodiscard]] constexpr uint8_t controller_value() const
         {
             C(isControlChange());
             return _data[2];
         }
 
-        [[nodiscard]] constexpr uint8_t metaType() const
+        [[nodiscard]] constexpr uint8_t meta_type() const
         {
-            C(isMetaEvent());
+            C(is_meta_event_like());
             return _data[1];
         }
 
-        [[nodiscard]] constexpr uint8_t channelPressure() const
+        [[nodiscard]] constexpr uint8_t channel_pressure() const
         {
             C(isChannelPressure());
             return _data[1];
         }
 
-        [[nodiscard]] constexpr uint8_t programChangeValue() const
+        [[nodiscard]] constexpr uint8_t program() const
         {
             C(isProgramChange());
             return _data[1];
         }
 
         /// \brief Get signed pitch bend value
-        [[nodiscard]] constexpr int16_t pitchBendValue() const
+        [[nodiscard]] constexpr int16_t pitch_bend() const
         {
             C(isPitchBend());
-            return (static_cast<int16_t>(_data[2] << 7U) | _data[1]) - 0x2000;
+            return static_cast<int16_t>(_data[2] << 7U | _data[1]) - 0x2000;
         }
 
-        [[nodiscard]] constexpr uint8_t timeSigNumerator() const
+        [[nodiscard]] constexpr uint8_t time_signature_numerator() const
         {
             C(isTimeSignature());
             return _data[3];
         }
 
         /// \brief Get \b Powered Denominator
-        [[nodiscard]] uint8_t timeSigDenominator() const
+        [[nodiscard]] unsigned time_signature_denominator() const
         {
             C(isTimeSignature());
-            return static_cast<uint8_t>(std::pow(2, _data[4]));
+            return 1U << _data[4];
         }
 
-        [[nodiscard]] constexpr uint8_t timeSigDenominatorRaw() const
+        [[nodiscard]] constexpr uint8_t time_signature_denominator_raw() const
         {
             C(isTimeSignature());
             return _data[4];
         }
 
-        [[nodiscard]] constexpr int8_t keySigSharpFlats() const
+        [[nodiscard]] constexpr int8_t key_signature_pitch() const
         {
             C(isKeySignature());
             return static_cast<int8_t>(_data[3]); // In C++20
         }
 
-        [[nodiscard]] constexpr bool keySigMajorMinor() const
+        [[nodiscard]] constexpr bool key_signature_is_minor() const
         {
             C(isKeySignature());
             return _data[4] != 0U;
         }
 
-        [[nodiscard]] constexpr double balancePan() const
+        [[nodiscard]] constexpr bool key_signature_is_major() const
+        {
+            C(isKeySignature());
+            return _data[4] == 0U;
+        }
+
+        [[nodiscard]] constexpr double position() const
         {
             C(isCCBalance() || isCCPan());
-            int val = controllerValue();
+            int val = controller_value();
             if (val == 127) {
                 val = 128;
             }
@@ -398,122 +249,11 @@ namespace libmfmidi {
             return MIDITempo::fromMSPQ(rawCat(_data[3], _data[4], _data[5]));
         }
 
-        [[nodiscard]] constexpr std::string textEventText() const
+        [[nodiscard]] constexpr std::string_view text() const
         {
             C(isTextEvent());
-            if (_data.size() > 2) {
-                auto result = readVarNumIt(_data.cbegin() + 2, _data.cend());
-                if (result.first == -1 && result.second == -1) {
-                    return {};
-                }
-                return {_data.cbegin() + 2 + result.second, _data.cend()};
-            }
-            return "";
-        }
-
-        [[nodiscard]] constexpr uint8_t atIf(std::size_t pos, uint8_t normal = 0) const
-        {
-            if (pos >= size()) {
-                return normal;
-            }
-            return at(pos);
-        }
-
-        // For later use
-        /* #define rens(n)                           \
-            [[nodiscard]] uint8_t byte##n() const \
-            {                                     \
-                return atIf(n);                   \
-            } */
-
-        [[nodiscard]] constexpr uint8_t byte0() const
-        {
-            return atIf(0);
-        }
-
-        [[nodiscard]] constexpr uint8_t byte1() const
-        {
-            return atIf(1);
-        }
-
-        [[nodiscard]] constexpr uint8_t byte2() const
-        {
-            return atIf(2);
-        }
-
-        [[nodiscard]] constexpr uint8_t byte3() const
-        {
-            return atIf(3);
-        }
-
-        [[nodiscard]] constexpr uint8_t byte4() const
-        {
-            return atIf(4);
-        }
-
-        [[nodiscard]] constexpr uint8_t byte5() const
-        {
-            return atIf(5);
-        }
-
-        [[nodiscard]] constexpr uint8_t byte6() const
-        {
-            return atIf(6);
-        }
-
-        [[nodiscard]] constexpr uint8_t byte7() const
-        {
-            return atIf(7);
-        }
-
-        [[nodiscard]] constexpr uint8_t byte8() const
-        {
-            return atIf(8);
-        }
-
-        [[nodiscard]] constexpr uint8_t byte9() const
-        {
-            return atIf(9);
-        }
-
-        [[nodiscard]] constexpr uint8_t byte10() const
-        {
-            return atIf(10);
-        }
-
-        [[nodiscard]] constexpr uint8_t byte11() const
-        {
-            return atIf(11);
-        }
-
-        [[nodiscard]] constexpr uint8_t byte12() const
-        {
-            return atIf(12);
-        }
-
-        [[nodiscard]] constexpr uint8_t byte13() const
-        {
-            return atIf(13);
-        }
-
-        [[nodiscard]] constexpr uint8_t byte14() const
-        {
-            return atIf(14);
-        }
-
-        [[nodiscard]] constexpr uint8_t byte15() const
-        {
-            return atIf(15);
-        }
-
-        [[nodiscard]] constexpr uint8_t byte16() const
-        {
-            return atIf(16);
-        }
-
-        [[nodiscard]] constexpr MFMessageMark MFMarker() const
-        {
-            return marker;
+            auto result = read_smf_variable_length_number(_data | std::views::drop(2));
+            return {result.it, std::ranges::cend(_data)};
         }
 
         /// \}
@@ -521,159 +261,27 @@ namespace libmfmidi {
         /// \name Setter
         /// \{
 
-        /// \brief \b Clear and set length
-        constexpr void setLength(size_t len)
+        constexpr void set_channel(uint8_t a)
         {
-            _data.clear();
-            _data.resize(len, 0);
-        }
-
-        constexpr void expandLength(size_t size)
-        {
-            if (_data.size() < size) {
-                _data.resize(size, 0);
-            }
-        }
-
-        constexpr void setStatus(uint8_t a)
-        {
-            expandLength(1);
-            _data[0] = a;
-        }
-
-        constexpr void setChannel(uint8_t a)
-        {
-            expandLength(1);
-            C(a <= 16);
+            C(isChannelMsg());
             _data[0] = (_data[0] & 0xF0) | (a - 1);
         }
 
-        /// \warning \a a must be 0x40, 0xF0, 0x70, etc...
-        /// The least significant 4 bit will be ignored.
-        constexpr void setTyoe(uint8_t a)
+        constexpr void set_type(uint8_t a)
         {
-            expandLength(1);
-            C((a >> 1) <= 0xF);
-            _data[0] = (_data[0] & 0x0F) | a;
+            if (isChannelMsg()) {
+                _data[0] = (_data[0] & 0x0F) | (a & 0xF0);
+            }
+            _data[0] = a;
         }
 
-        /// \brief Equals to \a setStatus() .
-        constexpr void setByte0(uint8_t a)
-        {
-            setStatus(a);
-        }
-
-        // for later use
-        /* #define ens(x)                 \
-            void setByte##x(uint8_t a) \
-            {                          \
-                ensureSize(x + 1);     \
-                data[x] = a;           \
-            } */
-
-        constexpr void setByte1(uint8_t a)
-        {
-            expandLength(2);
-            _data[1] = a;
-        }
-
-        constexpr void setByte2(uint8_t a)
-        {
-            expandLength(2 + 1);
-            _data[2] = a;
-        }
-
-        constexpr void setByte3(uint8_t a)
-        {
-            expandLength(3 + 1);
-            _data[3] = a;
-        }
-
-        constexpr void setByte4(uint8_t a)
-        {
-            expandLength(4 + 1);
-            _data[4] = a;
-        }
-
-        constexpr void setByte5(uint8_t a)
-        {
-            expandLength(5 + 1);
-            _data[5] = a;
-        }
-
-        constexpr void setByte6(uint8_t a)
-        {
-            expandLength(6 + 1);
-            _data[6] = a;
-        }
-
-        constexpr void setByte7(uint8_t a)
-        {
-            expandLength(7 + 1);
-            _data[7] = a;
-        }
-
-        constexpr void setByte8(uint8_t a)
-        {
-            expandLength(8 + 1);
-            _data[8] = a;
-        }
-
-        constexpr void setByte9(uint8_t a)
-        {
-            expandLength(9 + 1);
-            _data[9] = a;
-        }
-
-        constexpr void setByte10(uint8_t a)
-        {
-            expandLength(10 + 1);
-            _data[10] = a;
-        }
-
-        constexpr void setByte11(uint8_t a)
-        {
-            expandLength(11 + 1);
-            _data[11] = a;
-        }
-
-        constexpr void setByte12(uint8_t a)
-        {
-            expandLength(12 + 1);
-            _data[12] = a;
-        }
-
-        constexpr void setByte13(uint8_t a)
-        {
-            expandLength(13 + 1);
-            _data[13] = a;
-        }
-
-        constexpr void setByte14(uint8_t a)
-        {
-            expandLength(14 + 1);
-            _data[14] = a;
-        }
-
-        constexpr void setByte15(uint8_t a)
-        {
-            expandLength(15 + 1);
-            _data[15] = a;
-        }
-
-        constexpr void setByte16(uint8_t a)
-        {
-            expandLength(16 + 1);
-            _data[16] = a;
-        }
-
-        constexpr void setNote(uint8_t a)
+        constexpr void set_note(uint8_t a)
         {
             C(isNote() || isPolyPressure());
             _data[1] = a;
         }
 
-        constexpr void setVelocity(uint8_t a)
+        constexpr void set_velocity(uint8_t a)
         {
             C(isNote() || isPolyPressure() || isChannelPressure());
             if (isNote() || isPolyPressure()) {
@@ -683,27 +291,25 @@ namespace libmfmidi {
             }
         }
 
-        constexpr void setProgramChangeValue(uint8_t a)
+        constexpr void set_program(uint8_t a)
         {
             C(isProgramChange());
             _data[1] = a;
         }
 
-        constexpr void setController(uint8_t a)
+        constexpr void set_controller(uint8_t a)
         {
             C(isControlChange());
-            expandLength(2);
             _data[1] = a;
         }
 
-        constexpr void setControllerValue(uint8_t a)
+        constexpr void set_controller_value(uint8_t a)
         {
             C(isControlChange());
-            expandLength(3);
             _data[2] = a;
         }
 
-        constexpr void setPitchBendValue(int16_t a)
+        constexpr void set_pitch_bend(int16_t a)
         {
             C(isPitchBend());
             const int16_t b = a + 0x2000;
@@ -711,83 +317,96 @@ namespace libmfmidi {
             _data[2]        = (b >> 7) & 0x7F;
         }
 
-        constexpr void setMetaNumber(uint8_t a)
+        constexpr void set_meta_type(uint8_t a)
         {
-            C(isMetaEvent());
+            C(is_meta_event_like());
             _data[1] = a;
         }
 
-        constexpr void setupNoteOn(uint8_t channel, uint8_t note, uint8_t vel)
+        constexpr void guarantee_length(size_t len)
         {
-            _data[0] = NOTE_ON | (channel - 1);
+            if constexpr (requires { _data.resize(len); }) {
+                _data.resize(len);
+            } else {
+                assert(size() == len);
+            }
+        }
+
+        constexpr void setup_note_on(uint8_t channel, uint8_t note, uint8_t vel)
+        {
+            guarantee_length(3);
+            _data[0] = NOTE_ON | channel;
             _data[1] = note;
             _data[2] = vel;
         }
 
-        constexpr void setupNoteOff(uint8_t channel, uint8_t note, uint8_t vel)
+        constexpr void setup_note_off(uint8_t channel, uint8_t note, uint8_t vel)
         {
-            setLength(3);
-            _data[0] = NOTE_OFF | (channel - 1);
+            guarantee_length(3);
+            _data[0] = NOTE_OFF | channel;
             _data[1] = note;
             _data[2] = vel;
         }
 
-        constexpr void setupPolyPressure(uint8_t channel, uint8_t note, uint8_t press)
+        constexpr void setup_poly_pressure(uint8_t channel, uint8_t note, uint8_t press)
         {
-            setLength(3);
-            _data[0] = POLY_PRESSURE | (channel - 1);
+            guarantee_length(3);
+            _data[0] = POLY_PRESSURE | channel;
             _data[1] = note;
             _data[2] = press;
         }
 
-        constexpr void setupControlChange(uint8_t channel, uint8_t ctrl, uint8_t val)
+        constexpr void setup_control_change(uint8_t channel, uint8_t ctrl, uint8_t val)
         {
-            setLength(3);
-            _data[0] = CONTROL_CHANGE | (channel - 1);
+            guarantee_length(3);
+            _data[0] = CONTROL_CHANGE | channel;
             _data[1] = ctrl;
             _data[2] = val;
         }
 
         /// \a pan : -1.0 ~ 1.0
-        void setupPan(uint8_t channel, double pan)
+        void setup_pan(uint8_t channel, double pan)
         {
             auto r = static_cast<uint8_t>(std::floor(64 * (pan + 1)));
-            if (r > 127) {
-                r = 127;
-            }
-            setupControlChange(channel, MIDICCNumber::PAN, r);
+            r      = std::min<int>(r, 127);
+            setup_pan(channel, r);
         }
 
-        constexpr void setupProgramChange(uint8_t chan, uint8_t val)
+        void setup_pan(uint8_t channel, uint8_t position)
         {
-            setLength(2);
-            _data[0] = PROGRAM_CHANGE | (chan - 1);
+            setup_control_change(channel, MIDICCNumber::PAN, position);
+        }
+
+        constexpr void setup_program_change(uint8_t chan, uint8_t val)
+        {
+            guarantee_length(2);
+            _data[0] = PROGRAM_CHANGE | chan;
             _data[1] = val;
         }
 
-        constexpr void setupPitchBend(uint8_t chan, uint8_t lsb, uint8_t msb)
+        constexpr void setup_pitch_bend(uint8_t chan, uint8_t lsb, uint8_t msb)
         {
-            setLength(3);
-            _data[0] = PITCH_BEND | (chan - 1);
+            guarantee_length(3);
+            _data[0] = PITCH_BEND | chan;
             _data[1] = lsb;
             _data[2] = msb;
         }
 
-        constexpr void setupPitchBend(uint8_t chan, int16_t val)
+        constexpr void setup_pitch_bend(uint8_t chan, int16_t val)
         {
-            setLength(3);
-            _data[0] = PITCH_BEND | (chan - 1);
-            setPitchBendValue(val);
+            guarantee_length(3);
+            _data[0] = PITCH_BEND | chan;
+            set_pitch_bend(val);
         }
 
-        constexpr void setupAllNotesOff(uint8_t chan)
+        constexpr void setup_all_notes_off(uint8_t chan)
         {
-            setupControlChange(chan, MIDICCNumber::ALL_NOTE_OFF, 127);
+            setup_control_change(chan, MIDICCNumber::ALL_NOTE_OFF, 127);
         }
 
-        constexpr void setupAllSoundsOff(uint8_t chan)
+        constexpr void setup_all_sounds_off(uint8_t chan)
         {
-            setupControlChange(chan, MIDICCNumber::ALL_SOUND_OFF, 127);
+            setup_control_change(chan, MIDICCNumber::ALL_SOUND_OFF, 127);
         }
 
         /// \code
@@ -795,7 +414,6 @@ namespace libmfmidi {
         /// \endcode
         constexpr void setupMetaEvent(uint8_t type, std::initializer_list<uint8_t> args = {})
         {
-            // sh*tty code
             clear();
             _data = {MIDINumSpace::META_EVENT, type};
             writeVarNumIt(static_cast<MIDIVarNum>(args.size()), std::back_inserter(_data));
@@ -813,7 +431,6 @@ namespace libmfmidi {
             setupMetaEvent(MIDIMetaNumber::TEMPO, {f, s, t});
         }
 
-
         constexpr void setupEndOfTrack()
         {
             setupMetaEvent(MIDIMetaNumber::END_OF_TRACK);
@@ -829,13 +446,6 @@ namespace libmfmidi {
             setupMetaEvent(MIDIMetaNumber::KEYSIG, {static_cast<uint8_t>(sharp_flats), major_minor});
         }
 
-        template <std::convertible_to<uint8_t>... T>
-        constexpr void setupMFMarker(MFMessageMark mark, T... init)
-        {
-            _data  = {init...};
-            marker = mark;
-        }
-
         /// \}
 
         /// \name is-er
@@ -844,20 +454,15 @@ namespace libmfmidi {
         [[nodiscard]] constexpr bool strictVaild() const
         {
             // clang-format off
-            return isMFMarker() || (!_data.empty() && (
-                (isVoiceMessage() && getExpectedMessageLength(status()) == _data.size()) // voice message: expected length
+            return (!_data.empty() && (
+                (isVoiceMessage() && expected_channel_message_length(status()) == _data.size()) // voice message: expected length
                 || (isSystemMessage() && ( // system message
                     (isSysEx() && *(_data.end()-1) == SYSEX_END) // sysex: have sysex_start and sysex_end
-                    || ((status() >= 0xF1 && status() <= 0xF1) && getExpectedSMessageLength(status()) == _data.size()) // some system message: expected length, sometimes LUT return 0, so wont match and get false
+                    || ((status() >= 0xF1 && status() <= 0xF1) && expected_system_message_length(status()) == _data.size()) // some system message: expected length, sometimes LUT return 0, so wont match and get false
                 ))
-                || (isMetaEvent() && _data.size() >= 3 && isMetaVaild()) // meta msg
+                || (is_meta_event_like() && _data.size() >= 3 && isMetaVaild()) // meta msg
             ));
             // clang-format on
-        }
-
-        [[nodiscard]] constexpr bool isMFMarker() const
-        {
-            return marker != MFMessageMark::None;
         }
 
         [[nodiscard]] constexpr bool isVoiceMessage() const
@@ -867,90 +472,90 @@ namespace libmfmidi {
 
         [[nodiscard]] constexpr bool isChannelPrefix() const
         {
-            return isMetaEvent() && L(2) && (_data[1] == MIDIMetaNumber::CHANNEL_PREFIX);
+            return is_meta_event_like() && L(2) && (_data[1] == MIDIMetaNumber::CHANNEL_PREFIX);
         }
 
         /// \warning Meta events are not system messages.
         [[nodiscard]] constexpr bool isSystemMessage() const
         {
-            return !isMetaEvent() && (status() & 0xF0) == 0xF0;
+            return !is_meta_event_like() && (status() & 0xF0) == 0xF0;
         }
 
         [[nodiscard]] constexpr bool isChannelMsg() const
         {
-            return M() && L(1) && (status() >= NOTE_OFF) && (status() < SYSEX_START);
+            return L(1) && (status() >= NOTE_OFF) && (status() < SYSEX_START);
         }
 
         [[nodiscard]] constexpr bool isNoteOn() const
         {
-            return M() && L(1) && (type() == NOTE_ON);
+            return L(1) && (type() == NOTE_ON);
         }
 
         [[nodiscard]] constexpr bool isNoteOff() const
         {
-            return M() && L(1) && (type() == NOTE_OFF);
+            return L(1) && (type() == NOTE_OFF);
         }
 
         [[nodiscard]] constexpr bool isPolyPressure() const
         {
-            return M() && L(1) && (type() == POLY_PRESSURE);
+            return L(1) && (type() == POLY_PRESSURE);
         }
 
         [[nodiscard]] constexpr bool isControlChange() const
         {
-            return M() && L(1) && (type() == CONTROL_CHANGE);
+            return L(1) && (type() == CONTROL_CHANGE);
         }
 
         [[nodiscard]] constexpr bool isProgramChange() const
         {
-            return M() && L(1) && (type() == PROGRAM_CHANGE);
+            return L(1) && (type() == PROGRAM_CHANGE);
         }
 
         [[nodiscard]] constexpr bool isChannelPressure() const
         {
-            return M() && L(1) && (type() == CHANNEL_PRESSURE);
+            return L(1) && (type() == CHANNEL_PRESSURE);
         }
 
         [[nodiscard]] constexpr bool isPitchBend() const
         {
-            return M() && L(1) && (type() == PITCH_BEND);
+            return L(1) && (type() == PITCH_BEND);
         }
 
         [[nodiscard]] constexpr bool isSysEx() const
         {
-            return M() && L(1) && (status() == SYSEX_START);
+            return L(1) && (status() == SYSEX_START);
         }
 
         [[nodiscard]] constexpr bool isMTC() const
         {
-            return M() && L(1) && (status() == MTC);
+            return L(1) && (status() == MTC);
         }
 
         [[nodiscard]] constexpr bool isSongPosition() const
         {
-            return M() && L(1) && (status() == SONG_POSITION);
+            return L(1) && (status() == SONG_POSITION);
         }
 
         [[nodiscard]] constexpr bool isSongSelect() const
         {
-            return M() && L(1) && (status() == SONG_SELECT);
+            return L(1) && (status() == SONG_SELECT);
         }
 
         [[nodiscard]] constexpr bool isTuneRequest() const
         {
-            return M() && L(1) && (status() == TUNE_REQUEST);
+            return L(1) && (status() == TUNE_REQUEST);
         }
 
-        // TODO: Reset or Meta?
-        /// \warning Currently only {0xFF} is reset.
-        [[nodiscard]] constexpr bool isMetaEvent() const
+        // only {0xFF} is reset.
+        // meta: 0xFF, 0xnn (type), <len> (variable length)
+        [[nodiscard]] constexpr bool is_meta_event_like() const
         {
-            return M() && L(2) && (status() == META_EVENT);
+            return L(3) && (status() == META_EVENT);
         }
 
         [[nodiscard]] constexpr bool isReset() const
         {
-            return M() && (size() == 1) && (status() == RESET);
+            return (size() == 1) && (status() == RESET);
         }
 
         /// \brief Universal Real Time System Exclusive message
@@ -987,12 +592,12 @@ namespace libmfmidi {
 
         [[nodiscard]] constexpr bool isCCSustainOn() const
         {
-            return isControlChange() && (controller() == MIDICCNumber::SUSTAIN) && (controllerValue() >= 64);
+            return isControlChange() && (controller() == MIDICCNumber::SUSTAIN) && (controller_value() >= 64);
         }
 
         [[nodiscard]] constexpr bool isCCSustainOff() const
         {
-            return isControlChange() && (controller() == MIDICCNumber::SUSTAIN) && (controllerValue() < 64);
+            return isControlChange() && (controller() == MIDICCNumber::SUSTAIN) && (controller_value() < 64);
         }
 
         [[nodiscard]] constexpr bool isCCBalance() const
@@ -1007,7 +612,7 @@ namespace libmfmidi {
 
         [[nodiscard]] constexpr bool isTextEvent() const
         {
-            return isMetaEvent() && L(2) && (_data[1] >= MIDIMetaNumber::GENERIC_TEXT) && (_data[1] <= MIDIMetaNumber::MARKER_TEXT);
+            return is_meta_event_like() && L(3) && (_data[1] >= MIDIMetaNumber::GENERIC_TEXT) && (_data[1] <= MIDIMetaNumber::MARKER_TEXT);
         }
 
         [[nodiscard]] constexpr bool isAllNotesOff() const
@@ -1027,55 +632,44 @@ namespace libmfmidi {
 
         [[nodiscard]] constexpr bool isTempo() const
         {
-            return isMetaEvent() && L(2) && (_data[1] == MIDIMetaNumber::TEMPO);
+            return is_meta_event_like() && L(2) && (_data[1] == MIDIMetaNumber::TEMPO);
         }
 
         [[nodiscard]] constexpr bool isEndOfTrack() const
         {
-            return isMetaEvent() && L(2) && (_data[1] == MIDIMetaNumber::END_OF_TRACK);
+            return is_meta_event_like() && L(2) && (_data[1] == MIDIMetaNumber::END_OF_TRACK);
         }
 
         [[nodiscard]] constexpr bool isTimeSignature() const
         {
-            return isMetaEvent() && L(2) && (_data[1] == MIDIMetaNumber::TIMESIG);
+            return is_meta_event_like() && L(2) && (_data[1] == MIDIMetaNumber::TIMESIG);
         }
 
         [[nodiscard]] constexpr bool isKeySignature() const
         {
-            return isMetaEvent() && L(2) && (_data[1] == MIDIMetaNumber::KEYSIG);
+            return is_meta_event_like() && L(2) && (_data[1] == MIDIMetaNumber::KEYSIG);
         }
 
     protected:
-        Storage _data; // i lov qt mplicit iharing
-        MFMessageMark        marker = MFMessageMark::None;
-
-        // not mf mark
-        [[nodiscard]] constexpr inline bool M() const
-        {
-            return !isMFMarker();
-        }
-
         // size>=
-        [[nodiscard]] constexpr inline bool L(size_t len) const
+        [[nodiscard]] constexpr bool L(size_t len) const
         {
             return _data.size() >= len;
         }
 
-        // internal C
-        static constexpr inline void C(bool cond)
+        // assert
+        static constexpr void C(bool cond)
         {
-            if (!cond) {
-                throw std::logic_error("MIDIMessage: assert failed");
-            }
+            assert(cond);
         }
 
         [[nodiscard]] constexpr bool isMetaVaild() const
         {
             // ff type len ddddddddddddddd
-            if (!isMetaEvent() || _data.size() < 3) {
+            if (!is_meta_event_like() || _data.size() < 3) {
                 return false;
             }
-            const int explen = getExpectedMetaLength(metaType());
+            const int explen = expected_meta_event_length(meta_type());
             auto      result = readVarNumIt(_data.cbegin() + 2, _data.cend());
             if (result.first == -1U && result.second == -1U) {
                 // "META: Reading length: Invalid variable number";
@@ -1092,7 +686,7 @@ namespace libmfmidi {
                 // "META: Length check: invalid meta length (not match spec)";
                 return false;
             }
-            switch (metaType()) {
+            switch (meta_type()) {
             case MIDIMetaNumber::CHANNEL_PREFIX:
                 if (_data[3] > 15) {
                     // "META: Channel Prefix: > 15";
@@ -1112,13 +706,13 @@ namespace libmfmidi {
         /// \}
     };
 
-    using MIDIMessage = MIDIBasicMessage<std::vector<uint8_t>>;
+    using MIDIMessage = midi_message_owning_view<std::vector<uint8_t>>;
 
     namespace details {
         template <class Base>
         class MIDIMessageTimedExt : public Base {
         public:
-            constexpr MIDIMessageTimedExt() noexcept  = default;
+            constexpr  MIDIMessageTimedExt() noexcept = default;
             constexpr ~MIDIMessageTimedExt() noexcept = default;
 
             template <class... T>
@@ -1181,9 +775,14 @@ namespace libmfmidi {
     }
 
     template <class T>
-    using MIDIBasicTimedMessage = details::MIDIMessageTimedExt<MIDIBasicMessage<T>>;
+    using MIDIBasicTimedMessage = details::MIDIMessageTimedExt<midi_message_owning_view<T>>;
 
     using MIDITimedMessage = MIDIBasicTimedMessage<std::vector<uint8_t>>;
+}
+
+namespace std::ranges {
+    template <class T>
+    constexpr bool enable_borrowed_range<libmfmidi::midi_message_owning_view<T>> = enable_borrowed_range<T>;
 }
 
 // NOLINTEND(readability-identifier-length, bugprone-easily-swappable-parameters)

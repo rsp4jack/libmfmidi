@@ -114,7 +114,7 @@ namespace libmfmidi {
 
             // Playing status
             Time mdivns{};     // 1 delta-time in nanoseconds
-            Time msleeptime{}; // time to sleep
+            Time msleeptime{}; // sleep period before mnextevent ticks
             Time mplaytime{};  // current time, support 5850 centuries long
 
             // Data
@@ -140,15 +140,15 @@ namespace libmfmidi {
             }
 
             ~MIDIAdvTrkPlayerCursor() noexcept = default;
-            MF_DISABLE_COPY(MIDIAdvTrkPlayerCursor);
-            MF_DISABLE_MOVE(MIDIAdvTrkPlayerCursor); // TODO: implement move
+             MF_DISABLE_COPY(MIDIAdvTrkPlayerCursor);
+             MF_DISABLE_MOVE(MIDIAdvTrkPlayerCursor); // TODO: implement move
 
             // setMIDIStatus should be called for moving
 
-            void setMIDIStatus(MIDIStatus* mst)
+            void setMIDIStatus(MIDIStatus* mst, bool processnotes = false)
             {
                 mstatus = mst;
-                mstproc = std::make_unique<MIDIStatusProcessor>(*mst);
+                mstproc = std::make_unique<MIDIStatusProcessor>(*mst, processnotes);
                 mstproc->addNotifier([this](NotifyType type) {
                     if (type == NotifyType::C_Tempo) {
                         recalcuateDivisionTiming();
@@ -197,36 +197,40 @@ namespace libmfmidi {
                     mactive = false;
                     return {};
                 }
-                mplaytime += slept;                                // not move it to playthread because of lastSleptTime = 0 in revertSnapshot
-                if (msleeptime == 0ns) {                           // check if first tick
-                    msleeptime = mnextevent->deltaTime() * mdivns; // usually first tick
+                mplaytime += slept; // not move it to playthread because of lastSleptTime = 0 in revertSnapshot
+
+                auto&& event = *mnextevent;
+                if (msleeptime == 0ns) { // check if first tick
+                    // this case will not happen unless msleeptime is not initalized
+                    msleeptime = event.deltaTime() * mdivns; // usually first tick
                 }
-                assert(slept <= msleeptime);
+                mf_assert(slept <= msleeptime);
                 msleeptime -= slept;
                 if (msleeptime != 0ns) {
                     return msleeptime;
                 }
 
-                auto sbegintime = hiresticktime();
-
-                static MIDIMessage message{0, 0, 0, 0};
-                message.resize(mnextevent->size());
+                // static MIDIMessage message{0, 0, 0, 0};
+                // message.resize(mnextevent->size());
                 // std::ranges::copy(*mnextevent, message.begin());
-                std::copy(mnextevent->begin(), mnextevent->end(), message.begin());
+                // std::copy(mnextevent->begin(), mnextevent->end(), message.begin());
 
                 if (mstproc) {
-                    mstproc->process(message);
+                    // mstproc->process(message);
+                    mstproc->process(event);
                 }
-                if (process(message) && mdev != nullptr) {
-                    mdev->sendMsg(message);
+                // if (process(message) && mdev != nullptr) {
+                //     mdev->sendMsg(message);
+                // }
+                if (mdev != nullptr) {
+                    mdev->sendMsg(event);
                 }
                 ++mnextevent;
                 if (mnextevent == mtrack->end()) {
                     mactive = false;
                     return {};
                 }
-                auto sendtimedur = hiresticktime() - sbegintime;
-                msleeptime       = mnextevent->deltaTime() * mdivns - sendtimedur;
+                msleeptime = (*mnextevent).deltaTime() * mdivns;
                 return msleeptime;
             }
 
@@ -542,8 +546,8 @@ namespace libmfmidi {
                     }
                 }
 
-                Pauser(const Pauser&)            = delete;
-                Pauser(Pauser&&)                 = delete;
+                        Pauser(const Pauser&)    = delete;
+                        Pauser(Pauser&&)         = delete;
                 Pauser& operator=(const Pauser&) = delete;
                 Pauser& operator=(Pauser&&)      = delete;
 
@@ -574,10 +578,12 @@ namespace libmfmidi {
                         }
                     } else {
                         nanosleep(mlastSleptTime); // because mlastSleptTime may be changed (such as when revert snapshot)
-                        std::chrono::nanoseconds minTime = std::chrono::nanoseconds::max();
-                        for (auto& cursorinfo : mcursors | std::views::filter([](const auto& element) {
-                                                    return element.cursor->isActive();
-                                                })) {
+                        auto                     sbegintm = hiresticktime();
+                        std::chrono::nanoseconds minTime  = std::chrono::nanoseconds::max();
+                        for (auto& cursorinfo : mcursors) {
+                            if (!cursorinfo.cursor->isActive()) {
+                                continue;
+                            }
                             minTime = min(minTime, cursorinfo.cursor->tick(mlastSleptTime));
                         }
                         if (minTime == Time::max()) {
@@ -585,7 +591,11 @@ namespace libmfmidi {
                             continue;
                         }
                         minTime        = min(minTime, MAX_SLEEP);
-                        mlastSleptTime = minTime;
+                        auto sendtime  = hiresticktime() - sbegintm;
+                        mlastSleptTime = minTime - sendtime;
+                        if (mlastSleptTime < 0ns) {
+                            mlastSleptTime = 0ns;
+                        }
                     }
                 }
             }

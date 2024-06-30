@@ -22,12 +22,11 @@
 
 #include "libmfmidi/midimessage.hpp"
 #include "libmfmidi/smffile.hpp"
-#include "libmfmidi/smfreaderpolicy.hpp"
 #include "libmfmidi/smfreader.hpp"
+#include "libmfmidi/smfreaderpolicy.hpp"
 #include <ranges>
 #include <span>
 #include <tuple>
-
 
 namespace libmfmidi {
     // TODO: Read on Play
@@ -53,8 +52,8 @@ namespace libmfmidi {
 
             iterator() noexcept = default;
 
-            MF_DEFAULT_COPY(iterator);
-            MF_DEFAULT_MOVE(iterator);
+             MF_DEFAULT_COPY(iterator);
+             MF_DEFAULT_MOVE(iterator);
             ~iterator() noexcept = default;
 
             const value_type& operator*() const
@@ -65,7 +64,8 @@ namespace libmfmidi {
                 return m_msgobj;
             }
 
-            const value_type* operator->() const {
+            const value_type* operator->() const
+            {
                 return &m_msgobj;
             }
 
@@ -92,7 +92,7 @@ namespace libmfmidi {
                 }
 
                 if ((status >= NOTE_OFF) && (status < SYSEX_START)) { // also test if status is vaild
-                    m_len = getExpectedMessageLength(status);
+                    m_len = expected_channel_message_length(status);
                     m_current += m_len - 1;
                 } else {
                     switch (status) {
@@ -138,7 +138,7 @@ namespace libmfmidi {
                     default:
                         if ((status & 0xF0) == 0xF0) {
                             warnpol(IncompatibleEvent, "Incompatible SMF event: System Message [0xF1,0xFE] in SMF file");
-                            m_len = getExpectedSMessageLength(status);
+                            m_len = expected_system_message_length(status);
                             m_current += m_len - 1;
                         } else {
                             throw std::runtime_error("Unknown or Unexpected status: not a Channel Message, Meta Event or SysEx");
@@ -204,7 +204,7 @@ namespace libmfmidi {
             const uint8_t* m_start = nullptr;
             size_t         m_len   = 0;
             MIDIClockTime  m_delta = 0;
-            value_type m_msgobj;
+            value_type     m_msgobj;
 
             // SMF reader
             uint8_t status = 0; // midi status, for running status
@@ -259,7 +259,7 @@ namespace libmfmidi {
     {
         using enum SMFReaderPolicy;
         const uint8_t* current = data.data();
-        ptrdiff_t etc{};
+        ptrdiff_t      etc{};
 
         auto readU8 = [&]() {
             if (current > &data.back()) {
@@ -268,7 +268,7 @@ namespace libmfmidi {
             return *current++;
         };
         auto readU16 = [&]() {
-            if (current+1 > &data.back()) {
+            if (current + 1 > &data.back()) {
                 throw std::invalid_argument("Cannot read past end");
             }
             auto res = rawCat(*current, *(current + 1));
@@ -280,7 +280,7 @@ namespace libmfmidi {
             return readU16();
         };
         auto readU32 = [&]() {
-            if (current+3 > &data.back()) {
+            if (current + 3 > &data.back()) {
                 throw std::invalid_argument("Cannot read past end");
             }
             auto res = rawCat(*current, *(current + 1), *(current + 2), *(current + 3));
@@ -334,7 +334,7 @@ namespace libmfmidi {
             std::cerr << "Experimental: Negative MIDI Division (SMPTE)" << '\n';
         }
 
-        SMFFileInfo info{.type = ftype, .division = fdiv, .ntrk = ftrks};
+        SMFFileInfo                           info{.type = ftype, .division = fdiv, .ntrk = ftrks};
         std::vector<std::span<const uint8_t>> trks;
         trks.reserve(ftrks);
 
@@ -343,8 +343,8 @@ namespace libmfmidi {
             if (readU32() != MTrk) {
                 pol(InvaildHeaderType, "invalid header, expected MTrk");
             }
-            const uint32_t length = readU32();
-            size_t chunklen = length+4+4;
+            const uint32_t length   = readU32();
+            size_t         chunklen = length + 4 + 4;
             trks.emplace_back(trkbegin, chunklen);
             current += length;
         }

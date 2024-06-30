@@ -29,8 +29,8 @@
 
 namespace libmfmidi {
     template <std::ranges::range T>
-    class MIDIBasicMessage;
-    using MIDIMessage = MIDIBasicMessage<std::vector<uint8_t>>;
+    class midi_message_owning_view;
+    using MIDIMessage = midi_message_owning_view<std::vector<uint8_t>>;
 
     namespace details {
         template <class>
@@ -38,7 +38,7 @@ namespace libmfmidi {
     }
 
     template <class T>
-    using MIDIBasicTimedMessage = details::MIDIMessageTimedExt<MIDIBasicMessage<T>>;
+    using MIDIBasicTimedMessage = details::MIDIMessageTimedExt<midi_message_owning_view<T>>;
     using MIDITimedMessage      = MIDIBasicTimedMessage<std::vector<uint8_t>>;
 
     template <class T>

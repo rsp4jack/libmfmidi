@@ -42,7 +42,7 @@ namespace libmfmidi {
         virtual bool open() = 0;
         virtual bool close() = 0;
 
-        virtual tl::expected<void, const char*> sendMsg(const MIDIMessage& msg) noexcept = 0;
+        virtual tl::expected<void, const char*> sendMsg(std::span<const uint8_t> msg) noexcept = 0;
 
         virtual void setCallback(callback_type usercb) noexcept
         {
@@ -56,7 +56,8 @@ namespace libmfmidi {
     inline void sendAllSoundsOff(AbstractMIDIDevice* dev)
     {
         for(uint8_t channel : std::views::iota(0U, 16U)){
-            dev->sendMsg({static_cast<uint8_t>(MIDIMsgStatus::CONTROL_CHANGE | channel), MIDICCNumber::ALL_SOUND_OFF, 0});
+            const MIDIMessage msg{static_cast<uint8_t>(MIDIMsgStatus::CONTROL_CHANGE | channel), MIDICCNumber::ALL_SOUND_OFF, 0};
+            dev->sendMsg(msg);
         }
     }
 }

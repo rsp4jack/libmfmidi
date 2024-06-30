@@ -80,7 +80,7 @@ int main(int argc, char** argv)
 
     AbstractMIDIDevice*                        dev;
     std::unique_ptr<platform::KDMAPIDevice>    kdev;
-    std::shared_ptr<platform::RtMidiOutDevice> sdev;
+    std::shared_ptr<platform::LibreMidiOutDevice> sdev;
     if (inp == prov.outputCount() + 1) {
         kdev = std::make_unique<platform::KDMAPIDevice>(true);
         dev  = kdev.get();

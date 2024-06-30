@@ -3,18 +3,19 @@
 
 #pragma once
 
-#include <bit>
 #include <algorithm>
+#include <bit>
+#include <cassert>
+#include <cctype>
 #include <charconv>
+#include <chrono>
 #include <concepts>
 #include <functional>
 #include <span>
 #include <string>
 #include <type_traits>
-#include <cctype>
-#include <chrono>
-#include <version>
 #include <utility>
+#include <version>
 
 namespace std {
 #if !defined(__cpp_lib_byteswap)
@@ -33,7 +34,7 @@ namespace std {
         // Uses compiler specific extensions if possible.
         // Even if no extension is used, undefined behavior is still raised by
         // an empty function body and the noreturn attribute.
-#if defined(__GNUC__)   // GCC, Clang, ICC
+#if defined(__GNUC__) // GCC, Clang, ICC
         __builtin_unreachable();
 #elif defined(_MSC_VER) // MSVC
         __assume(false);
@@ -166,5 +167,13 @@ namespace libmfmidi {
             result.insert(result.end(), buffer, buffer + 2);
         }
         return result;
+    }
+
+    constexpr void mf_assert(bool cond)
+    {
+        if consteval {
+            static_assert(cond, "mf_asssert fail");
+        }
+        assert(cond);
     }
 }

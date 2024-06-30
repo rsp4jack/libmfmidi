@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "rtmidi/RtMidi.h"
+#include "libremidi/libremidi.hpp"
 #include "libmfmidi/abstractmididevice.hpp"
 #include <string>
 #include <utility>
@@ -25,7 +25,7 @@
 #include <memory>
 
 namespace libmfmidi::platform {
-    class RtMidiInDevice : public AbstractMIDIDevice {
+    /* class RtMidiInDevice : public AbstractMIDIDevice {
     public:
         explicit RtMidiInDevice(unsigned int id, std::string name = "libmfmidi RtMidiInDevice") noexcept
             : mid(id)
@@ -78,13 +78,13 @@ namespace libmfmidi::platform {
             return false;
         }
 
-        tl::expected<void, const char*> sendMsg(const MIDIMessage& /*msg*/) noexcept override
+        tl::expected<void, const char*> sendMsg(const MIDIMessage& msg) noexcept override
         {
             return tl::unexpected("Output unavailable");
         }
 
     private:
-        static void rtcallback(double /*timeStamp*/, std::vector<unsigned char>* message, void* userData)
+        static void rtcallback(double timeStamp, std::vector<unsigned char>* message, void* userData)
         {
             reinterpret_cast<RtMidiInDevice*>(userData)->mcb(MIDIMessage(*message));
         }
@@ -98,46 +98,46 @@ namespace libmfmidi::platform {
         unsigned int mid{};
         std::string  mnm;
         bool         mvirtual = false;
-    };
+    }; */
 
-    class RtMidiOutDevice : public AbstractMIDIDevice {
+    class LibreMidiOutDevice : public AbstractMIDIDevice {
     public:
-        explicit RtMidiOutDevice(unsigned int id, std::string name = "libmfmidi RtMidiOutDevice") noexcept
-            : mid(id)
+        explicit LibreMidiOutDevice(libremidi::output_port id, std::string name = "libmfmidi RtMidiOutDevice") noexcept
+            : mid(std::move(id))
             , mnm(std::move(name))
         {
         }
 
-        explicit RtMidiOutDevice(std::string virtualPortName) noexcept
+        explicit LibreMidiOutDevice(std::string virtualPortName) noexcept
             : mnm(std::move(virtualPortName))
             , mvirtual(true)
         {
         }
 
-        ~RtMidiOutDevice() noexcept override = default;
-        MF_DEFAULT_MOVE_CTOR(RtMidiOutDevice);
-        MF_DISABLE_MOVE_ASGN(RtMidiOutDevice);
-        MF_DISABLE_COPY(RtMidiOutDevice);
+        ~LibreMidiOutDevice() noexcept override = default;
+        MF_DEFAULT_MOVE_CTOR(LibreMidiOutDevice);
+        MF_DISABLE_MOVE_ASGN(LibreMidiOutDevice);
+        MF_DISABLE_COPY(LibreMidiOutDevice);
 
         bool open() override
         {
             if (mvirtual) {
-                min.openVirtualPort(mnm);
+                min.open_virtual_port(mnm);
             } else {
-                min.openPort(mid, mnm);
+                min.open_port(mid, mnm);
             }
-            return min.isPortOpen();
+            return min.is_port_open();
         }
 
         bool close() override
         {
-            min.closePort();
-            return !min.isPortOpen();
+            min.close_port();
+            return !min.is_port_open();
         }
 
         [[nodiscard]] bool isOpen() const noexcept override
         {
-            return min.isPortOpen();
+            return min.is_port_open();
         }
 
         [[nodiscard]] constexpr bool inputAvailable() const noexcept override
@@ -150,10 +150,10 @@ namespace libmfmidi::platform {
             return true;
         }
 
-        tl::expected<void, const char*> sendMsg(const MIDIMessage& msg) noexcept override
+        tl::expected<void, const char*> sendMsg(std::span<const uint8_t> msg) noexcept override
         {
             try {
-                min.sendMessage(&msg.base());
+                min.send_message(msg);
             } catch (std::exception& err) {
                 return tl::unexpected{err.what()};
             }
@@ -162,55 +162,9 @@ namespace libmfmidi::platform {
         }
 
     private:
-        RtMidiOut    min;
-        unsigned int mid{};
+        libremidi::midi_out    min;
+        libremidi::output_port mid{};
         std::string  mnm;
         bool         mvirtual = false;
-    };
-
-    class RtMidiMIDIDeviceProvider {
-    public:
-        unsigned int inputCount()
-        {
-            return auxin.getPortCount();
-        }
-
-        unsigned int outputCount()
-        {
-            return auxout.getPortCount();
-        }
-
-        std::string inputName(unsigned int idx)
-        {
-            return auxin.getPortName(idx);
-        }
-
-        std::string outputName(unsigned int idx)
-        {
-            return auxout.getPortName(idx);
-        }
-
-        static std::unique_ptr<RtMidiInDevice> buildupInputDevice(unsigned int idx, const std::string& name = "libmfmidi RtMidiMIDIDeviceProvider IN")
-        {
-            return std::make_unique<RtMidiInDevice>(idx, name);
-        }
-
-        static std::unique_ptr<RtMidiOutDevice> buildupOutputDevice(unsigned int idx, const std::string& name = "libmfmidi RtMidiMIDIDeviceProvider OUT"){
-            return std::make_unique<RtMidiOutDevice>(idx, name);
-        }
-
-        static RtMidiMIDIDeviceProvider& instance() noexcept
-        {
-            static RtMidiMIDIDeviceProvider ins; // Meyers' Singleton
-            return ins;
-        }
-
-    private:
-        RtMidiMIDIDeviceProvider() noexcept = default;
-
-        RtMidiIn  auxin;  // for device info
-        RtMidiOut auxout; // too
-
-        
     };
 }

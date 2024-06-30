@@ -2,7 +2,7 @@
 #include "libmfmidi/midiadvancedtrackplayer.hpp"
 #include "libmfmidi/midimessagefdc.hpp"
 #include "libmfmidi/midireadonplay.hpp"
-#include "libmfmidi/rtmididevice.hpp"
+#include "libmfmidi/libremididevice.hpp"
 #include "libmfmidi/samhandlers.hpp"
 #include "libmfmidi/smfreader.hpp"
 #include <fstream>
@@ -44,16 +44,16 @@ void reportError(const std::source_location location = std::source_location::cur
     LPVOID lpMsgBuf = nullptr;
     DWORD  dw       = GetLastError();
 
-    FormatMessage(
+    FormatMessageA(
         FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
         nullptr,
         dw,
         MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-        (LPTSTR)&lpMsgBuf,
+        (LPSTR)&lpMsgBuf,
         0, nullptr
     );
 
-    cerr << "Win32 API Error " << dw << ": \"" << (LPTSTR)lpMsgBuf << "\" on " << location.file_name() << ':' << location.line() << ':' << location.column() << ' ' << location.function_name() << endl;
+    cerr << "Win32 API Error " << dw << ": \"" << (LPSTR)lpMsgBuf << "\" on " << location.file_name() << ':' << location.line() << ':' << location.column() << ' ' << location.function_name() << endl;
     LocalFree(lpMsgBuf);
     exit(-1);
 }
@@ -80,7 +80,7 @@ int main(int argc, char** argv)
 
 #if defined(_WIN32)
     {
-        HANDLE file = CreateFile(argv[1], GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+        HANDLE file = CreateFileA(argv[1], GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
         if (file == nullptr) {
             reportError();
         }
@@ -96,7 +96,7 @@ int main(int argc, char** argv)
         }
 
         void* mmapp = MapViewOfFile(mmap, FILE_MAP_READ, 0, 0, 0);
-        if (mmap_data == nullptr) {
+        if (mmapp == nullptr) {
             reportError();
         }
 
@@ -105,7 +105,7 @@ int main(int argc, char** argv)
             reportError();
         }
 
-        mmap_data = reinterpret_cast<const uint8_t*>{mmapp};
+        mmap_data = reinterpret_cast<const uint8_t*>(mmapp);
         mmap_len  = filesize;
     }
 #elif defined(_POSIX_VERSION)
@@ -145,26 +145,27 @@ int main(int argc, char** argv)
 
     fmt::println("Parsed as SMF Type {} with {} tracks in division {}", rop.info.type, rop.info.ntrk, static_cast<int16_t>(static_cast<uint16_t>(rop.info.division)));
 
-    auto& prov = platform::RtMidiMIDIDeviceProvider::instance();
-    fmt::println("Dev cnt: {}", prov.outputCount());
-    for (unsigned int i = 0; i < prov.outputCount(); ++i) {
-        cout << prov.outputName(i) << endl;
+    libremidi::observer obs;
+    auto outputs = obs.get_output_ports();
+    fmt::println("Dev cnt: {}", outputs.size());
+    for (const auto& [id, dev]: std::views::zip(std::views::iota(0), outputs)) {
+        fmt::println("{}: {}", id, dev.display_name);
     }
-    fmt::print("Choose, {} to KDMAPI: ", prov.outputCount() + 1);
+    fmt::print("Choose, {} to KDMAPI: ", outputs.size() + 1);
     unsigned inp;
     std::cin >> inp;
 
     AbstractMIDIDevice*                        dev;
-    std::unique_ptr<platform::RtMidiOutDevice> sdev;
+    std::unique_ptr<platform::LibreMidiOutDevice> sdev;
 #if defined(_WIN32)
     std::unique_ptr<platform::KDMAPIDevice> kdev;
-    if (inp == prov.outputCount() + 1) {
+    if (inp == outputs.size() + 1) {
         kdev = std::make_unique<platform::KDMAPIDevice>(true);
         dev  = kdev.get();
     } else
 #endif
     {
-        sdev = platform::RtMidiMIDIDeviceProvider::buildupOutputDevice(inp);
+        sdev = std::make_unique<platform::LibreMidiOutDevice>(outputs.at(inp));
         dev  = sdev.get();
     }
 
@@ -179,7 +180,7 @@ int main(int argc, char** argv)
     MIDIStatus                                                                   status;
     MIDIAdvancedTrackPlayer<MIDIReadOnPlayTrack>                                 player; // init player after everything
 
-    auto msgproc = [](MIDIMessage& msg) {
+    auto msgproc = [&status](MIDIMessage& msg) {
         if (msg.isNoteOn() && (msg.velocity() < 3)) {
             return false;
         }
@@ -188,7 +189,7 @@ int main(int argc, char** argv)
 
     for (const auto& [idx, trk] : std::views::zip(std::views::iota(0U), rop.tracks)) {
         auto* cursor = player.addCursor(fmt::format("Playback_{}", idx));
-        cursor->setMIDIStatus(&status);
+        cursor->setMIDIStatus(&status, false);
         cursor->setDevice(dev);
         // TODO: forgive me
         if (useCache) {

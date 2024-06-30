@@ -8,13 +8,13 @@
 #include "libmfmidi/mfutils.hpp"
 #include "libmfmidi/mididatatypes.hpp"
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <fmt/core.h>
-#include <istream>
-#include <limits>
-#include <iterator>
-#include <chrono>
 #include <iostream>
+#include <istream>
+#include <iterator>
+#include <limits>
 
 #if defined(max)
 #undef max // msvc max macro
@@ -30,7 +30,7 @@ namespace libmfmidi {
     constexpr uint16_t      NUM_TRACKS    = std::numeric_limits<uint16_t>::max();
     constexpr MIDIClockTime MIDICLKTM_MAX = std::numeric_limits<MIDIClockTime>::max(); ///< \brief Sometimes this means invalid value
     using MIDIVarNum                      = uint32_t;
-    using SMFType = uint16_t;
+    using SMFType                         = uint16_t;
     constexpr MIDIVarNum MIDIVARNUM_MAX   = std::numeric_limits<MIDIVarNum>::max();
 
     namespace MIDINumSpace {
@@ -205,11 +205,11 @@ namespace libmfmidi {
     using MIDINumSpace::MIDIRPNNumber;
     // NOLINTEND(misc-unused-using-decls)
 
-    /// \brief LUT to MIDI message length
+    /// \brief LUT to MIDI channel message length
     /// \code{.cpp}
     /// int length = LUT_MSGLEN[status>>4]
     /// \endcode
-    constexpr std::array<int, 16> LUT_MSGLEN = {
+    constexpr std::array<int, 16> lut_channel_message_length = {
         0, 0, 0, 0, 0, 0, 0, 0,
         3, // 0x80=note off, 3 bytes
         3, // 0x90=note on, 3 bytes
@@ -226,7 +226,7 @@ namespace libmfmidi {
     /// \code{.cpp}
     /// int length = LUT_SMSGLEN[status-0xF0]
     /// \endcode
-    constexpr std::array<int, 16> LUT_SMSGLEN = {
+    constexpr std::array<int, 16> lut_system_message_length = {
         // System Common Messages
         -1, // 0xF0=Normal SysEx Events start.
         2,  // 0xF1=MIDI Time Code. 2 bytes
@@ -254,26 +254,27 @@ namespace libmfmidi {
     /// \code{.cpp}
     /// bool isWhite = LUT_WHITEKEY[pitch]
     /// \endcode
-    constexpr std::array<bool, 12> LUT_WHITEKEY = {
+    constexpr std::array<bool, 12> lut_white_key = {
         // C  C#     D     D#     E     F     F#     G     G#     A     A#     B
-        true, false, true, false, true, true, false, true, false, true, false, true};
+        true, false, true, false, true, true, false, true, false, true, false, true
+    };
 
     /// \brief Get the expected MIDI message length
     /// \warning The return value may be \b negative .
     /// \param[in] status MIDI message status code
     /// \return int
-    inline constexpr int getExpectedMessageLength(uint8_t status)
+    inline constexpr int expected_channel_message_length(uint8_t status)
     {
-        return LUT_MSGLEN.at(status >> 4U);
+        return lut_channel_message_length.at(status >> 4U);
     }
 
     /// \brief Get the Expected System Message Length
     /// \warning The return value may be \b negative .
     /// \param[in] status Message Status
     /// \return int
-    inline constexpr int getExpectedSMessageLength(uint8_t status)
+    inline constexpr int expected_system_message_length(uint8_t status)
     {
-        return LUT_SMSGLEN.at(status - 0xF0);
+        return lut_system_message_length.at(status - 0xF0);
     }
 
     /// \brief Get expected Meta event length (entrie message)
@@ -281,12 +282,20 @@ namespace libmfmidi {
     /// \c -2 : unknown
     /// \param type meta type
     /// \return constexpr int
-    inline constexpr int getExpectedMetaLength(uint8_t type)
+    inline constexpr int expected_meta_event_length(uint8_t type)
     {
         auto unwrapped = [&]() {
             switch (type) {
             case 0x00:
                 return 2;
+            case 0x01:
+            case 0x02:
+            case 0x03:
+            case 0x04:
+            case 0x05:
+            case 0x06:
+            case 0x07:
+                return -1;
             case 0x20:
             case 0x21:
                 return 1;
@@ -303,9 +312,6 @@ namespace libmfmidi {
             case 0x7F:
                 return -1;
             default:
-                if (type >= 0x01 && type <= 0x07) {
-                    return -1;
-                }
                 return -2;
             }
         };
@@ -316,84 +322,50 @@ namespace libmfmidi {
         return result + 3;
     }
 
-    /// \brief Checking if the note is a white key.
-    /// \param[in] pitch Note pitch
-    /// \return true
-    /// \return false
-    inline constexpr bool isNoteWhite(uint8_t pitch)
+    inline constexpr bool is_white_note(uint8_t pitch)
     {
-        return LUT_WHITEKEY.at(pitch % 12);
+        return lut_white_key.at(pitch % 12);
     }
 
-    /// \brief A negation of \c isNoteWhite .
-    /// \param[in] pitch Note pitch
-    /// \return true
-    /// \return false
-    inline constexpr bool isNoteBlack(uint8_t pitch)
+    inline constexpr bool is_black_note(uint8_t pitch)
     {
-        return !isNoteWhite(pitch);
+        return !is_white_note(pitch);
     }
 
-    /// \brief Get the octave of the note.
-    /// \param pitch Note pitch
-    /// \return int
-    inline constexpr int getNoteOctave(uint8_t pitch)
+    inline constexpr int note_octave(uint8_t pitch)
     {
         return (pitch / 12) - 1;
     }
 
-    /// \brief Read SMF variable number using istream
-    ///
-    /// \param ise The input stream
-    /// \return std::pair<MIDIVarNum, size_t> value and length in bytes
-    inline std::pair<MIDIVarNum, size_t> readVarNum(std::istream* ise)
-    {
-        auto readU8 = [&]() {
-            return ise->get();
-        };
-        uint32_t value;
-        uint8_t  dat   = readU8();
-        size_t   cnt = 1;
-        value        = dat;
-        if ((value & 0x80) != 0U) {
-            value &= 0x7F;
-            do {
-                dat = readU8();
-                ++cnt;
-                value = (value << 7) + (dat & 0x7F);
-            } while ((dat & 0x80) != 0);
-        }
-        return {value, cnt};
-    }
+    template <class It>
+    struct _read_smf_variable_length_number_result {
+        uint32_t result;
+        It       it;
+    };
 
-    /// \brief Read SMF variable number using iterator
-    /// If invaild, return {-1, -1}
-    /// \sa readVarNum
-    template <std::forward_iterator FwdIt>
-    inline constexpr std::pair<MIDIVarNum, size_t> readVarNumIt(FwdIt iter, FwdIt end)
+    template <std::ranges::input_range R, class Proj = std::identity>
+        requires std::same_as<std::iter_value_t<std::projected<std::ranges::iterator_t<R>, Proj>>, uint8_t> || std::same_as<std::iter_value_t<std::projected<std::ranges::iterator_t<R>, Proj>>, std::byte>
+    constexpr _read_smf_variable_length_number_result<std::ranges::borrowed_iterator_t<R>> read_smf_variable_length_number(R&& r, Proj proj = {})
     {
-        auto readU8 = [&]() {
-            uint8_t dat = *iter;
-            ++iter;
-            return dat;
-        };
-        uint32_t value;
-        uint8_t  dat   = readU8();
-        size_t   cnt = 1;
+        uint32_t     result{};
+        auto         it  = std::ranges::begin(r);
+        auto         end = std::ranges::end(r);
+        uint_fast8_t sz{};
 
-        value = dat;
-        if ((value & 0x80) != 0U) {
-            value &= 0x7F;
-            do {
-                if (iter >= end) {
-                    return {-1, -1};
-                }
-                dat = readU8();
-                ++cnt;
-                value = (value << 7) + (dat & 0x7F);
-            } while ((dat & 0x80) != 0);
+        for (; it != end; ++it) {
+            auto val = *it;
+            result |= val & 0x7Fu;
+            if (val & 0x80u == 0) {
+                ++it;
+                return _read_smf_variable_length_number_result<std::ranges::iterator_t<R>>{result, std::move(it)};
+            }
+            if (sz == 3) {
+                throw std::range_error{"read_smf_variable_length_number: overflow in 28 bits"};
+            }
+            result <<= 7;
+            ++sz;
         }
-        return {value, cnt};
+        throw std::domain_error{"read_smf_variable_lengrh_number: early END"};
     }
 
     /// \brief Write SMF variable number
@@ -513,14 +485,14 @@ namespace libmfmidi {
         }
         if (val.isPPQ()) {
             // MIDI always 4/4
-            return ResultType{static_cast<ResultType::rep>(60.0 / (val.ppq() * bpm.bpmFP())*1'000'000'000)};
+            return ResultType{static_cast<ResultType::rep>(60.0 / (val.ppq() * bpm.bpmFP()) * 1'000'000'000)};
         }
         // 24 25 29(.97) 30
         double realfps = val.fps();
         if (val.fps() == 29) {
             realfps = 29.97;
         }
-        return ResultType{static_cast<ResultType::rep>(1 / (realfps * val.tpf())*1'000'000'000)};
+        return ResultType{static_cast<ResultType::rep>(1 / (realfps * val.tpf()) * 1'000'000'000)};
     }
 
     inline constexpr std::string divisionToText(MIDIDivision val) noexcept

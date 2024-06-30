@@ -316,7 +316,7 @@ namespace libmfmidi {
             buffer.push_back(status);
 
             if (buffer.isChannelMsg()) { // also test if status is vaild
-                auto msg_len = buffer.expectedLength();
+                auto msg_len = buffer.deduced_expected_length();
                 buffer.resize(msg_len);
 
                 readRawE(reinterpret_cast<char*>(buffer.base().data()+1), msg_len-1);
@@ -368,7 +368,7 @@ namespace libmfmidi {
             default:
                 if (buffer.isSystemMessage()) {
                     REPORTP(IncompatibleEvent, "Incompatible SMF event: System Message [0xF1,0xFE] in SMF file");
-                    for (int i = 0; i < buffer.expectedLength() - 1; ++i) {
+                    for (int i = 0; i < buffer.deduced_expected_length() - 1; ++i) {
                         buffer.push_back(readU8E());
                     }
                 } else {

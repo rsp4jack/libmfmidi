@@ -14,11 +14,18 @@ FixNamespaceComments: false
 
 BreakConstructorInitializers: BeforeComma
 BreakInheritanceList: BeforeComma
-BreakBeforeBraces: WebKit
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterControlStatement: MultiLine
+  AfterFunction: true
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+  SplitEmptyNamespace: false
+
 PointerAlignment: Left
 
 SpaceBeforeParens: ControlStatementsExceptControlMacros
-SortUsingDeclarations: true
+SortUsingDeclarations: LexicographicNumeric
 SortIncludes: CaseInsensitive
 ReflowComments: true
 
@@ -29,6 +36,7 @@ PackConstructorInitializers: Never
 AllowShortLambdasOnASingleLine: Inline
 AllowShortBlocksOnASingleLine: Always
 AllowShortFunctionsOnASingleLine: Inline
+KeepEmptyLinesAtTheStartOfBlocks: false
 EmptyLineBeforeAccessModifier: LogicalBlock
 SeparateDefinitionBlocks: Leave
 

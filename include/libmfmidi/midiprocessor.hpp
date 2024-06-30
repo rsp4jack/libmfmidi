@@ -45,7 +45,7 @@ namespace libmfmidi {
                 if (traned > 127 || traned < 0) {
                     return false;
                 }
-                msg.setNote(static_cast<uint8_t>(traned));
+                msg.set_note(static_cast<uint8_t>(traned));
             }
             return true;
         }
@@ -91,7 +91,7 @@ namespace libmfmidi {
         bool process(MIDITimedMessage& msg)
         {
             if (msg.isChannelMsg()) {
-                msg.setChannel(m_map.at(msg.channel()-1));
+                msg.set_channel(m_map.at(msg.channel()-1));
             }
             return true;
         }

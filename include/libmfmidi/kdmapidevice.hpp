@@ -21,6 +21,7 @@
 #ifdef _WIN32
 
 #include "libmfmidi/abstractmididevice.hpp" // "max" macro
+#include "libmfmidi/midimessage.hpp"
 #include "omnimidi/OmniMIDI.h"
 
 namespace libmfmidi::platform {
@@ -73,15 +74,17 @@ namespace libmfmidi::platform {
             return available;
         }
 
-        tl::expected<void, const char*> sendMsg(const MIDIMessage& msg) noexcept override 
+        tl::expected<void, const char*> sendMsg(std::span<const uint8_t> msgbuf) noexcept override 
         {
             if (!ison) {
                 return tl::unexpected{"Device is not open"};
             }
+            midi_message_owning_view<std::span<const uint8_t>> msg(msgbuf);
             if (msg.empty()) {
                 return {};
             }
             UINT result;
+
             if (msg.isSysEx()) {
                 // prepare sysex header
                 std::unique_ptr<uint8_t[]> buffer = std::make_unique<uint8_t[]>(msg.size());

@@ -20,16 +20,17 @@
 
 #pragma once
 
+#include "libmfmidi/channel_note_status.hpp"
 #include "libmfmidi/mfconcepts.hpp"
-#include "libmfmidi/midiutils.hpp"
-#include "libmfmidi/midimatrix.hpp"
 #include "libmfmidi/midinotifier.hpp"
+#include "libmfmidi/midiutils.hpp"
 #include <array>
+#include <optional>
 #include <tuple>
 
 namespace libmfmidi {
-    struct MIDIChannelStatus {
-        MIDIChannelStatus() noexcept
+    struct channel_status {
+        channel_status() noexcept
         {
             reset();
         }
@@ -50,19 +51,18 @@ namespace libmfmidi {
             reset();
         }
 
-        int      program    = -1; ///< Current Program Change (it will never bigger than uint8_t or smaller than -1)
-        uint16_t volume     = 0xFF00;
-        uint16_t expression = 0xFF00;
-        uint16_t pan        = 0x4000; // most use
-        uint16_t balance    = 0x4000;
-        uint8_t  aftertouch = 0;
-        int16_t  pitchbend  = 0;
+        std::optional<uint8_t>  program;    ///< Current Program Change (it will never bigger than uint8_t or smaller than -1)
+        std::optional<uint16_t> volume;     // = 0xFF00
+        std::optional<uint16_t> expression; // = 0xFF00
+        std::optional<uint16_t> pan;        // = 0x4000
+        std::optional<uint16_t> balance;    // = 0x4000
+        std::optional<uint8_t>  aftertouch; // = 0
+        std::optional<int16_t>  pitchbend;  // = 0
         // TODO: Control Change map for every CC
     };
 
     /// \brief A struct to hold MIDI Status
     struct MIDIStatus {
-
         MIDIStatus() noexcept
         {
             reset();
@@ -86,18 +86,18 @@ namespace libmfmidi {
             }
         }
 
-        MIDITempo                                                          tempo{}; // in bpm
-        uint8_t                                                            numerator{};
-        uint8_t                                                            denominator{};
-        MIDIMatrix                                                         matrix;
-        std::array<std::array<MIDIChannelStatus, NUM_CHANNELS>, NUM_PORTS> channels;
+        MIDITempo                                                       tempo{}; // in bpm
+        uint8_t                                                         numerator{};
+        uint8_t                                                         denominator{};
+        channel_note_status                                             matrix;
+        std::array<std::array<channel_status, NUM_CHANNELS>, NUM_PORTS> channels;
     };
 
     /// \brief Emulate MIDIStatus
     class MIDIStatusProcessor : protected NotifyUtils<MIDIStatusProcessor> {
     public:
         static std::unordered_multimap<MIDIStatus*, MIDIStatusProcessor*> mstmap;
-        explicit MIDIStatusProcessor(MIDIStatus& st, bool processNote = false) noexcept
+        explicit                                                          MIDIStatusProcessor(MIDIStatus& st, bool processNote = false) noexcept
             : mst(st)
             , mprocessNote(processNote)
         {
@@ -118,8 +118,8 @@ namespace libmfmidi {
         using NotifyUtils::addNotifier;
         friend class NotifyUtils;
 
-        template<class T>
-        bool process(const MIDIBasicMessage<T>& msg, uint8_t port = 1)
+        template <class T>
+        bool process(const midi_message_owning_view<T>& msg, uint8_t port = 1)
         {
             //! Notify after change data
             switch (msg.type()) {
@@ -133,11 +133,11 @@ namespace libmfmidi {
                 // notify by MIDIMatrix
                 break;
             case PROGRAM_CHANGE:
-                mst.get().channels.at(port - 1).at(msg.channel() - 1).program = msg.programChangeValue();
+                mst.get().channels.at(port - 1).at(msg.channel() - 1).program = msg.program();
                 notify(NotifyType::TR_PG);
                 break;
             case PITCH_BEND:
-                mst.get().channels.at(port - 1).at(msg.channel() - 1).pitchbend = msg.pitchBendValue();
+                mst.get().channels.at(port - 1).at(msg.channel() - 1).pitchbend = msg.pitch_bend();
                 notify(NotifyType::TR_PitchBend);
                 break;
             case CONTROL_CHANGE: {
@@ -147,28 +147,28 @@ namespace libmfmidi {
                     mst.get().matrix.process(msg, port);
                     break;
                 case BALANCE:
-                    chst.balance = MLSBtoU16(msg.controllerValue(), U16toMLSB(chst.balance).second);
+                    chst.balance = MLSBtoU16(msg.controller_value(), U16toMLSB(chst.balance).second);
                     break;
                 case PAN:
-                    chst.pan = MLSBtoU16(msg.controllerValue(), U16toMLSB(chst.pan).second);
+                    chst.pan = MLSBtoU16(msg.controller_value(), U16toMLSB(chst.pan).second);
                     break;
                 case BALANCE_LSB:
-                    chst.balance = MLSBtoU16(U16toMLSB(chst.balance).first, msg.controllerValue());
+                    chst.balance = MLSBtoU16(U16toMLSB(chst.balance).first, msg.controller_value());
                     break;
                 case PAN_LSB:
-                    chst.pan = MLSBtoU16(U16toMLSB(chst.pan).first, msg.controllerValue());
+                    chst.pan = MLSBtoU16(U16toMLSB(chst.pan).first, msg.controller_value());
                     break;
                 case VOLUME:
-                    chst.volume = MLSBtoU16(msg.controllerValue(), U16toMLSB(chst.volume).second);
+                    chst.volume = MLSBtoU16(msg.controller_value(), U16toMLSB(chst.volume).second);
                     break;
                 case VOLUME_LSB:
-                    chst.volume = MLSBtoU16(U16toMLSB(chst.volume).first, msg.controllerValue());
+                    chst.volume = MLSBtoU16(U16toMLSB(chst.volume).first, msg.controller_value());
                     break;
                 case EXPRESSION:
-                    chst.expression = MLSBtoU16(msg.controllerValue(), U16toMLSB(chst.expression).second);
+                    chst.expression = MLSBtoU16(msg.controller_value(), U16toMLSB(chst.expression).second);
                     break;
                 case EXPRESSION_LSB:
-                    chst.expression = MLSBtoU16(U16toMLSB(chst.expression).first, msg.controllerValue());
+                    chst.expression = MLSBtoU16(U16toMLSB(chst.expression).first, msg.controller_value());
                     break;
                     // TODO: add more...
                 }
@@ -176,14 +176,14 @@ namespace libmfmidi {
                 break;
             }
             case META_EVENT:
-                switch (msg.metaType()) {
+                switch (msg.meta_type()) {
                 case MIDIMetaNumber::TEMPO:
                     mst.get().tempo = msg.tempo();
                     notify(NotifyType::C_Tempo);
                     break;
                 case MIDIMetaNumber::TIMESIG:
-                    mst.get().denominator = msg.timeSigDenominator();
-                    mst.get().numerator   = msg.timeSigNumerator();
+                    mst.get().denominator = msg.time_signature_denominator();
+                    mst.get().numerator   = msg.time_signature_numerator();
                     notify(NotifyType::C_TimeSig);
                     break;
                 }
@@ -194,7 +194,7 @@ namespace libmfmidi {
         template <class T>
         bool process(const MIDIBasicTimedMessage<T>& msg, uint8_t port = 1)
         {
-            return process<T>(MIDIBasicMessage<T>{msg}, port);
+            return process<T>(midi_message_owning_view<T>{msg}, port);
         }
 
     protected:
@@ -241,41 +241,41 @@ namespace libmfmidi {
             tmp.setupTimeSignature(st.numerator, st.denominator, 24, 8);
             res.push_back(std::move(tmp));
         }
-        auto doChannel = [&](const MIDIChannelStatus& st, uint8_t chn) {
+        auto doChannel = [&](const channel_status& st, uint8_t chn) {
             uint8_t lsb;
             uint8_t msb;
 
             std::tie(msb, lsb) = U16toMLSB(st.balance);
-            tmp.setupControlChange(chn, MIDICCNumber::BALANCE, msb);
+            tmp.setup_control_change(chn, MIDICCNumber::BALANCE, msb);
             res.push_back(std::move(tmp));
 
-            tmp.setupControlChange(chn, MIDICCNumber::BALANCE_LSB, lsb);
+            tmp.setup_control_change(chn, MIDICCNumber::BALANCE_LSB, lsb);
             res.push_back(std::move(tmp));
 
             std::tie(msb, lsb) = U16toMLSB(st.pan);
-            tmp.setupControlChange(chn, MIDICCNumber::PAN, msb);
+            tmp.setup_control_change(chn, MIDICCNumber::PAN, msb);
             res.push_back(std::move(tmp));
 
-            tmp.setupControlChange(chn, MIDICCNumber::PAN_LSB, lsb);
+            tmp.setup_control_change(chn, MIDICCNumber::PAN_LSB, lsb);
             res.push_back(std::move(tmp));
 
             std::tie(msb, lsb) = U16toMLSB(st.expression);
-            tmp.setupControlChange(chn, MIDICCNumber::EXPRESSION, msb);
+            tmp.setup_control_change(chn, MIDICCNumber::EXPRESSION, msb);
             res.push_back(std::move(tmp));
 
-            tmp.setupControlChange(chn, MIDICCNumber::EXPRESSION_LSB, lsb);
+            tmp.setup_control_change(chn, MIDICCNumber::EXPRESSION_LSB, lsb);
             res.push_back(std::move(tmp));
 
             std::tie(msb, lsb) = U16toMLSB(st.volume);
-            tmp.setupControlChange(chn, MIDICCNumber::VOLUME, msb);
+            tmp.setup_control_change(chn, MIDICCNumber::VOLUME, msb);
             res.push_back(std::move(tmp));
 
-            tmp.setupControlChange(chn, MIDICCNumber::VOLUME_LSB, lsb);
+            tmp.setup_control_change(chn, MIDICCNumber::VOLUME_LSB, lsb);
             res.push_back(std::move(tmp));
 
             if (programSetting >= -1 && (st.program != -1 || programSetting != -1)) {
                 auto rprog = static_cast<uint8_t>(st.program == -1 ? programSetting : st.program);
-                tmp.setupProgramChange(chn, rprog);
+                tmp.setup_program_change(chn, rprog);
                 res.push_back(std::move(tmp));
             }
         };
