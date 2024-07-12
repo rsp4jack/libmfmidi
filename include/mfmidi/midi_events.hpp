@@ -4,7 +4,7 @@
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -17,30 +17,10 @@
 
 #pragma once
 
-#include "libmfmidi/midimessage.hpp"
-#include <algorithm>
-#include <range/v3/view/adaptor.hpp>
-#include <ranges>
-#include <vector>
+#include "mfmidi/midi_tempo.hpp"
 
-namespace libmfmidi {
-
-    constexpr void toAbsTimeTrack(MIDITrack& trk)
-    {
-        MIDIClockTime time = 0;
-        for (auto& event : trk) {
-            event.setDeltaTime(time += event.deltaTime());
-        }
-    }
-
-    constexpr void toRelTimeTrack(MIDITrack& trk)
-    {
-        MIDIClockTime time = 0;
-        for (auto& event : trk) {
-            MIDIClockTime tmp = event.deltaTime();
-            event.setDeltaTime(tmp - time);
-            time = tmp;
-        }
-    }
-
+namespace mfmidi::events {
+    struct tempo_changed {
+        tempo tempo;
+    };
 }

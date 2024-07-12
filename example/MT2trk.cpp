@@ -1,9 +1,9 @@
-#include <iostream>
-#include <fstream>
-#include "libmfmidi/smfreader.hpp"
-#include "libmfmidi/samhandlers.hpp"
-#include <format>
+#include "mfmidi/samhandlers.hpp"
+#include "mfmidi/smfreader.hpp"
 #include <filesystem>
+#include <format>
+#include <fstream>
+#include <iostream>
 
 using std::cout;
 using std::endl;
@@ -11,7 +11,7 @@ using namespace libmfmidi;
 
 int main(int argc, char** argv)
 {
-    cout << "TrackPlayer: Example of libmfmidi" << endl;
+    cout << "TrackPlayer: Example of mfmidi" << endl;
     if (argc == 1) {
         std::cerr << "Error: No input file" << std::endl;
         return -1;

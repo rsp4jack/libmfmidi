@@ -1,4 +1,4 @@
-#include "libmfmidi/platformapi.hpp"
+#include "mfmidi/timingapi.hpp"
 #include <iostream>
 
 #if defined(__linux__)
@@ -7,12 +7,14 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <Windows.h>
+
+#include <timeapi.h>
 #else
 
 #endif
 #include <chrono>
-#include <thread>
 #include <cstdint>
+#include <thread>
 
 #ifdef max
 #undef max
@@ -22,7 +24,7 @@
 #undef min
 #endif
 
-namespace libmfmidi {
+namespace mfmidi {
 #if defined(_POSIX_VERSION)
     int nanosleep(std::chrono::nanoseconds nsec)
     {
@@ -45,7 +47,7 @@ namespace libmfmidi {
         using namespace std;
         using namespace std::chrono;
         constexpr DWORD MIN_RES = 15; // in ms
-        constexpr DWORD MAX_RES = 5; // in ms
+        constexpr DWORD MAX_RES = 5;  // in ms
 
         static bool     inited = false;
         static uint64_t freq;
@@ -62,7 +64,7 @@ namespace libmfmidi {
             return 0;
         }
 
-        timeBeginPeriod(caps.wPeriodMin); 
+        timeBeginPeriod(caps.wPeriodMin);
         // const hclock::time_point target_time{hclock::duration{hclock::now().time_since_epoch().count() + usec * (freq / 1'000'000)}};
         uint64_t current_time;
         uint64_t target_time;
@@ -114,7 +116,7 @@ namespace libmfmidi {
         }
         uint64_t tick;
         QueryPerformanceCounter(reinterpret_cast<LARGE_INTEGER*>(&tick));
-        return std::chrono::nanoseconds{static_cast<unsigned long long>(tick / (freq / 1000.0 / 1000))};
+        return std::chrono::nanoseconds{static_cast<unsigned long long>(tick / (freq / 1e9))};
     }
 
 #else

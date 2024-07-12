@@ -1,7 +1,7 @@
 #include <algorithm>
 #include <fmt/format.h>
 #include <iostream>
-#include <libmfmidi/mfevent.hpp>
+#include <mfmidi/mfevents.hpp>
 
 namespace mf = libmfmidi;
 
@@ -54,7 +54,7 @@ int main()
 {
     using fmt::println;
 
-    println("Events: example of libmfmidi");
+    println("Events: example of mfmidi");
 
     mf::event_emitter_util<EventA, EventB, EventC> emitter;
     emitter.add_event_handler([](auto ev) {

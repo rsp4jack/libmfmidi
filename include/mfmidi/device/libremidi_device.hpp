@@ -1,10 +1,10 @@
 /*
- * This file is a part of libmfmidi.
+ * This file is a part of mfmidi.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -18,16 +18,16 @@
 #pragma once
 
 #include "libremidi/libremidi.hpp"
-#include "libmfmidi/abstractmididevice.hpp"
-#include <string>
-#include <utility>
-#include <unordered_set>
+#include "mfmidi/midi_device.hpp"
 #include <memory>
+#include <string>
+#include <unordered_set>
+#include <utility>
 
-namespace libmfmidi::platform {
-    /* class RtMidiInDevice : public AbstractMIDIDevice {
+namespace mfmidi {
+    /* class RtMidiInDevice : public midi_device {
     public:
-        explicit RtMidiInDevice(unsigned int id, std::string name = "libmfmidi RtMidiInDevice") noexcept
+        explicit RtMidiInDevice(unsigned int id, std::string name = "mfmidi RtMidiInDevice") noexcept
             : mid(id)
             , mnm(std::move(name))
         {
@@ -100,24 +100,26 @@ namespace libmfmidi::platform {
         bool         mvirtual = false;
     }; */
 
-    class LibreMidiOutDevice : public AbstractMIDIDevice {
+    class libremidi_out_device : public midi_device {
     public:
-        explicit LibreMidiOutDevice(libremidi::output_port id, std::string name = "libmfmidi RtMidiOutDevice") noexcept
+        explicit libremidi_out_device(libremidi::output_port id, std::string name = "mfmidi RtMidiOutDevice") noexcept
             : mid(std::move(id))
             , mnm(std::move(name))
         {
         }
 
-        explicit LibreMidiOutDevice(std::string virtualPortName) noexcept
+        explicit libremidi_out_device(std::string virtualPortName) noexcept
             : mnm(std::move(virtualPortName))
             , mvirtual(true)
         {
         }
 
-        ~LibreMidiOutDevice() noexcept override = default;
-        MF_DEFAULT_MOVE_CTOR(LibreMidiOutDevice);
-        MF_DISABLE_MOVE_ASGN(LibreMidiOutDevice);
-        MF_DISABLE_COPY(LibreMidiOutDevice);
+        ~libremidi_out_device() noexcept override = default;
+
+        libremidi_out_device(libremidi_out_device&&) noexcept                 = default;
+        libremidi_out_device& operator=(libremidi_out_device&&) noexcept      = delete;
+        libremidi_out_device(const libremidi_out_device&) noexcept            = delete;
+        libremidi_out_device& operator=(const libremidi_out_device&) noexcept = delete;
 
         bool open() override
         {
@@ -157,14 +159,14 @@ namespace libmfmidi::platform {
             } catch (std::exception& err) {
                 return tl::unexpected{err.what()};
             }
-            
+
             return {};
         }
 
     private:
         libremidi::midi_out    min;
         libremidi::output_port mid{};
-        std::string  mnm;
-        bool         mvirtual = false;
+        std::string            mnm;
+        bool                   mvirtual = false;
     };
 }

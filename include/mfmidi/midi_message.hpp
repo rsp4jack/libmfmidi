@@ -1,5 +1,5 @@
 /*
- * This file is a part of libmfmidi.
+ * This file is a part of mfmidi.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,25 +19,25 @@
 
 #pragma once
 
+#include "mfmidi/mfutility.hpp"
+#include "mfmidi/midi_tempo.hpp"
+#include "mfmidi/midi_utility.hpp"
+#include <algorithm>
+#include <cmath>
+#include <concepts>
+#include <cstdint>
+#include <iterator>
+#include <ranges>
+#include <string>
+#include <utility>
+#include <vector>
+
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 4244 4267 4146)
 #endif
 
-#include "libmfmidi/mfutils.hpp"
-#include "libmfmidi/midiutils.hpp"
-#include <algorithm>
-#include <cmath>
-#include <concepts>
-#include <cstdint>
-#include <iomanip>
-#include <ranges>
-#include <sstream>
-#include <string>
-#include <utility>
-#include <vector>
-
-namespace libmfmidi {
+namespace mfmidi {
     // not even a view
     template <std::ranges::range R>
         requires std::movable<R>
@@ -48,7 +48,7 @@ namespace libmfmidi {
 
     public:
         constexpr explicit midi_message_owning_view() = default;
-        constexpr          midi_message_owning_view(const midi_message_owning_view&)
+        constexpr midi_message_owning_view(const midi_message_owning_view&)
             requires std::copyable<R>
         = default;
         constexpr midi_message_owning_view(midi_message_owning_view&&) = default;
@@ -71,37 +71,37 @@ namespace libmfmidi {
 
         [[nodiscard]] constexpr auto&& base(this auto&& self) noexcept
         {
-            return std::forward<decltype(self)>(_data);
+            return std::forward<decltype(self)>(self)._data;
         }
 
         [[nodiscard]] constexpr auto begin(this auto&& self)
-            requires std::ranges::range<std::remove_reference_t<decltype(self)>>
+            requires std::ranges::range<decltype(self._data)>
         {
-            return std::ranges::begin(_data);
+            return std::ranges::begin(self._data);
         }
 
         [[nodiscard]] constexpr auto end(this auto&& self)
-            requires std::ranges::range<std::remove_reference_t<decltype(self)>>
+            requires std::ranges::range<decltype(self._data)>
         {
-            return std::ranges::end(_data);
+            return std::ranges::end(self._data);
         }
 
         [[nodiscard]] constexpr bool empty(this auto&& self)
             requires requires { std::ranges::empty(_data); }
         {
-            return std::ranges::empty(_data);
+            return std::ranges::empty(self._data);
         }
 
         [[nodiscard]] constexpr auto size(this auto&& self)
-            requires std::ranges::sized_range<std::remove_reference_t<decltype(self)>>
+            requires std::ranges::sized_range<decltype(self._data)>
         {
-            return std::ranges::size(_data);
+            return std::ranges::size(self._data);
         }
 
         [[nodiscard]] constexpr auto data(this auto&& self)
-            requires std::ranges::contiguous_range<std::remove_reference_t<decltype(self)>>
+            requires std::ranges::contiguous_range<decltype(self._data)>
         {
-            return std::ranges::data(_data);
+            return std::ranges::data(self._data);
         }
 
         [[nodiscard]] constexpr int deduced_expected_length() const
@@ -109,7 +109,7 @@ namespace libmfmidi {
             if (is_meta_event_like()) {
                 return expected_meta_event_length(_data[1]);
             }
-            if (isSystemMessage()) {
+            if (is_system_message()) {
                 return expected_system_message_length(_data[0]);
             }
             return expected_channel_message_length(_data[0]);
@@ -123,13 +123,13 @@ namespace libmfmidi {
 
         [[nodiscard]] constexpr uint8_t channel() const
         {
-            C(isChannelMsg());
+            C(is_channel_msg());
             return (_data[0] & 0x0FU) + 1;
         }
 
         [[nodiscard]] constexpr uint8_t type() const
         {
-            if (isChannelMsg()) {
+            if (is_channel_msg()) {
                 return _data[0] & 0xF0U;
             }
             return _data[0];
@@ -243,10 +243,10 @@ namespace libmfmidi {
             return (val - 64) / 64.0;
         }
 
-        [[nodiscard]] constexpr MIDITempo tempo() const
+        [[nodiscard]] constexpr tempo tempo() const
         {
             C(isTempo());
-            return MIDITempo::fromMSPQ(rawCat(_data[3], _data[4], _data[5]));
+            return tempo::from_mspq(rawcat(_data[3], _data[4], _data[5]));
         }
 
         [[nodiscard]] constexpr std::string_view text() const
@@ -263,13 +263,13 @@ namespace libmfmidi {
 
         constexpr void set_channel(uint8_t a)
         {
-            C(isChannelMsg());
+            C(is_channel_msg());
             _data[0] = (_data[0] & 0xF0) | (a - 1);
         }
 
         constexpr void set_type(uint8_t a)
         {
-            if (isChannelMsg()) {
+            if (is_channel_msg()) {
                 _data[0] = (_data[0] & 0x0F) | (a & 0xF0);
             }
             _data[0] = a;
@@ -401,62 +401,63 @@ namespace libmfmidi {
 
         constexpr void setup_all_notes_off(uint8_t chan)
         {
-            setup_control_change(chan, MIDICCNumber::ALL_NOTE_OFF, 127);
+            setup_control_change(chan, MIDICCNumber::ALL_NOTE_OFF, 0);
         }
 
         constexpr void setup_all_sounds_off(uint8_t chan)
         {
-            setup_control_change(chan, MIDICCNumber::ALL_SOUND_OFF, 127);
+            setup_control_change(chan, MIDICCNumber::ALL_SOUND_OFF, 0);
         }
 
         /// \code
         /// FF type size args
         /// \endcode
-        constexpr void setupMetaEvent(uint8_t type, std::initializer_list<uint8_t> args = {})
-        {
-            clear();
-            _data = {MIDINumSpace::META_EVENT, type};
-            writeVarNumIt(static_cast<MIDIVarNum>(args.size()), std::back_inserter(_data));
-            std::copy(args.begin(), args.end(), std::back_inserter(_data));
-        }
-
-        constexpr void setupTempo(MIDITempo tempo)
-        {
-            uint8_t f;
-            uint8_t s;
-            uint8_t t;
-            f = (tempo.mspq() >> 16) & 0xFF;
-            s = (tempo.mspq() >> 8) & 0xFF;
-            t = tempo.mspq() & 0xFF;
-            setupMetaEvent(MIDIMetaNumber::TEMPO, {f, s, t});
-        }
-
-        constexpr void setupEndOfTrack()
-        {
-            setupMetaEvent(MIDIMetaNumber::END_OF_TRACK);
-        }
-
-        constexpr void setupTimeSignature(uint8_t numerator, uint8_t denominator, uint8_t midi_tick_per_beat, uint8_t _32nd_per_midi_4th_note)
-        {
-            setupMetaEvent(MIDIMetaNumber::TIMESIG, {numerator, static_cast<uint8_t>(std::log2(denominator)), midi_tick_per_beat, _32nd_per_midi_4th_note});
-        }
-
-        constexpr void setupKeySignature(int8_t sharp_flats, uint8_t major_minor)
-        {
-            setupMetaEvent(MIDIMetaNumber::KEYSIG, {static_cast<uint8_t>(sharp_flats), major_minor});
-        }
+        // constexpr void setup_meta_event(uint8_t type, std::initializer_list<std::ranges::range_value_t<R>> args = {})
+        //     requires requires(std::ranges::range_value_t<R> val) {_data.clear(); _data.push_back(val); }
+        // {
+        //     _data.clear();
+        //     _data = {MIDINumSpace::META_EVENT, type};
+        //     std::ranges::copy(smf_variable_length_number_view<size_t, std::ranges::range_value_t<R>>{args.size()}, std::back_inserter(_data));
+        //     std::ranges::copy(args, std::back_inserter(_data));
+        // }
+        //
+        // constexpr void setup_tempo(mfmidi::tempo tempo)
+        // {
+        //     uint8_t f;
+        //     uint8_t s;
+        //     uint8_t t;
+        //     f = (tempo.mspq() >> 16) & 0xFF;
+        //     s = (tempo.mspq() >> 8) & 0xFF;
+        //     t = tempo.mspq() & 0xFF;
+        //     setup_meta_event(MIDIMetaNumber::TEMPO, {f, s, t});
+        // }
+        //
+        // constexpr void setup_end_of_track()
+        // {
+        //     setup_meta_event(MIDIMetaNumber::END_OF_TRACK);
+        // }
+        //
+        // constexpr void setup_time_signature(uint8_t numerator, uint8_t denominator, uint8_t midi_tick_per_beat, uint8_t _32nd_per_midi_4th_note)
+        // {
+        //     setup_meta_event(MIDIMetaNumber::TIMESIG, {numerator, static_cast<uint8_t>(std::log2(denominator)), midi_tick_per_beat, _32nd_per_midi_4th_note});
+        // }
+        //
+        // constexpr void setup_key_signature(int8_t sharp_flats, uint8_t major_minor)
+        // {
+        //     setup_meta_event(MIDIMetaNumber::KEYSIG, {static_cast<uint8_t>(sharp_flats), major_minor});
+        // }
 
         /// \}
 
         /// \name is-er
         /// \{
 
-        [[nodiscard]] constexpr bool strictVaild() const
+        [[nodiscard]] constexpr bool strict_vaild() const
         {
             // clang-format off
             return (!_data.empty() && (
-                (isVoiceMessage() && expected_channel_message_length(status()) == _data.size()) // voice message: expected length
-                || (isSystemMessage() && ( // system message
+                (is_voice_message() && expected_channel_message_length(status()) == _data.size()) // voice message: expected length
+                || (is_system_message() && ( // system message
                     (isSysEx() && *(_data.end()-1) == SYSEX_END) // sysex: have sysex_start and sysex_end
                     || ((status() >= 0xF1 && status() <= 0xF1) && expected_system_message_length(status()) == _data.size()) // some system message: expected length, sometimes LUT return 0, so wont match and get false
                 ))
@@ -465,23 +466,23 @@ namespace libmfmidi {
             // clang-format on
         }
 
-        [[nodiscard]] constexpr bool isVoiceMessage() const
+        [[nodiscard]] constexpr bool is_voice_message() const
         {
-            return isChannelMsg();
+            return is_channel_msg();
         }
 
-        [[nodiscard]] constexpr bool isChannelPrefix() const
+        [[nodiscard]] constexpr bool is_channel_prefix() const
         {
             return is_meta_event_like() && L(2) && (_data[1] == MIDIMetaNumber::CHANNEL_PREFIX);
         }
 
         /// \warning Meta events are not system messages.
-        [[nodiscard]] constexpr bool isSystemMessage() const
+        [[nodiscard]] constexpr bool is_system_message() const
         {
             return !is_meta_event_like() && (status() & 0xF0) == 0xF0;
         }
 
-        [[nodiscard]] constexpr bool isChannelMsg() const
+        [[nodiscard]] constexpr bool is_channel_msg() const
         {
             return L(1) && (status() >= NOTE_OFF) && (status() < SYSEX_START);
         }
@@ -625,11 +626,6 @@ namespace libmfmidi {
             return isControlChange() && L(2) && (_data[1] == MIDICCNumber::ALL_SOUND_OFF);
         }
 
-        [[nodiscard]] constexpr bool isMFNoOp() const
-        {
-            return (marker == MFMessageMark::NoOp);
-        }
-
         [[nodiscard]] constexpr bool isTempo() const
         {
             return is_meta_event_like() && L(2) && (_data[1] == MIDIMetaNumber::TEMPO);
@@ -712,7 +708,7 @@ namespace libmfmidi {
         template <class Base>
         class MIDIMessageTimedExt : public Base {
         public:
-            constexpr  MIDIMessageTimedExt() noexcept = default;
+            constexpr MIDIMessageTimedExt() noexcept  = default;
             constexpr ~MIDIMessageTimedExt() noexcept = default;
 
             template <class... T>
@@ -778,12 +774,13 @@ namespace libmfmidi {
     using MIDIBasicTimedMessage = details::MIDIMessageTimedExt<midi_message_owning_view<T>>;
 
     using MIDITimedMessage = MIDIBasicTimedMessage<std::vector<uint8_t>>;
+
+    template <class T>
+    concept midi_message_alike = std::ranges::range<T> && sizeof(std::ranges::range_value_t<T>) * CHAR_BIT == 8;
 }
 
-namespace std::ranges {
-    template <class T>
-    constexpr bool enable_borrowed_range<libmfmidi::midi_message_owning_view<T>> = enable_borrowed_range<T>;
-}
+template <class T>
+constexpr bool std::ranges::enable_borrowed_range<mfmidi::midi_message_owning_view<T>> = enable_borrowed_range<T>;
 
 // NOLINTEND(readability-identifier-length, bugprone-easily-swappable-parameters)
 

@@ -1,29 +1,32 @@
-/// \file midiutils.hpp
-/// \brief MIDI utils
+/*
+ * This file is a part of libmfmidi.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
 
 // TODO: Rewrite it.
 
 #pragma once
 
-#include "libmfmidi/mfutils.hpp"
-#include "libmfmidi/mididatatypes.hpp"
+#include "mfmidi/mfutility.hpp"
 #include <array>
-#include <chrono>
 #include <cstdint>
-#include <fmt/core.h>
 #include <iostream>
-#include <istream>
 #include <iterator>
 #include <limits>
 
-#if defined(max)
-#undef max // msvc max macro
-#endif
-#if defined(min)
-#undef min // msvc min marco
-#endif
-
-namespace libmfmidi {
+namespace mfmidi {
     using MIDIClockTime                   = uint32_t;
     constexpr uint8_t       NUM_CHANNELS  = 16;
     constexpr uint8_t       NUM_PORTS     = 16;
@@ -263,7 +266,7 @@ namespace libmfmidi {
     /// \warning The return value may be \b negative .
     /// \param[in] status MIDI message status code
     /// \return int
-    inline constexpr int expected_channel_message_length(uint8_t status)
+    constexpr int expected_channel_message_length(uint8_t status)
     {
         return lut_channel_message_length.at(status >> 4U);
     }
@@ -272,7 +275,7 @@ namespace libmfmidi {
     /// \warning The return value may be \b negative .
     /// \param[in] status Message Status
     /// \return int
-    inline constexpr int expected_system_message_length(uint8_t status)
+    constexpr int expected_system_message_length(uint8_t status)
     {
         return lut_system_message_length.at(status - 0xF0);
     }
@@ -282,7 +285,7 @@ namespace libmfmidi {
     /// \c -2 : unknown
     /// \param type meta type
     /// \return constexpr int
-    inline constexpr int expected_meta_event_length(uint8_t type)
+    constexpr int expected_meta_event_length(uint8_t type)
     {
         auto unwrapped = [&]() {
             switch (type) {
@@ -322,130 +325,19 @@ namespace libmfmidi {
         return result + 3;
     }
 
-    inline constexpr bool is_white_note(uint8_t pitch)
+    constexpr bool is_white_note(uint8_t pitch)
     {
         return lut_white_key.at(pitch % 12);
     }
 
-    inline constexpr bool is_black_note(uint8_t pitch)
+    constexpr bool is_black_note(uint8_t pitch)
     {
         return !is_white_note(pitch);
     }
 
-    inline constexpr int note_octave(uint8_t pitch)
+    constexpr int note_octave(uint8_t pitch)
     {
         return (pitch / 12) - 1;
-    }
-
-    template <class It>
-    struct _read_smf_variable_length_number_result {
-        uint32_t result;
-        It       it;
-    };
-
-    template <std::ranges::input_range R, class Proj = std::identity>
-        requires std::same_as<std::iter_value_t<std::projected<std::ranges::iterator_t<R>, Proj>>, uint8_t> || std::same_as<std::iter_value_t<std::projected<std::ranges::iterator_t<R>, Proj>>, std::byte>
-    constexpr _read_smf_variable_length_number_result<std::ranges::borrowed_iterator_t<R>> read_smf_variable_length_number(R&& r, Proj proj = {})
-    {
-        uint32_t     result{};
-        auto         it  = std::ranges::begin(r);
-        auto         end = std::ranges::end(r);
-        uint_fast8_t sz{};
-
-        for (; it != end; ++it) {
-            auto val = *it;
-            result |= val & 0x7Fu;
-            if (val & 0x80u == 0) {
-                ++it;
-                return _read_smf_variable_length_number_result<std::ranges::iterator_t<R>>{result, std::move(it)};
-            }
-            if (sz == 3) {
-                throw std::range_error{"read_smf_variable_length_number: overflow in 28 bits"};
-            }
-            result <<= 7;
-            ++sz;
-        }
-        throw std::domain_error{"read_smf_variable_lengrh_number: early END"};
-    }
-
-    /// \brief Write SMF variable number
-    ///
-    /// \param data value
-    /// \param ose output stream
-    /// \return size_t written bytes count
-    inline size_t writeVarNum(MIDIVarNum data, std::ostream* ose)
-    {
-        MIDIVarNum buf;
-        size_t     cnt = 0;
-        buf            = data & 0x7F;
-        while ((data >>= 7) > 0) {
-            buf <<= 8;
-            buf |= 0x80;
-            buf += data & 0x7F;
-        }
-        while (true) {
-            ose->put(static_cast<char>(buf & 0xFF));
-            ++cnt;
-            if ((buf & 0x80) != 0U) {
-                buf >>= 8;
-            } else {
-                break;
-            }
-        }
-        return cnt;
-    }
-
-    /// \brief Write SMF variable number
-    /// \sa writeVarNum
-    template <std::output_iterator<uint8_t> OutIt>
-    inline constexpr size_t writeVarNumIt(MIDIVarNum data, OutIt iter)
-    {
-        MIDIVarNum buf;
-        size_t     cnt = 0;
-        buf            = data & 0x7F;
-        while ((data >>= 7) > 0) {
-            buf <<= 8;
-            buf |= 0x80;
-            buf += data & 0x7F;
-        }
-        while (true) {
-            *iter = buf & 0xFF;
-            ++iter;
-
-            ++cnt;
-            if ((buf & 0x80) != 0U) {
-                buf >>= 8;
-            } else {
-                break;
-            }
-        }
-        return cnt;
-    }
-
-    /// \brief Get length in bytes of a SMF variable number
-    ///
-    /// \param data Data
-    /// \return size_t
-    inline size_t varNumLen(MIDIVarNum data)
-    {
-        MIDIVarNum buf;
-        size_t     cnt = 0;
-        buf            = data & 0x7F;
-        while ((data >>= 7) > 0) {
-            buf <<= 8;
-            buf |= 0x80;
-            buf += data & 0x7F;
-        }
-        while (true) {
-            // ose->put(buf & 0xFF);
-            ++cnt;
-            if ((buf & 0x80) != 0U) {
-                buf >>= 8;
-            } else {
-                break;
-            }
-        }
-        return cnt;
     }
 
     /// \name MSB and LSB convertion
@@ -458,7 +350,7 @@ namespace libmfmidi {
     /// \return uint16_t Value
     inline uint16_t MLSBtoU16(uint8_t msb, uint8_t lsb) noexcept
     {
-        return (msb << 7) | (lsb & 0x7F);
+        return (msb << 7U) | (lsb & 0x7F);
     }
 
     /// \brief convert \p uint16_t to MSB and LSB
@@ -467,76 +359,53 @@ namespace libmfmidi {
     /// \return std::pair<uint8_t, uint8_t> MSB and LSB (First is MSB, second is LSB)
     inline std::pair<uint8_t, uint8_t> U16toMLSB(uint16_t val) noexcept
     {
-        return {(val >> 7) & 0x7F, val & 0x7F};
+        return {(val >> 7U) & 0x7F, val & 0x7F};
     }
 
     /// \}
 
-    /// \brief Convert SMF division and tempo to tick time (in second)
-    ///
-    /// \param val Division
-    /// \param bpm BPM
-    /// \return double Tick time in second
-    inline constexpr std::chrono::nanoseconds divisionToDuration(MIDIDivision val, MIDITempo bpm) noexcept
-    {
-        using ResultType = std::chrono::nanoseconds;
-        if (!val || !bpm) {
-            return ResultType{};
-        }
-        if (val.isPPQ()) {
-            // MIDI always 4/4
-            return ResultType{static_cast<ResultType::rep>(60.0 / (val.ppq() * bpm.bpmFP()) * 1'000'000'000)};
-        }
-        // 24 25 29(.97) 30
-        double realfps = val.fps();
-        if (val.fps() == 29) {
-            realfps = 29.97;
-        }
-        return ResultType{static_cast<ResultType::rep>(1 / (realfps * val.tpf()) * 1'000'000'000)};
-    }
-
-    inline constexpr std::string divisionToText(MIDIDivision val) noexcept
-    {
-        if (!val) {
-            return "Empty Division";
-        }
-        if (val.isPPQ()) {
-            return fmt::format("{} PPQ", val.ppq());
-        }
-        double realfps = val.fps();
-        if (val.fps() == 29) {
-            realfps = 29.97;
-        }
-        return fmt::format("[{} FPS, {} TPF ({} Ticks per second)]", realfps, val.tpf(), realfps * val.tpf());
-    }
-
-    /// If you not sure the message is meta or reset, set \a isMeta to 0; If is meta, set to 1; If is reset, set to -1
-    inline constexpr std::string_view statusToText(uint8_t status, int isMeta = 0)
-    {
-        // using namespace std::string_view_literals;
-        //  0x80-0xE0
-        constexpr std::array<std::string_view, 7> tableA{"Note Off", "Note On", "Poly Pressure", "Control Change", "Program Change", "Channel Pressure", "Pitch Bend"};
-        // 0xF0-0xFF
-        constexpr std::array<std::string_view, 16> tableB{"SysEx Start", "MTC", "Song Position", "Song Select", "Undefined", "Undefined", "Tune Request", "SysEx End", "Timing Clock", "Undefined", "Start", "Continue", "Stop", "Undefined", "Active Sensing", "{0xFF}"};
-
-        if (status >= 0x80 && status < 0xF0) {
-            return tableA.at((status >> 4) - 0x8);
-        }
-        if ((status & 0xF0) == 0xF0) {
-            if (tableB.at(status & 0x0F) == "{0xFF}") {
-                if (isMeta > 0) {
-                    return "Meta Event";
-                }
-                if (isMeta == 0) {
-                    return "Meta Event or Reset";
-                }
-                if (isMeta < 0) {
-                    return "Reset";
-                }
-            } else {
-                return tableB.at(status & 0x0F);
-            }
-        }
-        std::unreachable();
-    }
+    // inline constexpr std::string divisionToText(MIDIDivision val) noexcept
+    // {
+    //     if (!val) {
+    //         return "Empty Division";
+    //     }
+    //     if (val.isPPQ()) {
+    //         return fmt::format("{} PPQ", val.ppq());
+    //     }
+    //     double realfps = val.fps();
+    //     if (val.fps() == 29) {
+    //         realfps = 29.97;
+    //     }
+    //     return fmt::format("[{} FPS, {} TPF ({} Ticks per second)]", realfps, val.tpf(), realfps * val.tpf());
+    // }
+    //
+    // /// If you not sure the message is meta or reset, set \a isMeta to 0; If is meta, set to 1; If is reset, set to -1
+    // inline constexpr std::string_view statusToText(uint8_t status, int isMeta = 0)
+    // {
+    //     // using namespace std::string_view_literals;
+    //     //  0x80-0xE0
+    //     constexpr std::array<std::string_view, 7> tableA{"Note Off", "Note On", "Poly Pressure", "Control Change", "Program Change", "Channel Pressure", "Pitch Bend"};
+    //     // 0xF0-0xFF
+    //     constexpr std::array<std::string_view, 16> tableB{"SysEx Start", "MTC", "Song Position", "Song Select", "Undefined", "Undefined", "Tune Request", "SysEx End", "Timing Clock", "Undefined", "Start", "Continue", "Stop", "Undefined", "Active Sensing", "{0xFF}"};
+    //
+    //     if (status >= 0x80 && status < 0xF0) {
+    //         return tableA.at((status >> 4) - 0x8);
+    //     }
+    //     if ((status & 0xF0) == 0xF0) {
+    //         if (tableB.at(status & 0x0F) == "{0xFF}") {
+    //             if (isMeta > 0) {
+    //                 return "Meta Event";
+    //             }
+    //             if (isMeta == 0) {
+    //                 return "Meta Event or Reset";
+    //             }
+    //             if (isMeta < 0) {
+    //                 return "Reset";
+    //             }
+    //         } else {
+    //             return tableB.at(status & 0x0F);
+    //         }
+    //     }
+    //     std::unreachable();
+    // }
 }

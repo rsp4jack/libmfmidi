@@ -1,10 +1,10 @@
 /*
- * This file is a part of libmfmidi.
+ * This file is a part of mfmidi.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -15,35 +15,39 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-/// \file kdmapidevice.hpp
-/// \brief KDMAPI MIDIDevice
+#pragma once
 
-#ifdef _WIN32
+#if !defined(_WIN32)
+#warning "kdmapi_device on not win32"
+#else
 
-#include "libmfmidi/abstractmididevice.hpp" // "max" macro
-#include "libmfmidi/midimessage.hpp"
+#include "mfmidi/midi_device.hpp"
+#include "mfmidi/midi_message.hpp"
 #include "omnimidi/OmniMIDI.h"
 
-namespace libmfmidi::platform {
-    class KDMAPIDevice : public AbstractMIDIDevice {
+namespace mfmidi {
+    class kdmapi_device final : public midi_device {
     public:
-        explicit KDMAPIDevice(bool force = false) noexcept
+        explicit kdmapi_device(bool force = false) noexcept
             : available(force)
         {
             if (IsKDMAPIAvailable() == 0) {
+                // todo: handle it
                 std::cerr << "Warning: IsKDMAPIAvailable returns false" << std::endl;
             } else {
                 available = true;
             }
         }
 
-        ~KDMAPIDevice() noexcept override
+        ~kdmapi_device() noexcept override
         {
-            close();
+            kdmapi_device::close();
         }
 
-        MF_DISABLE_COPY(KDMAPIDevice);
-        MF_DEFAULT_MOVE(KDMAPIDevice);
+        kdmapi_device(const kdmapi_device&) noexcept            = delete;
+        kdmapi_device& operator=(const kdmapi_device&) noexcept = delete;
+        kdmapi_device(kdmapi_device&&) noexcept                 = default;
+        kdmapi_device& operator=(kdmapi_device&&) noexcept      = default;
 
         bool open() override
         {
@@ -74,12 +78,12 @@ namespace libmfmidi::platform {
             return available;
         }
 
-        tl::expected<void, const char*> sendMsg(std::span<const uint8_t> msgbuf) noexcept override 
+        tl::expected<void, const char*> sendMsg(std::span<const uint8_t> msgbuf) noexcept override
         {
             if (!ison) {
                 return tl::unexpected{"Device is not open"};
             }
-            midi_message_owning_view<std::span<const uint8_t>> msg(msgbuf);
+            midi_message_owning_view<std::span<const uint8_t>> msg{auto{msgbuf}};
             if (msg.empty()) {
                 return {};
             }
@@ -89,18 +93,18 @@ namespace libmfmidi::platform {
                 // prepare sysex header
                 std::unique_ptr<uint8_t[]> buffer = std::make_unique<uint8_t[]>(msg.size());
                 std::copy(msg.cbegin(), msg.cend(), buffer.get()); // copy because it need not const
-                MIDIHDR sysex{}; // initiazle to avoid exception
-                sysex.lpData = reinterpret_cast<LPSTR>(buffer.get());
+                MIDIHDR sysex{};                                   // initiazle to avoid exception
+                sysex.lpData         = reinterpret_cast<LPSTR>(buffer.get());
                 sysex.dwBufferLength = static_cast<DWORD>(msg.size());
                 sysex.dwFlags        = 0;
                 result               = PrepareLongData(&sysex, sizeof(MIDIHDR));
                 if (result != MMSYSERR_NOERROR) {
-                    std::cout << "Error: KDMAPIDevice: error preparing sysex header" << '\n';
+                    std::cout << "Error: kdmapi_device: error preparing sysex header" << '\n';
                 }
 
                 result = SendDirectLongData(&sysex, sizeof(MIDIHDR));
                 if (result != MMSYSERR_NOERROR) {
-                    return tl::unexpected{"KDMAPIDevice: error sending sysex messsage"};
+                    return tl::unexpected{"kdmapi_device: error sending sysex messsage"};
                 }
 
                 while (UnprepareLongData(&sysex, sizeof(MIDIHDR)) == MIDIERR_STILLPLAYING) {
@@ -113,7 +117,7 @@ namespace libmfmidi::platform {
                 }
 
                 if (msg.size() > 3) {
-                    return tl::unexpected("KDMAPIDevice: message size > 3 bytes");
+                    return tl::unexpected("kdmapi_device: message size > 3 bytes");
                 }
 
                 DWORD packet{};

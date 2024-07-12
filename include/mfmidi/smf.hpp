@@ -4,7 +4,7 @@
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -15,22 +15,10 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-/// \file platformapi.hpp
-/// \brief Platform "Abstract"
-
 #pragma once
 
-#include <chrono>
-
-namespace libmfmidi {
-    /// \brief libmfmidi's nanosleep
-    ///
-    /// \param nsec time in nanoseconds
-    /// \return int 0 if succeeded
-    int nanosleep(std::chrono::nanoseconds nsec);
-
-    /// \brief Get high resolution time stamp in nanoseconds
-    /// 
-    /// \return unsigned long long time stamp in nanoseconds
-    std::chrono::nanoseconds hiresticktime();
-}
+#include "mfmidi/smf/division.hpp"
+#include "mfmidi/smf/smf.hpp"
+#include "mfmidi/smf/smf_error.hpp"
+#include "mfmidi/smf/span_track.hpp"
+#include "mfmidi/smf/variable_number.hpp"

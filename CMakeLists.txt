@@ -3,7 +3,7 @@ project(libmfmidi VERSION 0.1.0)
 
 option(BUILD_SHARED_LIBS "Build using shared libraries" OFF)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(CTest)
@@ -48,46 +48,36 @@ find_package(fmt REQUIRED)
 find_package(tl-expected REQUIRED)
 FetchContent_MakeAvailable(libremidi)
 
-# --- libmfmidi
+# --- mfmidi
 
 add_library(libmfmidi STATIC
-        include/libmfmidi/abstractmididevice.hpp
-        include/libmfmidi/abstractsamhandler.hpp
-        include/libmfmidi/abstracttimer.hpp
-        include/libmfmidi/kdmapidevice.hpp
-        include/libmfmidi/libmfmidi.hpp
-        include/libmfmidi/mfconcepts.hpp
-        include/libmfmidi/mfexceptions.hpp
-        include/libmfmidi/mfutils.hpp
-        include/libmfmidi/midiadvancedtrackplayer.hpp
-        include/libmfmidi/channel_note_status.hpp
-        include/libmfmidi/midimessage.hpp
-        include/libmfmidi/midimessagefdc.hpp
-        include/libmfmidi/midimultitrack.hpp
-        include/libmfmidi/midimultitrackcursor.hpp
-        include/libmfmidi/midinotifier.hpp
-        include/libmfmidi/midiprocessor.hpp
-        include/libmfmidi/midireadonplay.hpp
-        include/libmfmidi/midistatus.hpp
-        include/libmfmidi/miditrack.hpp
-        include/libmfmidi/miditrackplayer.hpp
-        include/libmfmidi/midiutils.hpp
-        include/libmfmidi/dummy.cpp
-        include/libmfmidi/platformapi.hpp
-        include/libmfmidi/posixtimer.hpp
-        include/libmfmidi/libremididevice.hpp
-        include/libmfmidi/samhandlers.hpp
-        include/libmfmidi/smffile.hpp
-        include/libmfmidi/smfreader.hpp
-        include/libmfmidi/smfreaderpolicy.hpp
-        include/libmfmidi/win32mmtimer.hpp
+        include/mfmidi/midi_device.hpp
+        include/mfmidi/device/kdmapi_device.hpp
+        include/mfmidi/mfmidi.hpp
+        include/mfmidi/mfutility.hpp
+        include/mfmidi/track_player.hpp
+        include/mfmidi/midi_message.hpp
+        include/mfmidi/smf/span_track.hpp
+        include/mfmidi/midi_status.hpp
+        include/mfmidi/midi_utility.hpp
+        include/mfmidi/dummy.cpp
+        include/mfmidi/timingapi.hpp
+        include/mfmidi/device/libremidi_device.hpp
         src/libmfmidi/platformapi.cpp
-        include/libmfmidi/mfevent.hpp
-        include/libmfmidi/mfranges.hpp
+        include/mfmidi/event.hpp
+        include/mfmidi/smf/smf.hpp
+        src/libmfmidi/smf_error.cpp
+        include/mfmidi/smf/variable_number.hpp
+        include/mfmidi/smf/division.hpp
+        include/mfmidi/midi_tempo.hpp
+        include/mfmidi/smf/smf_error.hpp
+        include/mfmidi/midi_events.hpp
+        include/mfmidi/smf.hpp
+        include/mfmidi/devices.hpp
 )
 
 if (WIN32)
-    #    target_precompile_headers(libmfmidi PUBLIC <Windows.h>)
+    #    target_precompile_headers(mfmidi PUBLIC <Windows.h>)
     #    target_precompile_headers(KDMAPI PUBLIC <Windows.h>)
 
     target_link_libraries(libmfmidi PRIVATE KDMAPI)
@@ -95,6 +85,9 @@ endif ()
 target_include_directories(libmfmidi PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 target_link_libraries(libmfmidi PUBLIC libremidi fmt::fmt tl::expected)
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    target_link_libraries(libmfmidi PUBLIC stdc++exp)
+endif ()
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})

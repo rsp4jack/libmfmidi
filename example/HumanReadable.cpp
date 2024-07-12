@@ -1,7 +1,7 @@
-#include <iostream>
+#include "mfmidi/samhandlers.hpp"
+#include "mfmidi/smfreader.hpp"
 #include <fstream>
-#include "libmfmidi/smfreader.hpp"
-#include "libmfmidi/samhandlers.hpp"
+#include <iostream>
 using namespace libmfmidi;
 int main(int argc, char** argv)
 {

@@ -1,5 +1,5 @@
 /*
- * This file is a part of libmfmidi.
+ * This file is a part of mfmidi.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,46 +17,38 @@
 
 #pragma once
 
-#include "libmfmidi/midimessage.hpp"
+#include "mfmidi/midi_message.hpp"
 #include <functional>
-#include <utility>
 #include <tl/expected.hpp>
+#include <utility>
 
-namespace libmfmidi {
-    /// \brief A class that abstracted MIDI device.
-    class AbstractMIDIDevice {
+namespace mfmidi {
+    class midi_device {
     public:
-        AbstractMIDIDevice() noexcept = default;
+        midi_device() noexcept = default;
 
-        MF_DEFAULT_MOVE(AbstractMIDIDevice);
-        MF_DEFAULT_COPY(AbstractMIDIDevice);
-        using callback_type                                      = std::function<void(const MIDIMessage& msg)>;
+        midi_device(midi_device&&) noexcept                 = default;
+        midi_device& operator=(midi_device&&) noexcept      = default;
+        midi_device(const midi_device&) noexcept            = default;
+        midi_device& operator=(const midi_device&) noexcept = default;
 
-        virtual ~AbstractMIDIDevice() noexcept = default;
+        virtual ~midi_device() noexcept = default;
 
         [[nodiscard]] virtual bool isOpen() const noexcept = 0;
 
-        [[nodiscard]] virtual constexpr bool inputAvailable() const noexcept = 0;
+        [[nodiscard]] virtual constexpr bool inputAvailable() const noexcept  = 0;
         [[nodiscard]] virtual constexpr bool outputAvailable() const noexcept = 0;
 
-        virtual bool open() = 0;
+        virtual bool open()  = 0;
         virtual bool close() = 0;
 
         virtual tl::expected<void, const char*> sendMsg(std::span<const uint8_t> msg) noexcept = 0;
-
-        virtual void setCallback(callback_type usercb) noexcept
-        {
-            mcb = std::move(usercb);
-        }
-
-    protected:
-        callback_type mcb;
     };
 
-    inline void sendAllSoundsOff(AbstractMIDIDevice* dev)
+    inline void sendAllSoundsOff(midi_device* dev)
     {
-        for(uint8_t channel : std::views::iota(0U, 16U)){
-            const MIDIMessage msg{static_cast<uint8_t>(MIDIMsgStatus::CONTROL_CHANGE | channel), MIDICCNumber::ALL_SOUND_OFF, 0};
+        for (uint8_t channel : std::views::iota(0U, 16U)) {
+            uint8_t msg[]{static_cast<uint8_t>(MIDIMsgStatus::CONTROL_CHANGE | channel), MIDICCNumber::ALL_SOUND_OFF, 0};
             dev->sendMsg(msg);
         }
     }

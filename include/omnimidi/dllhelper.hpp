@@ -1,28 +1,31 @@
 /*
-* This file is a part of libmfmidi.
-* 
-* This program is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-* 
-* This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-* See the GNU General Public License for more details.
-* 
-* You should have received a copy of the GNU General Public License
-* along with this program. If not, see <https://www.gnu.org/licenses/>.
-*/
+ * This file is a part of libmfmidi.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
 
 #include <stdexcept>
 #include <type_traits>
-#include <Windows.h>
 #include <unordered_map>
+#include <Windows.h>
 
 // https://github.com/bblanchon/dllhelper/blob/master/dllhelper.hpp
 // Edited
 // MIT License
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
 
 class ProcPtr {
 public:
@@ -32,7 +35,7 @@ public:
     }
 
     template <typename T>
-    requires std::is_function_v<T>
+        requires std::is_function_v<T>
     explicit operator T*() const
     {
         return reinterpret_cast<T*>(_ptr);
@@ -41,6 +44,8 @@ public:
 private:
     FARPROC _ptr;
 };
+
+#pragma GCC diagnostic pop
 
 class DllHelper {
 public:
@@ -59,7 +64,7 @@ public:
 
     ~DllHelper()
     {
-        if(tfree){
+        if (tfree) {
             FreeLibrary(_module);
             procmap.clear();
         }
@@ -74,8 +79,7 @@ public:
     }
 
 private:
-    HMODULE _module;
-    bool    tfree = false;
+    HMODULE                             _module;
+    bool                                tfree = false;
     std::unordered_map<LPCSTR, FARPROC> procmap;
 };
-

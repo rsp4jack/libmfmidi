@@ -7,9 +7,9 @@
 #include <unordered_map>
 #include <variant>
 
-namespace libmfmidi {
+namespace mfmidi {
     template <class T>
-    concept event = std::regular<T>;
+    concept event = std::semiregular<T>;
 
     template <class T>
     concept event_with_data = event<T> && requires(T ev) {
@@ -19,21 +19,29 @@ namespace libmfmidi {
     using event_data_t = decltype(std::declval<T>().data());
 
     template <class T, class Ev>
-    concept event_handler = std::semiregular<T> && std::regular_invocable<T, const Ev&>;
+    concept event_handler = std::regular_invocable<T, const Ev&>;
 
     template <class T>
-    concept event_emitter = requires(T obj, decltype([] {}) handler) {
+    concept event_emitter = requires(T& obj, decltype([](auto&&...) {}) handler) {
         obj.remove_event_handler(obj.add_event_handler(handler));
         {
             obj.add_event_handler(handler)
         } -> std::regular;
     };
 
+    template <class T, class... Evs>
+    concept event_emitter_of = requires(T& obj) {
+        requires event_emitter<T>;
+        (obj.add_event_handler(std::declval<std::function<void(const Evs&)>>()), ...);
+    };
+
     template <class... Events>
+        requires(sizeof...(Events) > 0)
     class event_emitter_util {
     public:
         struct token {
             std::size_t _id;
+            friend bool operator<=>(const token& lhs, const token& rhs) noexcept = default;
         };
 
         constexpr token add_event_handler(auto handler)
@@ -50,7 +58,7 @@ namespace libmfmidi {
 
         constexpr void remove_event_handler(token tok)
         {
-            handlers.erase(tok);
+            handlers.erase(tok._id);
         }
 
         template <event Ev>
