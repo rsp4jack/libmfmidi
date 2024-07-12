@@ -1,5 +1,4 @@
 cmake_minimum_required(VERSION 3.15.0)
-project(example)
 
 set(CMAKE_CXX_STANDARD 23)
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
@@ -14,7 +13,7 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 endif ()
 
 add_executable(humanreadable HumanReadable.cpp)
-target_link_libraries(humanreadable PUBLIC libmfmidi)
+target_link_libraries(humanreadable PUBLIC mfmidi)
 
 #add_executable(trkplayer TrackPlayer.cpp)
 #target_link_libraries(trkplayer PUBLIC mfmidi)
@@ -23,10 +22,10 @@ target_link_libraries(humanreadable PUBLIC libmfmidi)
 #target_link_libraries(advplayer PUBLIC mfmidi)
 
 add_executable(readonplay ReadOnPlay.cpp)
-target_link_libraries(readonplay PUBLIC libmfmidi)
+target_link_libraries(readonplay PUBLIC mfmidi)
 
 add_executable(mt2trk MT2trk.cpp)
-target_link_libraries(mt2trk PUBLIC libmfmidi)
+target_link_libraries(mt2trk PUBLIC mfmidi)
 
 add_executable(events Events.cpp)
-target_link_libraries(events PUBLIC libmfmidi)
+target_link_libraries(events PUBLIC mfmidi)

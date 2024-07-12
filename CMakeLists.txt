@@ -44,15 +44,14 @@ FetchContent_Declare(
         GIT_TAG v4.5.0
 )
 
-find_package(fmt REQUIRED)
-find_package(tl-expected REQUIRED)
 FetchContent_MakeAvailable(libremidi)
 
 # --- mfmidi
 
-add_library(libmfmidi STATIC
+set(mfmidi_win32_sources src/mfmidi/kdmapi_device.cpp include/mfmidi/device/kdmapi_device.hpp)
+
+add_library(mfmidi STATIC
         include/mfmidi/midi_device.hpp
-        include/mfmidi/device/kdmapi_device.hpp
         include/mfmidi/mfmidi.hpp
         include/mfmidi/mfutility.hpp
         include/mfmidi/track_player.hpp
@@ -63,10 +62,8 @@ add_library(libmfmidi STATIC
         include/mfmidi/dummy.cpp
         include/mfmidi/timingapi.hpp
         include/mfmidi/device/libremidi_device.hpp
-        src/libmfmidi/platformapi.cpp
         include/mfmidi/event.hpp
         include/mfmidi/smf/smf.hpp
-        src/libmfmidi/smf_error.cpp
         include/mfmidi/smf/variable_number.hpp
         include/mfmidi/smf/division.hpp
         include/mfmidi/midi_tempo.hpp
@@ -74,27 +71,31 @@ add_library(libmfmidi STATIC
         include/mfmidi/midi_events.hpp
         include/mfmidi/smf.hpp
         include/mfmidi/devices.hpp
+
+        src/mfmidi/platformapi.cpp
+        src/mfmidi/smf_error.cpp
+
+        ${mfmidi_win32_sources}
 )
 
 if (WIN32)
     #    target_precompile_headers(mfmidi PUBLIC <Windows.h>)
     #    target_precompile_headers(KDMAPI PUBLIC <Windows.h>)
 
-    target_link_libraries(libmfmidi PRIVATE KDMAPI)
+    target_link_libraries(mfmidi PRIVATE KDMAPI)
 endif ()
-target_include_directories(libmfmidi PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_include_directories(mfmidi PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-target_link_libraries(libmfmidi PUBLIC libremidi fmt::fmt tl::expected)
+target_link_libraries(mfmidi PUBLIC libremidi)
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    target_link_libraries(libmfmidi PUBLIC stdc++exp)
+    target_link_libraries(mfmidi PUBLIC stdc++exp)
 endif ()
 
-set(CPACK_PROJECT_NAME ${PROJECT_NAME})
-set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 include(CPack)
+if (BUILD_TESTING)
+    add_subdirectory(test)
+endif ()
 
 add_subdirectory(example)
 
 # execute_process(COMMAND "python.exe" "-m" "compdb" "-p" "build" "list" WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}  ECHO_ERROR_VARIABLE ECHO_OUTPUT_VARIABLE)
-
-add_subdirectory(test)

@@ -1,5 +1,5 @@
 /*
- * This file is a part of mfmidi.
+ * This file is a part of libmfmidi.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,6 +25,7 @@
 #include <utility>
 
 namespace mfmidi {
+#pragma region rtmidi
     /* class RtMidiInDevice : public midi_device {
     public:
         explicit RtMidiInDevice(unsigned int id, std::string name = "mfmidi RtMidiInDevice") noexcept
@@ -63,22 +64,22 @@ namespace mfmidi {
             return !min.isPortOpen();
         }
 
-        [[nodiscard]] bool isOpen() const noexcept override
+        [[nodiscard]] bool is_open() const noexcept override
         {
             return min.isPortOpen();
         }
 
-        [[nodiscard]] constexpr bool inputAvailable() const noexcept override
+        [[nodiscard]] constexpr bool input_available() const noexcept override
         {
             return true;
         }
 
-        [[nodiscard]] constexpr bool outputAvailable() const noexcept override
+        [[nodiscard]] constexpr bool output_available() const noexcept override
         {
             return false;
         }
 
-        tl::expected<void, const char*> sendMsg(const MIDIMessage& msg) noexcept override
+        tl::expected<void, const char*> send_msg(const MIDIMessage& msg) noexcept override
         {
             return tl::unexpected("Output unavailable");
         }
@@ -99,6 +100,7 @@ namespace mfmidi {
         std::string  mnm;
         bool         mvirtual = false;
     }; */
+#pragma endregion
 
     class libremidi_out_device : public midi_device {
     public:
@@ -137,27 +139,27 @@ namespace mfmidi {
             return !min.is_port_open();
         }
 
-        [[nodiscard]] bool isOpen() const noexcept override
+        [[nodiscard]] bool is_open() const noexcept override
         {
             return min.is_port_open();
         }
 
-        [[nodiscard]] constexpr bool inputAvailable() const noexcept override
+        [[nodiscard]] constexpr bool input_available() const noexcept override
         {
             return false;
         }
 
-        [[nodiscard]] constexpr bool outputAvailable() const noexcept override
+        [[nodiscard]] constexpr bool output_available() const noexcept override
         {
             return true;
         }
 
-        tl::expected<void, const char*> sendMsg(std::span<const uint8_t> msg) noexcept override
+        std::expected<void, const char*> send_msg(std::span<const uint8_t> msg) noexcept override
         {
             try {
                 min.send_message(msg);
             } catch (std::exception& err) {
-                return tl::unexpected{err.what()};
+                return std::unexpected{err.what()};
             }
 
             return {};

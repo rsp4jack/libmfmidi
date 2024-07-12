@@ -2,7 +2,7 @@
 #include "mfmidi/smfreader.hpp"
 #include <fstream>
 #include <iostream>
-using namespace libmfmidi;
+using namespace mfmidi;
 int main(int argc, char** argv)
 {
     if (argc == 1) {

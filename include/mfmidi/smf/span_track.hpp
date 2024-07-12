@@ -1,5 +1,5 @@
 /*
- * This file is a part of mfmidi.
+ * This file is a part of libmfmidi.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -166,7 +166,7 @@ namespace mfmidi {
 
             bool operator==(std::default_sentinel_t /*unused*/) const noexcept
             {
-                return _current == nullptr || !_base.empty() || _current > &_base.back();
+                return _current == nullptr || _base.empty() || _current > &_base.back();
             }
 
         protected:

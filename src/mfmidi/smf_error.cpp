@@ -1,5 +1,5 @@
 /*
- * This file is a part of mfmidi.
+ * This file is a part of libmfmidi.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,6 +16,7 @@
  */
 
 #include "mfmidi/smf/smf_error.hpp"
+#include <string_view>
 #include <utility>
 
 namespace mfmidi {

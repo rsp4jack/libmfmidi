@@ -7,7 +7,7 @@
 
 using std::cout;
 using std::endl;
-using namespace libmfmidi;
+using namespace mfmidi;
 
 int main(int argc, char** argv)
 {

@@ -1,5 +1,5 @@
 /*
- * This file is a part of mfmidi.
+ * This file is a part of libmfmidi.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -186,7 +186,7 @@ namespace mfmidi {
                     _handler(realtime_message, msg);
                 }
                 if (_dev != nullptr) {
-                    _dev->sendMsg(msg);
+                    _dev->send_msg(msg);
                 }
                 ++_nextmsg;
                 if (eof()) {
@@ -414,10 +414,15 @@ namespace mfmidi {
                 }
             }
 
-            MF_DISABLE_COPY(track_playhead_group);
-            MF_DISABLE_MOVE(track_playhead_group);
+            track_playhead_group(const track_playhead_group&)            = delete;
+            track_playhead_group& operator=(const track_playhead_group&) = delete;
+            track_playhead_group(track_playhead_group&&)                 = delete;
+            track_playhead_group& operator=(track_playhead_group&&)      = delete;
 
-            [[nodiscard]] bool playing() const noexcept { return _play.test(); }
+            [[nodiscard]] bool playing() const noexcept
+            {
+                return _play.test();
+            }
             [[nodiscard]] bool empty() const { return _playheads.empty(); }
 
             [[nodiscard]] auto thread_id() const { return _thread.get_id(); }

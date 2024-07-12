@@ -3,7 +3,7 @@
 #include <iostream>
 #include <mfmidi/mfevents.hpp>
 
-namespace mf = libmfmidi;
+namespace mf = mfmidi;
 
 struct EventA {
     auto operator<=>(const EventA&) const noexcept = default;

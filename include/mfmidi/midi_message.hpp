@@ -1,5 +1,5 @@
 /*
- * This file is a part of mfmidi.
+ * This file is a part of libmfmidi.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -718,8 +718,10 @@ namespace mfmidi {
             {
             }
 
-            MF_DEFAULT_COPY(MIDIMessageTimedExt);
-            MF_DEFAULT_MOVE(MIDIMessageTimedExt);
+            MIDIMessageTimedExt(const MIDIMessageTimedExt&)            = default;
+            MIDIMessageTimedExt& operator=(const MIDIMessageTimedExt&) = default;
+            MIDIMessageTimedExt(MIDIMessageTimedExt&&)                 = default;
+            MIDIMessageTimedExt& operator=(MIDIMessageTimedExt&&)      = default;
 
             constexpr explicit MIDIMessageTimedExt(const Base& rhs) noexcept
                 : Base(rhs)
