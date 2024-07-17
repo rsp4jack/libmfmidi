@@ -558,6 +558,7 @@ namespace mfmidi {
             {
                 while (!token.stop_requested()) {
                     if (!_play.test()) {
+                        disable_thread_responsiveness();
                         for ([[maybe_unused]] auto& info : _playheads) {
                             // info.playhead->notify(NotifyType::T_Mode);
                             // todo: emit something
@@ -568,6 +569,8 @@ namespace mfmidi {
                             _wakeup = false;
                         }
                         if (_play.test()) {
+                            // todo: handle starting play
+                            enable_thread_responsiveness();
                         }
                     } else {
                         auto begin = hiresticktime();

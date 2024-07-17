@@ -8,7 +8,8 @@
 #define NOMINMAX
 #include <Windows.h>
 
-#include <timeapi.h>
+#include <avrt.h>
+#include <synchapi.h>
 #else
 
 #endif
@@ -41,22 +42,35 @@ namespace mfmidi {
         clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts);
         return std::chrono::nanoseconds{ts.tv_sec * 1'000'000'000 + ts.tv_nsec};
     }
+
+    int enable_thread_responsiveness()
+    {
+        // todo: implement it
+        return 0;
+    }
+
+    int disable_thread_responsiveness()
+    {
+        // todo: implement it
+        return 0;
+    }
 #elif defined(_WIN32)
     int nanosleep(std::chrono::nanoseconds nsec)
     {
         using namespace std;
         using namespace std::chrono;
-        constexpr DWORD MIN_RES = 15; // in ms
-        constexpr DWORD MAX_RES = 5;  // in ms
+        // constexpr DWORD MIN_RES = 15; // in ms
+        // constexpr DWORD MAX_RES = 5;  // in ms
+        constexpr DWORD TIMER_RES = 10; // in 100ns
 
         static bool     inited = false;
         static uint64_t freq;
-        static TIMECAPS caps;
-        if (!inited) {
+        // static TIMECAPS caps;
+        if (!inited) [[unlikely]] {
             QueryPerformanceFrequency(reinterpret_cast<LARGE_INTEGER*>(&freq));
-            if (timeGetDevCaps(&caps, sizeof(TIMECAPS)) != MMSYSERR_NOERROR) {
-                return -1;
-            }
+            // if (timeGetDevCaps(&caps, sizeof(TIMECAPS)) != MMSYSERR_NOERROR) {
+            //     return -1;
+            // }
             inited = true;
         }
 
@@ -64,25 +78,42 @@ namespace mfmidi {
             return 0;
         }
 
-        timeBeginPeriod(caps.wPeriodMin);
+        // timeBeginPeriod(caps.wPeriodMin);
         // const hclock::time_point target_time{hclock::duration{hclock::now().time_since_epoch().count() + usec * (freq / 1'000'000)}};
         uint64_t current_time;
         uint64_t target_time;
         QueryPerformanceCounter(reinterpret_cast<LARGE_INTEGER*>(&target_time));
-        target_time += freq / 1'000'000'000.0 * nsec.count();
+        target_time += freq * nsec.count() / 1'000'000'000;
+
+        HANDLE timer;
+        if ((target_time - current_time) > freq * MAX_RES / 1'000) {
+            timer = CreateWaitableTimerEx(nullptr, nullptr, CREATE_WAITABLE_TIMER_MANUAL_RESET | CREATE_WAITABLE_TIMER_HIGH_RESOLUTION);
+            if (timer == NULL) {
+                return 1;
+            }
+        }
 
         while (true) {
             QueryPerformanceCounter(reinterpret_cast<LARGE_INTEGER*>(&current_time));
             if (current_time < target_time) {
-                if ((target_time - current_time) > freq / 1000 * MIN_RES) {
-                    Sleep(
-                        max(
-                            static_cast<DWORD>((target_time - current_time) / static_cast<double>(freq) * 1000), MIN_RES
-                        ) // avoid underflow
-                        - MIN_RES
-                    );
-                } else if ((target_time - current_time) > freq / 1000 * MAX_RES) {
-                    Sleep(1);
+                // if ((target_time - current_time) > freq * MIN_RES / 1'000) {
+                //     Sleep(
+                //         max(
+                //             static_cast<DWORD>((target_time - current_time) / static_cast<double>(freq) * 1000), MIN_RES
+                //         ) // avoid underflow
+                //         - MIN_RES
+                //     );
+                // } else if ((target_time - current_time) > freq * MAX_RES / 1'000) {
+                //     Sleep(1);
+                uint64_t period = -(target_time - current_time) * 10'000'000 / freq;
+                if (-period > TIMER_RES) {
+                    period += TIMER_RES;
+                    if (SetWaitableTimerEx(timer, reinterpret_cast<LARGE_INTEGER*>(&period), NULL, nullptr, nullptr, 0) == 0) {
+                        return 2;
+                    }
+                    if (WaitForSingleObject(timer, INFINITE) != WAIT_OBJECT_0) {
+                        return 3;
+                    }
                 } else {
                     SwitchToThread();
                 }
@@ -119,6 +150,25 @@ namespace mfmidi {
         return std::chrono::nanoseconds{static_cast<unsigned long long>(tick / (freq / 1e9))};
     }
 
+    thread_local DWORD  mmcss_task_index{};
+    thread_local HANDLE mmcss_task_handle{};
+
+    int enable_thread_responsiveness()
+    {
+        mmcss_task_handle = AvSetMmThreadCharacteristicsA("Pro Audio", &mmcss_task_index);
+        if (mmcss_task_handle == 0) {
+            return 1;
+        }
+        return 0;
+    }
+
+    int disable_thread_responsiveness()
+    {
+        if (AvRevertMmThreadCharacteristics(mmcss_task_handle) == 0) {
+            return 1;
+        }
+        return 0;
+    }
 #else
     std::chrono::duration<unsigned long long, std::nano> hiresticktime()
     {

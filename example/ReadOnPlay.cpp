@@ -15,19 +15,12 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include <exception>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <memory>
 #include <print>
-#if defined(_POSIX_THREADS)
-#include <sched.h>
-#elif defined(_WIN32)
-#include <processthreadsapi.h>
-#else
-#error No threads
-#endif
-#include <exception>
-#include <filesystem>
 #include <ranges>
 #include <source_location>
 #include <version>
@@ -42,6 +35,14 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#endif
+
+#if defined(_POSIX_THREADS)
+#include <sched.h>
+#elif defined(_WIN32)
+#include <processthreadsapi.h>
+#else
+#error No threads
 #endif
 
 #include "mfmidi/mfmidi.hpp"
@@ -217,13 +218,13 @@ int main(int argc, char** argv)
 
     // manual init player thread to set priority
     player.init_thread();
-#if defined(_POSIX_THREADS)
-    sched_param para{};
-    para.sched_priority = (sched_get_priority_max(SCHED_FIFO) + sched_get_priority_min(SCHED_FIFO)) / 2;
-    pthread_setschedparam(player.thread_native_handle(), SCHED_FIFO, &para);
-#else
-    SetThreadPriority(player.thread_native_handle(), THREAD_PRIORITY_TIME_CRITICAL);
-#endif
+    // #if defined(_POSIX_THREADS)
+    //     sched_param para{};
+    //     para.sched_priority = (sched_get_priority_max(SCHED_FIFO) + sched_get_priority_min(SCHED_FIFO)) / 2;
+    //     pthread_setschedparam(player.thread_native_handle(), SCHED_FIFO, &para);
+    // #else
+    //     SetThreadPriority(player.thread_native_handle(), THREAD_PRIORITY_TIME_CRITICAL);
+    // #endif
 
     std::vector<std::string> splitedcmd;
     std::getchar();

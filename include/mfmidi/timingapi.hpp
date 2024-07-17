@@ -30,4 +30,7 @@ namespace mfmidi {
     ///
     /// \return unsigned long long time stamp in nanoseconds
     std::chrono::nanoseconds hiresticktime();
+
+    int enable_thread_responsiveness();
+    int disable_thread_responsiveness();
 }
