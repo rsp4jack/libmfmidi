@@ -48,7 +48,7 @@ FetchContent_MakeAvailable(libremidi)
 
 # --- mfmidi
 
-set(mfmidi_win32_sources src/mfmidi/kdmapi_device.cpp include/mfmidi/device/kdmapi_device.hpp)
+set(mfmidi_win32_sources src/kdmapi_device.cpp include/mfmidi/device/kdmapi_device.hpp)
 
 add_library(mfmidi STATIC
         include/mfmidi/midi_device.hpp
@@ -72,8 +72,8 @@ add_library(mfmidi STATIC
         include/mfmidi/smf.hpp
         include/mfmidi/devices.hpp
 
-        src/mfmidi/platformapi.cpp
-        src/mfmidi/smf_error.cpp
+        src/platformapi.cpp
+        src/smf_error.cpp
 
         ${mfmidi_win32_sources}
 )
