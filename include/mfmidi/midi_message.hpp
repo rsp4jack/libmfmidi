@@ -23,12 +23,10 @@
 #include "mfmidi/midi_tempo.hpp"
 #include "mfmidi/midi_utility.hpp"
 #include <algorithm>
+#include <climits>
 #include <cmath>
 #include <concepts>
-#include <cstdint>
-#include <iterator>
 #include <ranges>
-#include <string>
 #include <utility>
 #include <vector>
 

@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include "mfmidi/midi_message.hpp"
 #include "mfmidi/smf/smf.hpp"
 #include "mfmidi/smf/smf_error.hpp"
 #include "mfmidi/smf/variable_number.hpp"
