@@ -207,7 +207,10 @@ namespace mfmidi {
 
         [[nodiscard]] iterator begin() const noexcept
         {
-            iterator it{_base, &_base.front()};
+            if (_base.empty()) {
+                return iterator{_base, nullptr};
+            }
+            iterator it{_base, &_base.front() + 8}; // MTrk <len 4 bytes>
             ++it;
             return it;
         }

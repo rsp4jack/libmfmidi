@@ -210,7 +210,7 @@ int main(int argc, char** argv)
         auto* playhead = player.add_playhead(std::make_unique<Playhead>(std::string_view{std::format("Playback_{}", idx)}, *helper.get()));
         playhead->set_device(dev);
         // TODO: forgive me
-        playhead->set_track(new span_track(trk.subspan(8)));
+        playhead->set_track(new span_track(trk));
     }
 
     player.set_division(rop.info.division);
