@@ -112,7 +112,7 @@ namespace mfmidi {
             std::string _name;
 
             // Playing status
-            Time  _divns{};     // 1 delta-time in nanoseconds
+            Time  _divns{}; // 1 delta-time in nanoseconds
             bool  _divns_dirty{};
             Time  _sleeptime{}; // sleep period before mnextevent ticks
             Time  _playtime{};  // current time, support 5850 centuries long
@@ -160,7 +160,7 @@ namespace mfmidi {
                 if ((_sleeptime.count() != 0) || (_divns.count() != 0)) {
                     _sleeptime = Time{_sleeptime.count() * newdivns.count() / _divns.count()};
                 }
-                _divns = newdivns;
+                _divns       = newdivns;
                 _divns_dirty = true;
             }
 
@@ -197,14 +197,14 @@ namespace mfmidi {
                     return Time::max();
                 }
                 _sleeptime = (*_nextmsg).deltaTime() * _divns;
-                
+
                 if (_sleeptime <= _compensation) {
                     _compensation -= _sleeptime;
                     slept = _sleeptime;
                     goto TICK_BEGIN;
                 }
                 if constexpr (have_handler) {
-                    if (_divns_dirty){
+                    if (_divns_dirty) {
                         return 0ns; //! signal all playheads to tick
                     }
                 }
