@@ -113,6 +113,7 @@ namespace mfmidi {
 
             // Playing status
             Time  _divns{};     // 1 delta-time in nanoseconds
+            bool  _divns_dirty{};
             Time  _sleeptime{}; // sleep period before mnextevent ticks
             Time  _playtime{};  // current time, support 5850 centuries long
             Time  _compensation{};
@@ -160,6 +161,7 @@ namespace mfmidi {
                     _sleeptime = Time{_sleeptime.count() * newdivns.count() / _divns.count()};
                 }
                 _divns = newdivns;
+                _divns_dirty = true;
             }
 
             Time tick(Time slept /*the time that slept*/)
@@ -174,6 +176,7 @@ namespace mfmidi {
                 // if (_sleeptime == 0ns) {
                 //     _sleeptime = event.deltaTime() * _divns; // usually first tick
                 // }
+                assert(slept <= _sleeptime); // shouldn't happen now
                 if (slept > _sleeptime) {
                     _compensation += slept - _sleeptime;
                     slept = _sleeptime;
@@ -183,6 +186,7 @@ namespace mfmidi {
                     return _sleeptime;
                 }
                 if constexpr (have_handler) {
+                    _divns_dirty = false;
                     _handler(realtime_message, msg);
                 }
                 if (_dev != nullptr) {
@@ -193,10 +197,16 @@ namespace mfmidi {
                     return Time::max();
                 }
                 _sleeptime = (*_nextmsg).deltaTime() * _divns;
+                
                 if (_sleeptime <= _compensation) {
                     _compensation -= _sleeptime;
                     slept = _sleeptime;
                     goto TICK_BEGIN;
+                }
+                if constexpr (have_handler) {
+                    if (_divns_dirty){
+                        return 0ns; //! signal all playheads to tick
+                    }
                 }
                 return _sleeptime - std::exchange(_compensation, 0ns);
             }
