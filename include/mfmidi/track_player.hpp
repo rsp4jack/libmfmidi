@@ -19,21 +19,20 @@
 
 #include "mfmidi/event.hpp"
 #include "mfmidi/midi_device.hpp"
-#include "mfmidi/midi_message.hpp"
+#include "mfmidi/midi_events.hpp"
 #include "mfmidi/midi_tempo.hpp"
-#include "mfmidi/smf/smf.hpp"
+#include "mfmidi/smf/division.hpp"
 #include "mfmidi/timingapi.hpp"
+
 #include <atomic>
 #include <cassert>
 #include <concepts>
 #include <condition_variable>
 #include <functional>
-#include <map>
 #include <memory>
 #include <mutex>
 #include <optional>
 #include <ranges>
-#include <span>
 #include <stdexcept>
 #include <stop_token>
 #include <thread>
