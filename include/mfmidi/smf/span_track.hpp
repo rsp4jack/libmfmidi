@@ -33,12 +33,6 @@ namespace mfmidi {
     class span_track {
     public:
         using base_type = std::span<const uint8_t>;
-
-        explicit span_track(base_type base) noexcept
-            : _base(base)
-        {
-        }
-
         class iterator {
             friend span_track;
             using enum MIDIMsgStatus;
@@ -195,8 +189,8 @@ namespace mfmidi {
             }
         };
 
-        explicit span_track(std::span<uint8_t> data)
-            : _base(data)
+        explicit span_track(base_type base) noexcept
+            : _base(base)
         {
         }
 
