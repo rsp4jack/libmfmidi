@@ -30,7 +30,7 @@
 #include <fileapi.h>
 #include <timeapi.h>
 #include <Windows.h>
-#elif defined(_POSIX_VERSION)
+#elif __has_include(<unistd.h>)
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>

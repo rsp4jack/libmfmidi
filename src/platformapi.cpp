@@ -1,7 +1,11 @@
-#include "mfmidi/timingapi.hpp"
+#include <chrono>
+#include <cstdint>
 #include <iostream>
+#include <thread>
 
-#if defined(__linux__)
+#include "mfmidi/timingapi.hpp"
+
+#if __has_include(<unistd.h>)
 #include <unistd.h>
 #elif defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
@@ -10,19 +14,6 @@
 
 #include <avrt.h>
 #include <synchapi.h>
-#else
-
-#endif
-#include <chrono>
-#include <cstdint>
-#include <thread>
-
-#ifdef max
-#undef max
-#endif
-
-#ifdef min
-#undef min
 #endif
 
 namespace mfmidi {
