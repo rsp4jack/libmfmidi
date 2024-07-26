@@ -228,13 +228,13 @@ namespace mfmidi {
     static_assert(std::ranges::forward_range<span_track>);
     static_assert(std::same_as<span_track::iterator, std::ranges::iterator_t<span_track>>);
 
-    struct MIDIReadOnPlayFile {
+    struct parse_smf_header_result {
         smf_header                            info;
         std::vector<std::span<const uint8_t>> tracks;
     };
 
     // not only parse header, but also split tracks
-    [[nodiscard]] inline MIDIReadOnPlayFile parse_smf_header(const std::span<const uint8_t>& file)
+    [[nodiscard]] inline parse_smf_header_result parse_smf_header(const std::span<const uint8_t>& file)
     {
         using enum smf_error::error_type;
         const uint8_t* current = file.data();
