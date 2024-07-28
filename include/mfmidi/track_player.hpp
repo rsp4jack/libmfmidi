@@ -70,10 +70,10 @@ namespace mfmidi {
         //     Snapshot   snap{};
         //
         //     while (true) {
-        //         while (playtime + (*nextevent).deltaTime() * divns < nextCacheTime) { // use < because ignore the event on nextCacheTime (the event will play when tick, but have not played yet when cache)
-        //             playtime += (*nextevent).deltaTime() * divns;
+        //         while (playtime + (*nextevent).delta_time() * divns < nextCacheTime) { // use < because ignore the event on nextCacheTime (the event will play when tick, but have not played yet when cache)
+        //             playtime += (*nextevent).delta_time() * divns;
         //             status_proc.process(*nextevent);
-        //             if (tempo_change_aware && midi_message_owning_view{*nextevent}.isTempo()) {
+        //             if (tempo_change_aware && midi_message_owning_view{*nextevent}.is_tempo()) {
         //                 divns = divisionToDuration(division, status.tempo);
         //             }
         //             ++nextevent;
@@ -82,7 +82,7 @@ namespace mfmidi {
         //             }
         //         }
         //         snap.nextevent        = nextevent;
-        //         snap.sleeptime        = playtime + nextevent->deltaTime() * divns - nextCacheTime; // see directGoTo
+        //         snap.sleeptime        = playtime + nextevent->delta_time() * divns - nextCacheTime; // see directGoTo
         //         snap.status           = status;
         //         caches[nextCacheTime] = std::move(snap);
         //         nextCacheTime += cache_interval;
@@ -112,7 +112,7 @@ namespace mfmidi {
 
             // Playing status
             Time  _divns{}; // 1 delta-time in nanoseconds
-            bool  _divns_dirty{};
+            Time  _divns_old{};
             Time  _sleeptime{}; // sleep period before mnextevent ticks
             Time  _playtime{};  // current time, support 5850 centuries long
             Time  _compensation{};
@@ -155,12 +155,14 @@ namespace mfmidi {
 
             void retiming() noexcept
             {
-                auto newdivns = division_to_duration(_division, _tempo);
-                if ((_sleeptime.count() != 0) || (_divns.count() != 0)) {
-                    _sleeptime = Time{_sleeptime.count() * newdivns.count() / _divns.count()};
+                if (_divns_old == 0ns) {
+                    _divns_old = _divns;
                 }
-                _divns       = newdivns;
-                _divns_dirty = true;
+                auto newdivns = division_to_duration(_division, _tempo);
+                // if ((_sleeptime.count() != 0) || (_divns.count() != 0)) {
+                //     _sleeptime = Time{_sleeptime.count() * newdivns.count() / _divns.count()};
+                // }
+                _divns = newdivns;
             }
 
             Time tick(Time slept /*the time that slept*/)
@@ -173,7 +175,7 @@ namespace mfmidi {
 
                 auto&& msg = *_nextmsg;
                 // if (_sleeptime == 0ns) {
-                //     _sleeptime = event.deltaTime() * _divns; // usually first tick
+                //     _sleeptime = event.delta_time() * _divns; // usually first tick
                 // }
                 assert(slept <= _sleeptime); // shouldn't happen now
                 if (slept > _sleeptime) {
@@ -181,11 +183,14 @@ namespace mfmidi {
                     slept = _sleeptime;
                 }
                 _sleeptime -= slept;
+                if (_divns_old != 0ns) {
+                    _sleeptime = _sleeptime * _divns.count() / _divns_old.count();
+                    _divns_old = 0ns;
+                }
                 if (_sleeptime != 0ns) {
                     return _sleeptime;
                 }
                 if constexpr (have_handler) {
-                    _divns_dirty = false;
                     _handler(realtime_message, msg);
                 }
                 if (_dev != nullptr) {
@@ -195,7 +200,7 @@ namespace mfmidi {
                 if (eof()) {
                     return Time::max();
                 }
-                _sleeptime = (*_nextmsg).deltaTime() * _divns;
+                _sleeptime = (*_nextmsg).delta_time() * _divns;
 
                 if (_sleeptime <= _compensation) {
                     _compensation -= _sleeptime;
@@ -203,7 +208,7 @@ namespace mfmidi {
                     goto TICK_BEGIN;
                 }
                 if constexpr (have_handler) {
-                    if (_divns_dirty) {
+                    if (_divns_old != 0ns) {
                         return 0ns; //! signal all playheads to tick
                     }
                 }
@@ -248,7 +253,7 @@ namespace mfmidi {
                         _sleeptime = 0ns; // optional
                         return false;
                     }
-                    _sleeptime = (*_nextmsg).deltaTime() * _divns;
+                    _sleeptime = (*_nextmsg).delta_time() * _divns;
                 }
             }
 
@@ -266,7 +271,7 @@ namespace mfmidi {
                 }
                 while (true) {
                     auto&& event = _nextmsg;
-                    auto   last  = _playtime - (event.deltaTime() - _sleeptime);
+                    auto   last  = _playtime - (event.delta_time() - _sleeptime);
                     if (last <= target) {
                         _sleeptime = _playtime + _sleeptime - target;
                         _playtime  = target;
@@ -327,7 +332,7 @@ namespace mfmidi {
 
                 assert(_track != nullptr);
                 _nextmsg   = std::ranges::begin(*_track);
-                _sleeptime = (*_nextmsg).deltaTime() * _divns;
+                _sleeptime = (*_nextmsg).delta_time() * _divns;
                 _playtime  = 0ns;
                 _tempo     = 120_bpm;
                 retiming();
@@ -408,7 +413,7 @@ namespace mfmidi {
             bool                    _wakeup = false;
             std::mutex              _mutex;
             std::condition_variable _condvar;
-            std::atomic_flag        _play = false; // since C++20
+            std::atomic_flag        _play; // since C++20
 
         public:
             track_playhead_group() noexcept = default;

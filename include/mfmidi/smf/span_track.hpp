@@ -21,6 +21,7 @@
 #pragma once
 
 #include "mfmidi/midi_message.hpp"
+#include "mfmidi/midi_ranges.hpp"
 #include "mfmidi/smf/smf.hpp"
 #include "mfmidi/smf/smf_error.hpp"
 #include "mfmidi/smf/variable_number.hpp"
@@ -29,7 +30,7 @@
 #include <tuple>
 
 namespace mfmidi {
-    using midi_message_span = MIDIBasicTimedMessage<std::span<const uint8_t>>;
+    using foreign_midi_message = MIDIBasicTimedMessage<foreign_vector<const uint8_t>>;
 
     class span_track {
     public:
@@ -39,10 +40,10 @@ namespace mfmidi {
             using enum MIDIMsgStatus;
 
             // Current message
-            const uint8_t*    _begin      = nullptr;
-            size_t            _len        = 0;
-            MIDIClockTime     _delta_time = 0;
-            midi_message_span _message;
+            const uint8_t*       _begin      = nullptr;
+            size_t               _len        = 0;
+            uint_midi_time       _delta_time = 0;
+            foreign_midi_message _message;
 
             // SMF reader
             uint8_t _status = 0; // midi status, for running status
@@ -54,11 +55,11 @@ namespace mfmidi {
 
         public:
             using difference_type = std::ptrdiff_t;
-            using value_type      = const midi_message_span;
+            using value_type      = const foreign_midi_message;
 
             iterator() noexcept = default;
 
-            midi_message_span operator*() const
+            foreign_midi_message operator*() const
             {
                 assert(_begin != nullptr);
                 return _message;
@@ -79,8 +80,9 @@ namespace mfmidi {
                 _begin = _current;
 
                 // status
-                uint8_t data = readU8();
-                if (data < 0x80) {
+                uint8_t data           = readU8();
+                bool    running_status = data < 0x80;
+                if (running_status) {
                     if (_status == 0) {
                         throw smf_error(error_running_status);
                     }
@@ -142,8 +144,16 @@ namespace mfmidi {
                         }
                     }
                 }
-                _message.setDeltaTime(_delta_time);
-                _message.base() = base_type{_begin, _len};
+                _message.set_delta_time(_delta_time);
+                if (running_status) {
+                    foreign_midi_message::base_type::own_type own;
+                    own.reserve(_len);
+                    own.push_back(_status);
+                    own.append(_begin, _len - 1);
+                    _message.base() = std::move(own);
+                } else {
+                    _message.base() = base_type{_begin, _len};
+                }
                 return *this;
             }
 

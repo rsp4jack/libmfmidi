@@ -55,7 +55,7 @@ namespace mfmidi {
         }
         UINT result;
 
-        if (msg.isSysEx()) {
+        if (msg.is_sysex()) {
             // prepare sysex header
             std::unique_ptr<uint8_t[]> buffer = std::make_unique<uint8_t[]>(msg.size());
             std::copy(msg.cbegin(), msg.cend(), buffer.get()); // copy because it need not const

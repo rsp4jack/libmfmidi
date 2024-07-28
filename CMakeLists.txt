@@ -8,13 +8,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(CTest)
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -fdiagnostics-color=always")
-endif()
+endif ()
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4")
-endif()
+endif ()
 
 # if(CMAKE_BUILD_TYPE STREQUAL "Debug")
 # add_definitions(-D__RTMIDI_DEBUG__)
@@ -29,76 +29,77 @@ endif()
 # endif()
 
 # --- KDMAPI (OmniMIDI)
-if(WIN32)
+if (WIN32)
     add_library(KDMAPI STATIC include/omnimidi/omnimidiapi.cpp)
     target_link_libraries(KDMAPI PUBLIC winmm)
-endif()
+endif ()
 
 set(RTMIDI_BUILD_STATIC_LIBS ON)
 
 include(FetchContent)
 FetchContent_Declare(
-    libremidi
-    GIT_REPOSITORY https://github.com/celtera/libremidi.git
-    GIT_TAG v4.5.0
+        libremidi
+        GIT_REPOSITORY https://github.com/celtera/libremidi.git
+        GIT_TAG v4.5.0
 )
 
 FetchContent_MakeAvailable(libremidi)
 
 # --- mfmidi
-if(WIN32)
+if (WIN32)
     set(mfmidi_win32_sources src/kdmapi_device.cpp include/mfmidi/device/kdmapi_device.hpp)
-else()
+else ()
     set(mfmidi_win32_sources)
-endif()
+endif ()
 
 add_library(mfmidi STATIC
-    include/mfmidi/midi_device.hpp
-    include/mfmidi/mfmidi.hpp
-    include/mfmidi/mfutility.hpp
-    include/mfmidi/track_player.hpp
-    include/mfmidi/midi_message.hpp
-    include/mfmidi/smf/span_track.hpp
-    include/mfmidi/midi_status.hpp
-    include/mfmidi/midi_utility.hpp
-    include/mfmidi/dummy.cpp
-    include/mfmidi/timingapi.hpp
-    include/mfmidi/device/libremidi_device.hpp
-    include/mfmidi/event.hpp
-    include/mfmidi/smf/smf.hpp
-    include/mfmidi/smf/variable_number.hpp
-    include/mfmidi/smf/division.hpp
-    include/mfmidi/midi_tempo.hpp
-    include/mfmidi/smf/smf_error.hpp
-    include/mfmidi/midi_events.hpp
-    include/mfmidi/smf.hpp
-    include/mfmidi/devices.hpp
+        include/mfmidi/midi_device.hpp
+        include/mfmidi/mfmidi.hpp
+        include/mfmidi/mfutility.hpp
+        include/mfmidi/track_player.hpp
+        include/mfmidi/midi_message.hpp
+        include/mfmidi/smf/span_track.hpp
+        include/mfmidi/midi_status.hpp
+        include/mfmidi/midi_utility.hpp
+        include/mfmidi/dummy.cpp
+        include/mfmidi/timingapi.hpp
+        include/mfmidi/device/libremidi_device.hpp
+        include/mfmidi/event.hpp
+        include/mfmidi/smf/smf.hpp
+        include/mfmidi/smf/variable_number.hpp
+        include/mfmidi/smf/division.hpp
+        include/mfmidi/midi_tempo.hpp
+        include/mfmidi/smf/smf_error.hpp
+        include/mfmidi/midi_events.hpp
+        include/mfmidi/smf.hpp
+        include/mfmidi/devices.hpp
 
-    src/platformapi.cpp
-    src/smf_error.cpp
+        src/platformapi.cpp
+        src/smf_error.cpp
 
-    ${mfmidi_win32_sources}
+        ${mfmidi_win32_sources}
+        include/mfmidi/midi_ranges.hpp
 )
 
-if(WIN32)
+if (WIN32)
     # target_precompile_headers(mfmidi PUBLIC <Windows.h>)
     # target_precompile_headers(KDMAPI PUBLIC <Windows.h>)
-    target_link_libraries(mfmidi PRIVATE KDMAPI)
-endif()
+    target_link_libraries(mfmidi PRIVATE KDMAPI avrt)
+endif ()
 
 target_include_directories(mfmidi PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-
+target_compile_definitions(mfmidi PUBLIC $<$<BOOL:${WIN32}>:_WIN32> $<$<BOOL:${UNIX}>:_UNIX>)
 target_link_libraries(mfmidi PUBLIC libremidi)
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     target_link_libraries(mfmidi PUBLIC stdc++exp)
-endif()
+endif ()
 
 include(CPack)
 
-if(BUILD_TESTING)
+if (BUILD_TESTING)
     add_subdirectory(test)
-endif()
+endif ()
 
 add_subdirectory(example)
 

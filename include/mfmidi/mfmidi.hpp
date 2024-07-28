@@ -11,6 +11,8 @@
 #include "mfmidi/midi_tempo.hpp"
 #include "mfmidi/midi_utility.hpp"
 
+#include "mfmidi/midi_ranges.hpp"
+
 #include "mfmidi/timingapi.hpp"
 #include "mfmidi/track_player.hpp"
 

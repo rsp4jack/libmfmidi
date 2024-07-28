@@ -27,14 +27,14 @@
 #include <limits>
 
 namespace mfmidi {
-    using MIDIClockTime                   = uint32_t;
-    constexpr uint8_t       NUM_CHANNELS  = 16;
-    constexpr uint8_t       NUM_PORTS     = 16;
-    constexpr uint16_t      NUM_TRACKS    = std::numeric_limits<uint16_t>::max();
-    constexpr MIDIClockTime MIDICLKTM_MAX = std::numeric_limits<MIDIClockTime>::max(); ///< \brief Sometimes this means invalid value
-    using MIDIVarNum                      = uint32_t;
-    using SMFType                         = uint16_t;
-    constexpr MIDIVarNum MIDIVARNUM_MAX   = std::numeric_limits<MIDIVarNum>::max();
+    using uint_midi_time                   = uint32_t;
+    constexpr uint8_t        NUM_CHANNELS  = 16;
+    constexpr uint8_t        NUM_PORTS     = 16;
+    constexpr uint16_t       NUM_TRACKS    = std::numeric_limits<uint16_t>::max();
+    constexpr uint_midi_time MIDICLKTM_MAX = std::numeric_limits<uint_midi_time>::max(); ///< \brief Sometimes this means invalid value
+    using MIDIVarNum                       = uint32_t;
+    using SMFType                          = uint16_t;
+    constexpr MIDIVarNum MIDIVARNUM_MAX    = std::numeric_limits<MIDIVarNum>::max();
 
     namespace MIDINumSpace {
         // Yes. That make it like enum class but with implicit conversion

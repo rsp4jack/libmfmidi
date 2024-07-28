@@ -5,7 +5,7 @@
 
 #include "mfmidi/timingapi.hpp"
 
-#if __has_include(<unistd.h>)
+#if defined(_UNIX)
 #include <unistd.h>
 #elif defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
@@ -54,8 +54,10 @@ namespace mfmidi {
         // constexpr DWORD MAX_RES = 5;  // in ms
         constexpr DWORD TIMER_RES = 10; // in 100ns
 
-        static bool     inited = false;
-        static uint64_t freq;
+        static bool         inited = false;
+        static uint64_t     freq;
+        thread_local HANDLE timer{}; // todo: close it
+
         // static TIMECAPS caps;
         if (!inited) [[unlikely]] {
             QueryPerformanceFrequency(reinterpret_cast<LARGE_INTEGER*>(&freq));
@@ -63,6 +65,12 @@ namespace mfmidi {
             //     return -1;
             // }
             inited = true;
+        }
+        if (timer == NULL) [[unlikely]] {
+            timer = CreateWaitableTimerEx(nullptr, nullptr, CREATE_WAITABLE_TIMER_MANUAL_RESET | CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, DELETE | SYNCHRONIZE | TIMER_ALL_ACCESS);
+            if (timer == NULL) {
+                return 1;
+            }
         }
 
         if (nsec == 0ns) {
@@ -73,16 +81,8 @@ namespace mfmidi {
         // const hclock::time_point target_time{hclock::duration{hclock::now().time_since_epoch().count() + usec * (freq / 1'000'000)}};
         uint64_t current_time;
         uint64_t target_time;
-        QueryPerformanceCounter(reinterpret_cast<LARGE_INTEGER*>(&target_time));
-        target_time += freq * nsec.count() / 1'000'000'000;
-
-        HANDLE timer;
-        if ((target_time - current_time) > freq * MAX_RES / 1'000) {
-            timer = CreateWaitableTimerEx(nullptr, nullptr, CREATE_WAITABLE_TIMER_MANUAL_RESET | CREATE_WAITABLE_TIMER_HIGH_RESOLUTION);
-            if (timer == NULL) {
-                return 1;
-            }
-        }
+        QueryPerformanceCounter(reinterpret_cast<LARGE_INTEGER*>(&current_time));
+        target_time = current_time + freq * nsec.count() / 1'000'000'000;
 
         while (true) {
             QueryPerformanceCounter(reinterpret_cast<LARGE_INTEGER*>(&current_time));
@@ -99,7 +99,7 @@ namespace mfmidi {
                 uint64_t period = -(target_time - current_time) * 10'000'000 / freq;
                 if (-period > TIMER_RES) {
                     period += TIMER_RES;
-                    if (SetWaitableTimerEx(timer, reinterpret_cast<LARGE_INTEGER*>(&period), NULL, nullptr, nullptr, 0) == 0) {
+                    if (SetWaitableTimerEx(timer, reinterpret_cast<LARGE_INTEGER*>(&period), 0, nullptr, nullptr, nullptr, 0) == 0) {
                         return 2;
                     }
                     if (WaitForSingleObject(timer, INFINITE) != WAIT_OBJECT_0) {
@@ -146,7 +146,7 @@ namespace mfmidi {
 
     int enable_thread_responsiveness()
     {
-        mmcss_task_handle = AvSetMmThreadCharacteristicsA("Pro Audio", &mmcss_task_index);
+        mmcss_task_handle = AvSetMmThreadCharacteristicsW(L"Pro Audio", &mmcss_task_index);
         if (mmcss_task_handle == 0) {
             return 1;
         }

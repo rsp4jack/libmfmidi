@@ -25,12 +25,16 @@
 #include <source_location>
 #include <version>
 
+#include "mfmidi/mfmidi.hpp"
+
 #if defined(_WIN32)
+#define NOMINMAX
+#include <Windows.h>
+
 #include <debugapi.h>
 #include <fileapi.h>
 #include <timeapi.h>
-#include <Windows.h>
-#elif __has_include(<unistd.h>)
+#elif defined(_UNIX)
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -44,8 +48,6 @@
 #else
 #error No threads
 #endif
-
-#include "mfmidi/mfmidi.hpp"
 
 using namespace mfmidi;
 using std::cin;
@@ -73,9 +75,11 @@ void reportError(const std::source_location location = std::source_location::cur
 #endif
 
 struct Helper : event_emitter_util<events::tempo_changed> {
-    void operator()(auto&&, const midi_message_span& msg)
+    void operator()(auto&&, const foreign_midi_message& msg)
     {
-        if (msg.isTempo()) {
+        // std::println("{}", dump_span(msg.data(), msg.size()));
+        if (msg.is_tempo()) {
+            // std::println("tempo changed: {}", msg.tempo().bpm_fp());
             emit(events::tempo_changed{msg.tempo()});
         }
     }
@@ -167,6 +171,10 @@ int main(int argc, char** argv)
 
     std::println("Parsed as SMF Type {} with {} tracks in division {}", rop.info.type, rop.info.ntrk, static_cast<int16_t>(static_cast<uint16_t>(rop.info.division)));
 
+    // for (auto i : span_track{rop.tracks[14]}) {
+    //     std::println(stderr, "{}", dump_span(i.data(), i.size()));
+    // }
+
     libremidi::observer obs;
     auto                outputs = obs.get_output_ports();
     std::println("Dev cnt: {}", outputs.size());
@@ -196,8 +204,15 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    auto                                     helper = std::make_unique<Helper>();
-    track_playhead_group<span_track, Helper> player; // init player after everything
+    auto helper = std::make_unique<Helper>();
+
+    auto filter_meta = [](auto&& ev) {
+        // return !ev.is_meta_event_like();
+        return true;
+    };
+    using thefilter = delta_timed_filter_view<std::ranges::owning_view<span_track>, decltype(filter_meta)>;
+    using therange  = std::ranges::subrange<std::ranges::iterator_t<thefilter>, std::ranges::sentinel_t<thefilter>>;
+    track_playhead_group<therange, Helper> player; // init player after everything
     using Playhead = decltype(player)::Playhead;
 
     std::mutex                             mutex;
@@ -211,7 +226,9 @@ int main(int argc, char** argv)
         auto* playhead = player.add_playhead(std::make_unique<Playhead>(std::string_view{std::format("Playback_{}", idx)}, *helper.get()));
         playhead->set_device(dev);
         // TODO: forgive me
-        playhead->set_track(new span_track(trk));
+
+        // playhead->set_track(new therange{*new thefilter(std::ranges::owning_view{span_track(trk)}, filter_meta)});
+        playhead->set_track(new therange{*new thefilter(std::ranges::owning_view{span_track(trk)}, filter_meta)});
     }
 
     player.set_division(rop.info.division);
@@ -252,8 +269,8 @@ int main(int argc, char** argv)
             if (splitedcmd.size() < 2) {
                 decltype(player)::Time pos;
                 if (player.empty()) {
-                    auto transformed = player.playheads() | std::views::transform([](auto&& info) {
-                                           return info.playhead->playtime();
+                    auto transformed = removed_playheads | std::views::transform([](auto&& info) {
+                                           return info->playtime();
                                        });
                     pos              = *std::ranges::max_element(transformed);
                 } else {
