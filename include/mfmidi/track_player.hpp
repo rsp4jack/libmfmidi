@@ -167,21 +167,18 @@ namespace mfmidi {
 
             Time tick(Time slept /*the time that slept*/)
             {
-            TICK_BEGIN:
                 if (eof()) {
                     return Time::max();
                 }
+            TICK_BEGIN:
                 _playtime += slept; // not move it to playthread because of lastSleptTime = 0 in revertSnapshot
 
                 auto&& msg = *_nextmsg;
-                // if (_sleeptime == 0ns) {
-                //     _sleeptime = event.delta_time() * _divns; // usually first tick
-                // }
                 assert(slept <= _sleeptime); // shouldn't happen now
-                if (slept > _sleeptime) {
-                    _compensation += slept - _sleeptime;
-                    slept = _sleeptime;
-                }
+                // if (slept > _sleeptime) {
+                //     _compensation += slept - _sleeptime;
+                //     slept = _sleeptime;
+                // }
                 _sleeptime -= slept;
                 if (_divns_old != 0ns) {
                     _sleeptime = _sleeptime * _divns.count() / _divns_old.count();
@@ -202,9 +199,13 @@ namespace mfmidi {
                 }
                 _sleeptime = (*_nextmsg).delta_time() * _divns;
 
-                if (_sleeptime <= _compensation) {
-                    _compensation -= _sleeptime;
-                    slept = _sleeptime;
+                // if (_sleeptime <= _compensation) {
+                //     _compensation -= _sleeptime;
+                //     slept = _sleeptime;
+                //     goto TICK_BEGIN;
+                // }
+                if (_sleeptime == 0ns) {
+                    slept = 0ns;
                     goto TICK_BEGIN;
                 }
                 if constexpr (have_handler) {
@@ -212,7 +213,8 @@ namespace mfmidi {
                         return 0ns; //! signal all playheads to tick
                     }
                 }
-                return _sleeptime - std::exchange(_compensation, 0ns);
+                // return _sleeptime - std::exchange(_compensation, 0ns);
+                return _sleeptime;
             }
 
             bool seek(Time target)
@@ -300,7 +302,8 @@ namespace mfmidi {
             void set_division(mfmidi::division div)
             {
                 _division = div;
-                retiming();
+                // retiming();
+                reset_playhead_to_begin();
             }
 
             void set_tempo(mfmidi::tempo tempo)
@@ -333,6 +336,7 @@ namespace mfmidi {
                 _nextmsg  = std::ranges::begin(*_track);
                 _playtime = 0ns;
                 _tempo    = 120_bpm;
+                _divns    = {};
                 retiming();
                 _sleeptime = (*_nextmsg).delta_time() * _divns;
             }
@@ -405,7 +409,7 @@ namespace mfmidi {
             std::vector<playhead_info> _playheads;
             PlayheadRemovalHandler     _rhandler;
             // std::vector<std::chrono::nanoseconds> msleeptimecache; // use in playThread, cache sleep time of cursors
-            Time _lastSleptTime{}; // if you changed playback data, set this to 0 and it will be recalcuated
+            Time _timeToSlept{}; // if you changed playback data, set this to 0 and it will be recalcuated
             Time _compensation{};
 
             // Thread
@@ -454,7 +458,6 @@ namespace mfmidi {
             {
                 for (auto& info : _playheads) {
                     info.playhead->set_division(division);
-                    info.playhead->reset_playhead_to_begin();
                 }
             }
 
@@ -502,7 +505,7 @@ namespace mfmidi {
             void set_track(const Track* data)
             {
                 Pauser pauser{*this};
-                _lastSleptTime = 0ns;
+                _timeToSlept = 0ns;
                 for (auto& info : _playheads) {
                     info.playhead->set_track(data);
                 }
@@ -528,23 +531,18 @@ namespace mfmidi {
                 }
             }
 
-            void seek_throw(Time targetTime)
-            {
-                Pauser pauser{*this};
-                _lastSleptTime = {};
-                for (auto& info : _playheads) {
-                    if (!info.playhead->seek(targetTime + info.offest)) {
-                        throw std::out_of_range("targetTime out of range");
-                    }
-                }
-            }
-
             void seek(Time targetTime)
             {
                 Pauser pauser{*this};
-                _lastSleptTime = {};
+                _timeToSlept = {};
+                bool flag    = false;
                 for (auto& info : _playheads) {
-                    info.playhead->seek(targetTime + info.offest);
+                    if (info.playhead->seek(targetTime + info.offest)) {
+                        flag = true;
+                    }
+                }
+                if (!flag) {
+                    throw std::out_of_range("targetTime out of range");
                 }
             }
 
@@ -579,12 +577,12 @@ namespace mfmidi {
                     } else {
                         auto begin = hiresticktime();
                         Time sleep = 0ns;
-                        if (_compensation < _lastSleptTime) {
-                            sleep = _lastSleptTime - _compensation;
+                        if (_compensation < _timeToSlept) {
+                            sleep = _timeToSlept - _compensation;
                             nanosleep(sleep); // because _lastSleptTime may be changed (such as when revert snapshot)
                             _compensation = 0ns;
                         } else {
-                            _compensation -= _lastSleptTime;
+                            _compensation -= _timeToSlept;
                         }
                         std::chrono::nanoseconds minTime = std::chrono::nanoseconds::max();
 
@@ -592,7 +590,7 @@ namespace mfmidi {
 
                         auto end = _playheads.end();
                         for (auto it = _playheads.begin(); it != end; ++it) {
-                            Time interval = (*it).playhead->tick(_lastSleptTime);
+                            Time interval = (*it).playhead->tick(_timeToSlept);
                             if (interval == Time::max()) {
                                 if (it == _playheads.begin()) {
                                     if (_rhandler) {
@@ -617,7 +615,7 @@ namespace mfmidi {
                             continue;
                         }
                         minTime          = std::min(minTime, MAX_SLEEP);
-                        _lastSleptTime   = minTime;
+                        _timeToSlept     = minTime;
                         auto now         = hiresticktime();
                         auto elapsedtime = now - begin - sleep;
                         _compensation += elapsedtime;

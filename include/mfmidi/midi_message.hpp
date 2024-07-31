@@ -654,7 +654,7 @@ namespace mfmidi {
         }
 
         // assert
-        static constexpr void C(bool cond)
+        static constexpr void C(bool cond [[maybe_unused]])
         {
             assert(cond);
         }

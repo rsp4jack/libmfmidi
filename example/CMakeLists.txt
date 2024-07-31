@@ -12,6 +12,9 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4")
 endif ()
 
+include(CheckIPOSupported)
+check_ipo_supported(RESULT LTO_SUPPORTED OUTPUT LTO_ERROR)
+
 add_executable(humanreadable HumanReadable.cpp)
 target_link_libraries(humanreadable PUBLIC mfmidi)
 

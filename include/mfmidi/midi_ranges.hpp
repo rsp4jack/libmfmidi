@@ -277,7 +277,7 @@ namespace mfmidi {
             {
             }
 
-            void init()
+            void forward()
             {
                 auto end = std::ranges::end(_view->_base);
                 while (true) {
@@ -303,16 +303,11 @@ namespace mfmidi {
 
             constexpr auto& operator++()
             {
-                auto end = std::ranges::end(_view->_base);
+                auto end [[maybe_unused]] = std::ranges::end(_view->_base);
                 assert(_base != end);
                 _dur = {};
-                while (true) {
-                    ++_base;
-                    if (_base == end || (*_view->_pred)(*_base)) {
-                        break;
-                    }
-                    _dur += (*_base).delta_time();
-                }
+                ++_base;
+                forward();
                 return *this;
             }
 
@@ -369,7 +364,7 @@ namespace mfmidi {
         constexpr iterator begin()
         {
             auto iter = iterator{this, std::ranges::begin(_base), {}};
-            iter.init();
+            iter.forward();
             return iter;
         }
 

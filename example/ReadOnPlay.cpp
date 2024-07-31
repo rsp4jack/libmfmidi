@@ -81,7 +81,7 @@ struct Helper : event_emitter_util<events::tempo_changed> {
     {
         // std::println("{}", dump_span(msg.data(), msg.size()));
         if (msg.is_tempo()) {
-            // std::println("tempo changed: {}", msg.tempo().bpm_fp());
+            std::print("\rtempo changed: {}\n> ", msg.tempo().bpm_fp());
             emit(events::tempo_changed{msg.tempo()});
         }
     }
@@ -209,7 +209,7 @@ int main(int argc, char** argv)
     auto helper = std::make_unique<Helper>();
 
     auto filter_meta = [](auto&& ev [[maybe_unused]]) {
-        return !ev.is_meta_event_like() || ev.is_tempo();
+        return false || !ev.is_meta_event_like() || ev.is_tempo();
         // filtered wont be handled by Helper
     };
     using thefilter = delta_timed_filter_view<std::ranges::owning_view<span_track>, decltype(filter_meta)>;
@@ -257,6 +257,7 @@ int main(int argc, char** argv)
         }
 
         if (splitedcmd.empty()) {
+            std::println("play: {}, head: {}/{}", player.playing(), player.playheads().size(), rop.info.ntrk);
         } else if (splitedcmd[0] == "play") {
             if (player.empty()) {
                 std::println("EOF");
@@ -292,11 +293,15 @@ int main(int argc, char** argv)
                 }
                 removed_playheads.clear();
             }
-            player.seek(target);
+            try {
+                player.seek(target);
+            } catch (const std::out_of_range& err) {
+                std::println("out of range");
+            }
         } else if (splitedcmd[0] == "exit") {
             break;
         } else if (splitedcmd[0] == "status") {
-            std::println("Is playing: {}", player.playing());
+            std::println("playing: {}, heads: {}/{}", player.playing(), player.playheads().size(), rop.info.ntrk);
         } else {
             std::println("Unknown Command: {}", cmd);
         }
