@@ -18,24 +18,40 @@
 #pragma once
 
 #include <stdexcept>
+#include <system_error>
 
 namespace mfmidi {
-    struct smf_error : public std::runtime_error {
-        enum class error_type : unsigned char {
-            error_eof,
-            error_file_header,
-            error_track_header,
-            error_smf_type,
-            error_event_type,
-            error_running_status,
-            error_division
-        };
+    enum class smf_errc : unsigned char {
+        error_eof,
+        error_file_header,
+        error_track_header,
+        error_smf_type,
+        error_event_type,
+        error_running_status,
+        error_division
+    };
+}
 
-        explicit smf_error(error_type type);
+template <>
+struct std::is_error_code_enum<mfmidi::smf_errc> : std::true_type {};
 
-        [[nodiscard]] error_type code() const { return _type; }
+namespace mfmidi {
+    [[nodiscard]] const std::error_category& smf_category() noexcept;
+
+    inline std::error_code make_error_code(smf_errc errc) noexcept
+    {
+        return {static_cast<int>(errc), smf_category()};
+    }
+
+    struct smf_error : std::runtime_error {
+        explicit smf_error(smf_errc errc);
+
+        [[nodiscard]] const std::error_code& code() const
+        {
+            return _code;
+        }
 
     private:
-        error_type _type;
+        std::error_code _code;
     };
 }

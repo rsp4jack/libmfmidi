@@ -28,7 +28,9 @@
 #include "mfmidi/mfmidi.hpp"
 
 #if defined(_WIN32)
+#if !defined(NOMINMAX)
 #define NOMINMAX
+#endif
 #include <Windows.h>
 
 #include <debugapi.h>
@@ -116,7 +118,7 @@ int main(int argc, char** argv)
             reportError();
         }
 
-        HANDLE mmap = CreateFileMapping(file, nullptr, PAGE_READONLY, 0, 0, nullptr);
+        HANDLE mmap = CreateFileMapping(file, nullptr, PAGE_READONLY | SEC_COMMIT, 0, 0, nullptr);
         if (mmap == nullptr) {
             reportError();
         }
@@ -206,9 +208,9 @@ int main(int argc, char** argv)
 
     auto helper = std::make_unique<Helper>();
 
-    auto filter_meta = [](auto&& ev) {
-        // return !ev.is_meta_event_like();
-        return true;
+    auto filter_meta = [](auto&& ev [[maybe_unused]]) {
+        return !ev.is_meta_event_like() || ev.is_tempo();
+        // filtered wont be handled by Helper
     };
     using thefilter = delta_timed_filter_view<std::ranges::owning_view<span_track>, decltype(filter_meta)>;
     using therange  = std::ranges::subrange<std::ranges::iterator_t<thefilter>, std::ranges::sentinel_t<thefilter>>;

@@ -277,6 +277,18 @@ namespace mfmidi {
             {
             }
 
+            void init()
+            {
+                auto end = std::ranges::end(_view->_base);
+                while (true) {
+                    if (_base == end || (*_view->_pred)(*_base)) {
+                        break;
+                    }
+                    _dur += (*_base).delta_time();
+                    ++_base;
+                }
+            }
+
         public:
             using difference_type  = intptr_t;
             using value_type       = std::remove_cvref_t<std::ranges::range_value_t<V>>;
@@ -357,9 +369,7 @@ namespace mfmidi {
         constexpr iterator begin()
         {
             auto iter = iterator{this, std::ranges::begin(_base), {}};
-            if (!(*_pred)(*iter.base())) {
-                ++iter;
-            }
+            iter.init();
             return iter;
         }
 

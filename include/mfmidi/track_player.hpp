@@ -325,19 +325,19 @@ namespace mfmidi {
                 _handler = handler;
             }
 
-        protected:
             void reset_playhead_to_begin()
             {
                 using namespace literals;
 
                 assert(_track != nullptr);
-                _nextmsg   = std::ranges::begin(*_track);
-                _sleeptime = (*_nextmsg).delta_time() * _divns;
-                _playtime  = 0ns;
-                _tempo     = 120_bpm;
+                _nextmsg  = std::ranges::begin(*_track);
+                _playtime = 0ns;
+                _tempo    = 120_bpm;
                 retiming();
+                _sleeptime = (*_nextmsg).delta_time() * _divns;
             }
 
+        protected:
             friend void unregister_handler(track_playhead& self)
                 requires track_playhead::tempo_changed_aware
             {
@@ -454,7 +454,7 @@ namespace mfmidi {
             {
                 for (auto& info : _playheads) {
                     info.playhead->set_division(division);
-                    info.playhead->retiming();
+                    info.playhead->reset_playhead_to_begin();
                 }
             }
 
