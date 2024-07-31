@@ -72,7 +72,7 @@ namespace mfmidi {
 
             auto& operator++() &
             {
-                using enum smf_error::error_type;
+                using enum smf_errc;
                 assert(_current != nullptr && !_base.empty() && _current <= &_base.back());
                 // Read a event
                 std::tie(_delta_time, std::ignore) = readVarNum();
@@ -185,7 +185,7 @@ namespace mfmidi {
             uint8_t readU8()
             {
                 if (_current > &_base.back()) {
-                    throw smf_error(smf_error::error_type::error_eof);
+                    throw smf_error(smf_errc::error_eof);
                 }
                 uint8_t d = *_current;
                 ++_current;
@@ -246,7 +246,7 @@ namespace mfmidi {
     // not only parse header, but also split tracks
     [[nodiscard]] inline parse_smf_header_result parse_smf_header(const std::span<const uint8_t>& file)
     {
-        using enum smf_error::error_type;
+        using enum smf_errc;
         const uint8_t* current = file.data();
         ptrdiff_t      etc{};
 

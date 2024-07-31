@@ -21,9 +21,9 @@
 
 namespace mfmidi {
     namespace {
-        std::string_view description(smf_error::error_type type)
+        std::string_view description(smf_errc type)
         {
-            using enum smf_error::error_type;
+            using enum smf_errc;
             switch (type) {
             case error_eof:
                 return "Unexpected EOF";
@@ -44,9 +44,29 @@ namespace mfmidi {
         }
     }
 
-    smf_error::smf_error(error_type type)
-        : std::runtime_error(description(type).data())
-        , _type(type)
+    class _smf_category : public std::error_category {
+    public:
+        [[nodiscard]] const char* name() const noexcept override
+        {
+            return "smf";
+        }
+
+        [[nodiscard]] std::string message(int condition) const override
+        {
+            return std::string{description(static_cast<smf_errc>(condition))};
+        }
+    };
+
+    const std::error_category& smf_category() noexcept
+    {
+        static _smf_category category;
+        return category;
+    }
+
+    smf_error::smf_error(smf_errc errc)
+        : std::runtime_error{description(errc).data()}
+        , _code{errc}
     {
     }
+
 }
