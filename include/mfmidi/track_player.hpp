@@ -586,27 +586,18 @@ namespace mfmidi {
                         }
                         std::chrono::nanoseconds minTime = std::chrono::nanoseconds::max();
 
-                    STARTLOOP_13:
-
                         auto end = _playheads.end();
                         for (auto it = _playheads.begin(); it != end; ++it) {
-                            Time interval = (*it).playhead->tick(_timeToSlept);
+                        STARTLOOP_13:
+                        	auto&& ev = *it;
+                            Time interval = ev.playhead->tick(_timeToSlept);
                             if (interval == Time::max()) {
-                                if (it == _playheads.begin()) {
-                                    if (_rhandler) {
-                                        _rhandler(std::move(*it));
-                                    }
-                                    _playheads.erase(it);
-                                    goto STARTLOOP_13;
-                                }
-                                auto oit = it;
-                                --it;
                                 if (_rhandler) {
-                                    _rhandler(std::move(*oit));
+                                    _rhandler(std::move(ev));
                                 }
-                                _playheads.erase(oit);
+                                it = _playheads.erase(it);
                                 end = _playheads.end();
-                                continue;
+                                goto STARTLOOP_13;
                             }
                             minTime = std::min(minTime, interval);
                         }
