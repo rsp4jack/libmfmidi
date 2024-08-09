@@ -116,7 +116,7 @@ namespace mfmidi {
             Time  _sleeptime{}; // sleep period before mnextevent ticks
             Time  _playtime{};  // current time, support 5850 centuries long
             Time  _compensation{};
-            tempo _tempo = tempo::from_bpm(120);
+            tempo _tempo = 120_bpm;
 
             // Data
             midi_device* _dev{};
@@ -330,8 +330,6 @@ namespace mfmidi {
 
             void reset_playhead_to_begin()
             {
-                using namespace literals;
-
                 assert(_track != nullptr);
                 _nextmsg  = std::ranges::begin(*_track);
                 _playtime = 0ns;

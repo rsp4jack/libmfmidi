@@ -101,7 +101,7 @@ namespace mfmidi {
 
     static_assert(std::is_standard_layout_v<division>);
 
-    namespace literals {
+    inline namespace literals {
         consteval division operator""_ppq(unsigned long long int ppq)
         {
             return division(ppq);

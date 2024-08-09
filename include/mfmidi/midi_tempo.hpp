@@ -79,7 +79,7 @@ namespace mfmidi {
         uint32_t _mspq; // microseconds (us) per a quarter note
     };
 
-    namespace literals {
+    inline namespace literals {
         consteval tempo operator""_bpm(unsigned long long int bpm)
         {
             return tempo::from_bpm(bpm);

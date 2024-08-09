@@ -37,11 +37,6 @@ namespace mfmidi {
     using std::uint32_t;
     using std::uint64_t;
     using std::uint8_t;
-
-    consteval std::byte operator""_b(unsigned long long int val)
-    {
-        return std::byte(val);
-    }
 }
 
 namespace mfmidi {
