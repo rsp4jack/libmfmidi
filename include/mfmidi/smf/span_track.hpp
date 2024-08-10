@@ -34,16 +34,18 @@ namespace mfmidi {
 
     class span_track {
     public:
-        using base_type = std::span<const uint8_t>;
+        using base_type  = std::span<const uint8_t>;
+        using value_type = const foreign_midi_message;
+
         class iterator {
             friend span_track;
             using enum MIDIMsgStatus;
 
             // Current message
-            const uint8_t*       _begin      = nullptr;
-            size_t               _len        = 0;
-            uint_midi_time       _delta_time = 0;
-            foreign_midi_message _message;
+            const uint8_t* _begin      = nullptr;
+            size_t         _len        = 0;
+            uint_midi_time _delta_time = 0;
+            bool           _running_status{};
 
             // SMF reader
             uint8_t _status = 0; // midi status, for running status
@@ -62,15 +64,21 @@ namespace mfmidi {
             foreign_midi_message operator*() const
             {
                 assert(_begin != nullptr);
-                return _message;
+                foreign_midi_message event;
+                event.set_delta_time(_delta_time);
+                if (_running_status) {
+                    foreign_midi_message::base_type::own_type own;
+                    own.reserve(_len);
+                    own.push_back(_status);
+                    own.append(_begin, _len - 1);
+                    event.base() = std::move(own);
+                } else {
+                    event.base() = base_type{_begin, _len};
+                }
+                return event;
             }
 
-            value_type* operator->() const
-            {
-                return &_message;
-            }
-
-            auto& operator++() &
+            iterator& operator++() &
             {
                 using enum smf_errc;
                 assert(_current != nullptr && !_base.empty() && _current <= &_base.back());
@@ -80,9 +88,9 @@ namespace mfmidi {
                 _begin = _current;
 
                 // status
-                uint8_t data           = readU8();
-                bool    running_status = data < 0x80;
-                if (running_status) {
+                uint8_t data    = readU8();
+                _running_status = data < 0x80;
+                if (_running_status) {
                     if (_status == 0) {
                         throw smf_error(error_running_status);
                     }
@@ -110,8 +118,8 @@ namespace mfmidi {
                         break;
                     }
                     case 0xF0: { // first format of sysex: F0 <len> <data> F7
-                        const auto [msglength, varsize] = readVarNum();
-                        if (_current + msglength > &_base.back()) {
+                        const auto [datasize, varsize] = readVarNum();
+                        if (_current + datasize > &_base.back()) {
                             throw smf_error(error_eof);
                         }
                         MIDIVarNum count = 0;
@@ -119,40 +127,30 @@ namespace mfmidi {
                             data = readU8();
                             ++count;
                         } while (data != SYSEX_END);
-                        if (count - 1 != msglength) { // also read sysex end but not in len
+                        if (count - 1 != datasize) { // also read sysex end but not in len
                             // todo: handle it
                         }
                         _len = 1 + varsize + count;
                         break;
                     }
                     case 0xF7: { // second format of sysex: F7 <len> <data>
-                        const auto [msglength, varsize] = readVarNum();
-                        if (_current + msglength > &_base.back()) {
+                        const auto [datasize, varsize] = readVarNum();
+                        if (_current + datasize > &_base.back()) {
                             throw smf_error(error_eof);
                         }
-                        _len = 1 + varsize + msglength;
-                        _current += msglength;
+                        _len = 1 + varsize + datasize;
+                        _current += datasize;
                         break;
                     }
 
                     default:
-                        if ((_status & 0xF0) == 0xF0) {
+                        if ((_status & 0xF0u) == 0xF0u) {
                             _len = expected_system_message_length(_status);
                             _current += _len - 1;
                         } else {
                             throw smf_error(error_event_type);
                         }
                     }
-                }
-                _message.set_delta_time(_delta_time);
-                if (running_status) {
-                    foreign_midi_message::base_type::own_type own;
-                    own.reserve(_len);
-                    own.push_back(_status);
-                    own.append(_begin, _len - 1);
-                    _message.base() = std::move(own);
-                } else {
-                    _message.base() = base_type{_begin, _len};
                 }
                 return *this;
             }
