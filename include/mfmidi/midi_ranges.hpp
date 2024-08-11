@@ -138,7 +138,23 @@ namespace mfmidi {
             return std::get<1>(_base).data();
         }
 
+        [[nodiscard]] const_iterator begin() const
+        {
+            if (foreign()) {
+                return std::get<0>(_base).data();
+            }
+            return std::get<1>(_base).data();
+        }
+
         [[nodiscard]] iterator end()
+        {
+            if (foreign()) {
+                return std::to_address(std::get<0>(_base).end());
+            }
+            return std::to_address(std::get<1>(_base).end());
+        }
+
+        [[nodiscard]] const_iterator end() const
         {
             if (foreign()) {
                 return std::to_address(std::get<0>(_base).end());
