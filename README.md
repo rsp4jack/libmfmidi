@@ -1,6 +1,6 @@
 # libmfmidi
 
-A powerful C++20 MIDI library.
+A powerful C++23 MIDI library.
 
 **Work In Progress!**
 
